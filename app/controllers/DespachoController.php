@@ -290,6 +290,13 @@ class DespachoController {
     
     // Método para actualizar detalles de despacho
     public function updateDetalle($data) {
+        // Obtener el despacho_id para la redirección
+        $despacho_id = $data['despacho_id'];
+        
+        // Obtener información del despacho para conocer su fecha
+        $despacho = $this->getById($despacho_id);
+        $fecha = $despacho['fecha'];
+        
         // Actualizar los detalles
         foreach ($data['detalles'] as $detalle) {
             $id = $detalle['id'];
@@ -313,6 +320,16 @@ class DespachoController {
             // Guardar los cambios
             $this->detalleDespacho->update();
         }
+        
+        // Establecer mensaje de éxito
+        $_SESSION['notification'] = [
+            'type' => 'success',
+            'message' => 'Despacho actualizado correctamente'
+        ];
+        
+        // Redirigir a la página de despachos
+        header("Location: " . BASE_URL . "/despachos?fecha=" . $fecha);
+        exit;
         
         return true;
     }
