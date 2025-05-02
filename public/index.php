@@ -14,11 +14,13 @@ $request = $_SERVER['REQUEST_URI'];
 $base_path = '/distribuidora_lorena/public';
 $request = str_replace($base_path, '', $request);
 
-// Separar la URL en partes
-$url_parts = explode('/', $request);
-$controller = isset($url_parts[1]) && $url_parts[1] != '' ? $url_parts[1] : 'dashboard';
-$action = isset($url_parts[2]) && $url_parts[2] != '' ? $url_parts[2] : 'index';
-$id = isset($url_parts[3]) && $url_parts[3] != '' ? $url_parts[3] : null;
+// Separar la URL en partes (ignorando los parámetros GET)
+$url_parts = parse_url($request);
+$path = $url_parts['path'];
+$path_parts = explode('/', $path);
+$controller = isset($path_parts[1]) && $path_parts[1] != '' ? $path_parts[1] : 'dashboard';
+$action = isset($path_parts[2]) && $path_parts[2] != '' ? $path_parts[2] : 'index';
+$id = isset($path_parts[3]) && $path_parts[3] != '' ? $path_parts[3] : null;
 
 // Función para cargar la vista
 function loadView($view, $data = []) {
@@ -260,10 +262,20 @@ switch ($controller) {
                             'type' => 'danger'
                         ];
                         Utils::redirect(BASE_URL . '/despachos');
+                        exit; // Importante! Asegurar que no continúe la ejecución
                     }
                     
                     $rutaController = loadController('ruta');
                     $ruta = $rutaController->getById($ruta_id);
+                    
+                    if (!$ruta) {
+                        $_SESSION['notification'] = [
+                            'message' => 'La ruta seleccionada no existe',
+                            'type' => 'danger'
+                        ];
+                        Utils::redirect(BASE_URL . '/despachos');
+                        exit; // Importante! Asegurar que no continúe la ejecución
+                    }
                     
                     $productoController = loadController('producto');
                     if ($ruta['exclusivo_big_cola']) {

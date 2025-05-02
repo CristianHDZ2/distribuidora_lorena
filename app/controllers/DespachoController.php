@@ -19,6 +19,44 @@ class DespachoController {
         $this->detalleDespacho = new DetalleDespacho($this->db);
     }
     
+    // Método para mostrar el formulario de creación de despacho
+    public function createView() {
+        // Obtener parámetros de la URL
+        $ruta_id = isset($_GET['ruta_id']) ? $_GET['ruta_id'] : null;
+        $fecha = isset($_GET['fecha']) ? $_GET['fecha'] : date('Y-m-d');
+        
+        if (!$ruta_id) {
+            // Si no hay ruta_id, redirigir a la página de despachos
+            header("Location: " . BASE_URL . "/despachos");
+            exit;
+        }
+        
+        // Obtener información de la ruta
+        include_once '../app/controllers/RutaController.php';
+        $rutaController = new RutaController();
+        $ruta = $rutaController->getById($ruta_id);
+        
+        // Obtener productos según el tipo de ruta
+        include_once '../app/controllers/ProductoController.php';
+        $productoController = new ProductoController();
+        
+        if ($ruta['exclusivo_big_cola']) {
+            // Si es exclusivo para Big Cola, obtener solo productos de tipo Big Cola (asumiendo que el ID es 1)
+            $productos = $productoController->getByTipoOrAll(1, false); // Big Cola
+        } else {
+            // Si no es exclusivo, obtener todos los productos (Big Cola + Otros Productos)
+            $productos = $productoController->getByTipoOrAll(2, true); // Incluir todos
+        }
+        
+        // Definir el controlador para la plantilla
+        $controller = 'despachos';
+        
+        // Cargar la vista
+        include_once '../app/views/templates/header.php';
+        include_once '../app/views/despachos/create.php';
+        include_once '../app/views/templates/footer.php';
+    }
+    
     // Método para crear un nuevo despacho
     public function create($data) {
         // Asignar valores al despacho
@@ -64,6 +102,58 @@ class DespachoController {
             'success' => false,
             'message' => 'Error al crear el despacho'
         ];
+    }
+    
+    // Método para procesar el formulario de creación
+    public function store() {
+        // Recoger los datos del formulario
+        $fecha = isset($_POST['fecha']) ? $_POST['fecha'] : null;
+        $ruta_id = isset($_POST['ruta_id']) ? $_POST['ruta_id'] : null;
+        $productos = isset($_POST['productos']) ? $_POST['productos'] : [];
+        
+        if (!$fecha || !$ruta_id) {
+            // Establecer mensaje de error
+            $_SESSION['notification'] = [
+                'type' => 'danger',
+                'message' => 'Datos incompletos. Verifique la información.'
+            ];
+            
+            // Redirigir al formulario
+            header("Location: " . BASE_URL . "/despachos");
+            exit;
+        }
+        
+        // Preparar datos para crear el despacho
+        $data = [
+            'fecha' => $fecha,
+            'ruta_id' => $ruta_id,
+            'productos' => $productos
+        ];
+        
+        // Crear el despacho
+        $result = $this->create($data);
+        
+        if ($result['success']) {
+            // Establecer mensaje de éxito
+            $_SESSION['notification'] = [
+                'type' => 'success',
+                'message' => $result['message']
+            ];
+            
+            // Redirigir a la página de despachos
+            header("Location: " . BASE_URL . "/despachos?fecha=" . $fecha);
+            exit;
+        } else {
+            // Establecer mensaje de error
+            $_SESSION['notification'] = [
+                'type' => 'danger',
+                'message' => $result['message']
+            ];
+            
+            // Redirigir al formulario
+            header("Location: " . BASE_URL . "/despachos/create?ruta_id=" . $ruta_id . "&fecha=" . $fecha);
+            exit;
+        }
     }
     
     // Método para obtener despachos por fecha
@@ -131,6 +221,71 @@ class DespachoController {
         }
         
         return false;
+    }
+    
+    // Método para mostrar la página principal de despachos
+    public function index() {
+        // Obtener la fecha de búsqueda
+        $fecha = isset($_GET['fecha']) ? $_GET['fecha'] : date('Y-m-d');
+        
+        // Obtener despachos por fecha
+        $despachos = $this->getByFecha($fecha);
+        
+        // Obtener todas las rutas
+        include_once '../app/controllers/RutaController.php';
+        $rutaController = new RutaController();
+        $rutas = $rutaController->getAll();
+        
+        // Definir el controlador para la plantilla
+        $controller = 'despachos';
+        
+        // Cargar la vista
+        include_once '../app/views/templates/header.php';
+        include_once '../app/views/despachos/index.php';
+        include_once '../app/views/templates/footer.php';
+    }
+    
+    // Método para mostrar el formulario de edición
+    public function edit($id) {
+        // Obtener información del despacho
+        $despacho = $this->getById($id);
+        
+        // Obtener detalles del despacho
+        $detalles = $this->getDetalles($id);
+        
+        // Obtener información de la ruta
+        include_once '../app/controllers/RutaController.php';
+        $rutaController = new RutaController();
+        $ruta = $rutaController->getById($despacho['ruta_id']);
+        
+        // Obtener productos no asociados al despacho
+        include_once '../app/controllers/ProductoController.php';
+        $productoController = new ProductoController();
+        
+        // Obtener productos según el tipo de ruta
+        if ($ruta['exclusivo_big_cola']) {
+            $productosDisponibles = $productoController->getByTipoOrAll(1, false); // Big Cola
+        } else {
+            $productosDisponibles = $productoController->getByTipoOrAll(2, true); // Incluir todos
+        }
+        
+        // Filtrar productos ya asociados
+        $productos = [];
+        $productosAsociados = array_column($detalles, 'producto_id');
+        
+        foreach ($productosDisponibles as $producto) {
+            if (!in_array($producto['id'], $productosAsociados)) {
+                $productos[] = $producto;
+            }
+        }
+        
+        // Definir el controlador para la plantilla
+        $controller = 'despachos';
+        
+        // Cargar la vista
+        include_once '../app/views/templates/header.php';
+        include_once '../app/views/despachos/edit.php';
+        include_once '../app/views/templates/footer.php';
     }
     
     // Método para actualizar detalles de despacho
