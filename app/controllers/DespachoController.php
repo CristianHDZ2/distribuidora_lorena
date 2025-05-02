@@ -42,10 +42,10 @@ class DespachoController {
         
         if ($ruta['exclusivo_big_cola']) {
             // Si es exclusivo para Big Cola, obtener solo productos de tipo Big Cola (asumiendo que el ID es 1)
-            $productos = $productoController->getByTipoOrAll(1, false); // Big Cola
+            $productos = $productoController->getByTipoOrAll(1, false); // Solo Big Cola
         } else {
             // Si no es exclusivo, obtener todos los productos (Big Cola + Otros Productos)
-            $productos = $productoController->getByTipoOrAll(2, true); // Incluir todos
+            $productos = $productoController->getAll(); // Todos los productos
         }
         
         // Definir el controlador para la plantilla
@@ -264,9 +264,9 @@ class DespachoController {
         
         // Obtener productos según el tipo de ruta
         if ($ruta['exclusivo_big_cola']) {
-            $productosDisponibles = $productoController->getByTipoOrAll(1, false); // Big Cola
+            $productosDisponibles = $productoController->getByTipoOrAll(1, false); // Solo Big Cola
         } else {
-            $productosDisponibles = $productoController->getByTipoOrAll(2, true); // Incluir todos
+            $productosDisponibles = $productoController->getAll(); // Todos los productos
         }
         
         // Filtrar productos ya asociados
