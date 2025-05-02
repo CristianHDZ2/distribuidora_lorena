@@ -86,6 +86,7 @@ class DespachoController {
                     $this->detalleDespacho->retorno = 0;
                     $this->detalleDespacho->descuento = 0;
                     $this->detalleDespacho->tipo_descuento = null;
+                    $this->detalleDespacho->cantidad_descuento = 0; // Inicializar la cantidad de descuento
                     
                     $this->detalleDespacho->create();
                 }
@@ -305,6 +306,7 @@ class DespachoController {
             $retorno = $detalle['retorno'] ?? 0;
             $descuento = $detalle['descuento'] ?? 0;
             $tipo_descuento = $detalle['tipo_descuento'] ?? null;
+            $cantidad_descuento = $detalle['cantidad_descuento'] ?? 0;
             
             // Obtener el detalle actual
             $this->detalleDespacho->id = $id;
@@ -316,6 +318,13 @@ class DespachoController {
             $this->detalleDespacho->retorno = $retorno;
             $this->detalleDespacho->descuento = $descuento;
             $this->detalleDespacho->tipo_descuento = $tipo_descuento;
+            $this->detalleDespacho->cantidad_descuento = $cantidad_descuento;
+            
+            // Validar que la cantidad con descuento no sea mayor a la venta total
+            $venta_total = $salida_am + $recarga - $retorno;
+            if ($cantidad_descuento > $venta_total) {
+                $this->detalleDespacho->cantidad_descuento = $venta_total; // Limitar al máximo de ventas
+            }
             
             // Guardar los cambios
             $this->detalleDespacho->update();
@@ -350,6 +359,7 @@ class DespachoController {
                 "retorno" => $retorno,
                 "descuento" => $descuento,
                 "tipo_descuento" => $tipo_descuento,
+                "cantidad_descuento" => $cantidad_descuento,
                 "nombre" => $nombre,
                 "medida" => $medida,
                 "precio" => $precio,
@@ -384,6 +394,7 @@ class DespachoController {
         $this->detalleDespacho->retorno = 0;
         $this->detalleDespacho->descuento = 0;
         $this->detalleDespacho->tipo_descuento = null;
+        $this->detalleDespacho->cantidad_descuento = 0;
         
         if ($this->detalleDespacho->create()) {
             return [

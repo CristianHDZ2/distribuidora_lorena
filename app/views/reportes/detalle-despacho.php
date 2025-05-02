@@ -50,12 +50,16 @@
                             $monto = $venta * $detalle['precio'];
                         }
                         
-                        if ($detalle['descuento'] > 0) {
+                        // Aplicar descuento solo a la cantidad de productos indicada
+                        $monto_descuento = 0;
+                        if ($detalle['descuento'] > 0 && $detalle['cantidad_descuento'] > 0) {
                             if ($detalle['tipo_descuento'] == 'P') {
-                                $monto = $monto - ($monto * ($detalle['descuento'] / 100));
+                                $descuento_unitario = $detalle['precio'] * ($detalle['descuento'] / 100);
+                                $monto_descuento = $descuento_unitario * $detalle['cantidad_descuento'];
                             } else if ($detalle['tipo_descuento'] == 'D') {
-                                $monto = $monto - $detalle['descuento'];
+                                $monto_descuento = $detalle['descuento'] * $detalle['cantidad_descuento'];
                             }
+                            $monto = $monto - $monto_descuento;
                         }
                         
                         $total_general += $monto;
@@ -70,8 +74,9 @@
                         <td><?= $venta ?></td>
                         <td>$<?= number_format($monto, 2) ?></td>
                         <td>
-                            <?php if ($detalle['descuento'] > 0): ?>
-                                <?= $detalle['tipo_descuento'] == 'P' ? $detalle['descuento'] . '%' : '$' . number_format($detalle['descuento'], 2) ?>
+                            <?php if ($detalle['descuento'] > 0 && $detalle['cantidad_descuento'] > 0): ?>
+                                <?= $detalle['tipo_descuento'] == 'P' ? $detalle['descuento'] . '%' : '$' . number_format($detalle['descuento'], 2) ?> 
+                                (<?= $detalle['cantidad_descuento'] ?> productos)
                             <?php else: ?>
                                 -
                             <?php endif; ?>
@@ -112,6 +117,7 @@
                 <th style="border: 1px solid #ddd; padding: 8px; text-align: right;">Retorno</th>
                 <th style="border: 1px solid #ddd; padding: 8px; text-align: right;">Vendido</th>
                 <th style="border: 1px solid #ddd; padding: 8px; text-align: right;">Total</th>
+                <th style="border: 1px solid #ddd; padding: 8px; text-align: right;">Descuento</th>
             </tr>
         </thead>
         <tbody>
@@ -127,12 +133,16 @@
                     $print_monto = $print_venta * $detalle['precio'];
                 }
                 
-                if ($detalle['descuento'] > 0) {
+                // Aplicar descuento solo a la cantidad de productos indicada
+                $print_monto_descuento = 0;
+                if ($detalle['descuento'] > 0 && $detalle['cantidad_descuento'] > 0) {
                     if ($detalle['tipo_descuento'] == 'P') {
-                        $print_monto = $print_monto - ($print_monto * ($detalle['descuento'] / 100));
+                        $print_descuento_unitario = $detalle['precio'] * ($detalle['descuento'] / 100);
+                        $print_monto_descuento = $print_descuento_unitario * $detalle['cantidad_descuento'];
                     } else if ($detalle['tipo_descuento'] == 'D') {
-                        $print_monto = $print_monto - $detalle['descuento'];
+                        $print_monto_descuento = $detalle['descuento'] * $detalle['cantidad_descuento'];
                     }
+                    $print_monto = $print_monto - $print_monto_descuento;
                 }
                 
                 $print_total_general += $print_monto;
@@ -146,13 +156,21 @@
                 <td style="border: 1px solid #ddd; padding: 8px; text-align: right;"><?= $detalle['retorno'] ?></td>
                 <td style="border: 1px solid #ddd; padding: 8px; text-align: right;"><?= $print_venta ?></td>
                 <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">$<?= number_format($print_monto, 2) ?></td>
+                <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">
+                    <?php if ($detalle['descuento'] > 0 && $detalle['cantidad_descuento'] > 0): ?>
+                        <?= $detalle['tipo_descuento'] == 'P' ? $detalle['descuento'] . '%' : '$' . number_format($detalle['descuento'], 2) ?> 
+                        (<?= $detalle['cantidad_descuento'] ?> prod.)
+                    <?php else: ?>
+                        -
+                    <?php endif; ?>
+                </td>
             </tr>
             <?php endforeach; ?>
         </tbody>
         <tfoot>
             <tr>
                 <th colspan="7" style="border: 1px solid #ddd; padding: 8px; text-align: right;">Total General:</th>
-                <th style="border: 1px solid #ddd; padding: 8px; text-align: right;">$<?= number_format($print_total_general, 2) ?></th>
+                <th colspan="2" style="border: 1px solid #ddd; padding: 8px; text-align: right;">$<?= number_format($print_total_general, 2) ?></th>
             </tr>
         </tfoot>
     </table>
