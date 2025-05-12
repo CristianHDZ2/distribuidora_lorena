@@ -133,23 +133,4 @@ class Despacho {
         return $row['id'];
     }
 }
-
-class DetalleDespacho {
-    private $conn;
-    private $table_name = "detalles_despacho";
-    
-    public $id;
-    public $despacho_id;
-    public $producto_id;
-    public $salida_am;
-    public $recarga;
-    public $retorno;
-    public $descuento;
-    public $tipo_descuento;
-    public $precio_modificado;
-    
-    public function __construct($db) {
-        $this->conn = $db;
-    }
-}
 ?>

@@ -1,4 +1,7 @@
-<div class="d-flex justify-content-between align-items-center mb-4">
+<?php
+// app/views/despachos/edit.php
+
+?><div class="d-flex justify-content-between align-items-center mb-4">
     <h1>Editar Despacho</h1>
     <a href="<?= BASE_URL ?>/despachos" class="btn btn-secondary">
         <i class="fas fa-arrow-left"></i> Volver
@@ -35,12 +38,27 @@
                         foreach ($detalles as $index => $detalle): 
                             $venta = $detalle['salida_am'] + $detalle['recarga'] - $detalle['retorno'];
                             $precio_aplicado = $detalle['precio_modificado'] > 0 ? $detalle['precio_modificado'] : $detalle['precio'];
+                            $cantidad_con_precio_modificado = isset($detalle['cantidad_precio_modificado']) ? $detalle['cantidad_precio_modificado'] : 0;
                             $monto = 0;
                             
                             if ($detalle['usa_formula']) {
                                 $monto = ($detalle['valor_formula_1'] / $detalle['valor_formula_2']) * $venta;
                             } else {
-                                $monto = $venta * $precio_aplicado;
+                                // Cálculo con precio modificado para una cantidad específica
+                                if ($detalle['precio_modificado'] > 0 && $cantidad_con_precio_modificado > 0) {
+                                    // No debe superar el total vendido
+                                    $cantidad_con_precio_modificado = min($cantidad_con_precio_modificado, $venta);
+                                    
+                                    // Calcular con precio modificado para la cantidad específica
+                                    $monto_precio_modificado = $cantidad_con_precio_modificado * $precio_aplicado;
+                                    
+                                    // Calcular con precio original para el resto
+                                    $monto_precio_original = ($venta - $cantidad_con_precio_modificado) * $detalle['precio'];
+                                    
+                                    $monto = $monto_precio_modificado + $monto_precio_original;
+                                } else {
+                                    $monto = $venta * $detalle['precio'];
+                                }
                             }
                             
                             if ($detalle['descuento'] > 0) {
@@ -58,7 +76,7 @@
                             <td>$<?= number_format($detalle['precio'], 2) ?></td>
                             <td>
                                 <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#precioModal<?= $detalle['id'] ?>">
-                                    <?= $detalle['precio_modificado'] > 0 ? '$' . number_format($detalle['precio_modificado'], 2) : 'Modificar' ?>
+                                    <?= $detalle['precio_modificado'] > 0 ? '$' . number_format($detalle['precio_modificado'], 2) . ' (' . $cantidad_con_precio_modificado . ' uds)' : 'Modificar' ?>
                                 </button>
                                 
                                 <!-- Modal para modificar el precio -->
@@ -73,6 +91,11 @@
                                                 <div class="mb-3">
                                                     <label for="precio_modificado_<?= $index ?>" class="form-label">Nuevo Precio</label>
                                                     <input type="number" class="form-control" id="precio_modificado_<?= $index ?>" name="detalles[<?= $index ?>][precio_modificado]" value="<?= $detalle['precio_modificado'] > 0 ? $detalle['precio_modificado'] : $detalle['precio'] ?>" min="0" step="0.01">
+                                                </div>
+                                                <div class="mb-3">
+                                                    <label for="cantidad_precio_modificado_<?= $index ?>" class="form-label">Cantidad de productos con precio modificado</label>
+                                                    <input type="number" class="form-control" id="cantidad_precio_modificado_<?= $index ?>" name="detalles[<?= $index ?>][cantidad_precio_modificado]" value="<?= $cantidad_con_precio_modificado ?>" min="0" max="<?= $venta ?>">
+                                                    <div class="form-text">Máximo: <?= $venta ?> unidades vendidas</div>
                                                 </div>
                                                 <div class="form-text">Precio original: $<?= number_format($detalle['precio'], 2) ?></div>
                                             </div>
@@ -215,12 +238,45 @@ document.addEventListener('DOMContentLoaded', function() {
             const totalVendido = calcularTotalVendido(i);
             document.getElementById(`venta-${i}`).textContent = totalVendido;
             
+            // Actualizar límite de cantidad de productos con precio modificado
+            const cantidadInput = document.getElementById(`cantidad_precio_modificado_${i}`);
+            if (cantidadInput) {
+                cantidadInput.max = totalVendido;
+            }
+            
             // Obtener los datos del producto
             const precioOriginal = parseFloat(fila.querySelector('td:nth-child(2)').innerText.replace('$', '').replace(',', ''));
             const precioModificado = parseFloat(document.getElementsByName(`detalles[${i}][precio_modificado]`)[0].value) || 0;
-            const precioAplicado = precioModificado > 0 ? precioModificado : precioOriginal;
+            const cantidadPrecioModificado = parseInt(document.getElementsByName(`detalles[${i}][cantidad_precio_modificado]`)[0]?.value) || 0;
             
-            let montoTotal = totalVendido * precioAplicado;
+            let montoTotal = 0;
+            
+            // Verificar si el producto usa fórmula (para productos como "Agua Caída del Cielo")
+            const usaFormula = fila.getAttribute('data-usa-formula') === '1';
+            const valorFormula1 = parseFloat(fila.getAttribute('data-valor-formula-1') || 0);
+            const valorFormula2 = parseFloat(fila.getAttribute('data-valor-formula-2') || 0);
+            
+            if (usaFormula && valorFormula1 > 0 && valorFormula2 > 0) {
+                // Aplicar fórmula especial: valorFormula1 ÷ valorFormula2 × (Total vendido)
+                montoTotal = (valorFormula1 / valorFormula2) * totalVendido;
+            } else {
+                // Cálculo con precio modificado para una cantidad específica
+                if (precioModificado > 0 && cantidadPrecioModificado > 0) {
+                    // No debe superar el total vendido
+                    const cantidadEfectiva = Math.min(cantidadPrecioModificado, totalVendido);
+                    
+                    // Calcular con precio modificado para la cantidad específica
+                    const montoPrecioModificado = cantidadEfectiva * precioModificado;
+                    
+                    // Calcular con precio original para el resto
+                    const montoPrecioOriginal = (totalVendido - cantidadEfectiva) * precioOriginal;
+                    
+                    montoTotal = montoPrecioModificado + montoPrecioOriginal;
+                } else {
+                    // Si no hay precio modificado o cantidad, usar precio original
+                    montoTotal = totalVendido * precioOriginal;
+                }
+            }
             
             // Aplicar descuento si existe
             const descuento = parseFloat(document.getElementsByName(`detalles[${i}][descuento]`)[0].value) || 0;
@@ -229,13 +285,15 @@ document.addEventListener('DOMContentLoaded', function() {
             
             if (descuento > 0) {
                 if (tipoDescuentoP && tipoDescuentoP.checked) {
+                    // Descuento porcentual
                     montoTotal = montoTotal - (montoTotal * (descuento / 100));
                 } else if (tipoDescuentoD && tipoDescuentoD.checked) {
+                    // Descuento en dinero
                     montoTotal = montoTotal - descuento;
                 }
             }
             
-            // Actualizar el monto total
+            // Actualizar el monto total en la interfaz
             document.getElementById(`monto-${i}`).textContent = `$${montoTotal.toFixed(2)}`;
             document.getElementById(`monto-valor-${i}`).value = montoTotal;
             
@@ -275,9 +333,21 @@ document.addEventListener('DOMContentLoaded', function() {
         radio.addEventListener('change', actualizarTotales);
     });
     
-    // Eventos para inputs de precio modificado
+    // Eventos para inputs de precio modificado y cantidad
     document.querySelectorAll('[id^="precio_modificado_"]').forEach(input => {
         input.addEventListener('change', actualizarTotales);
+    });
+    
+    document.querySelectorAll('[id^="cantidad_precio_modificado_"]').forEach(input => {
+        input.addEventListener('change', function() {
+            // Asegurar que no supere el total vendido
+            const index = this.id.replace('cantidad_precio_modificado_', '');
+            const totalVendido = calcularTotalVendido(index);
+            if (parseInt(this.value) > totalVendido) {
+                this.value = totalVendido;
+            }
+            actualizarTotales();
+        });
     });
     
     // Inicializar cálculos

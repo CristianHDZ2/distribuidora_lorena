@@ -1,4 +1,6 @@
 <?php
+// app/models/DetalleDespacho.php
+
 class DetalleDespacho {
     private $conn;
     private $table_name = "detalles_despacho";
@@ -12,6 +14,7 @@ class DetalleDespacho {
     public $descuento;
     public $tipo_descuento;
     public $precio_modificado;
+    public $cantidad_precio_modificado; // Nuevo campo
     
     public function __construct($db) {
         $this->conn = $db;
@@ -22,7 +25,7 @@ class DetalleDespacho {
                 SET despacho_id=:despacho_id, producto_id=:producto_id, 
                     salida_am=:salida_am, recarga=:recarga, retorno=:retorno, 
                     descuento=:descuento, tipo_descuento=:tipo_descuento,
-                    precio_modificado=:precio_modificado";
+                    precio_modificado=:precio_modificado, cantidad_precio_modificado=:cantidad_precio_modificado";
         
         $stmt = $this->conn->prepare($query);
         
@@ -35,6 +38,7 @@ class DetalleDespacho {
         $this->descuento = htmlspecialchars(strip_tags($this->descuento));
         $this->tipo_descuento = htmlspecialchars(strip_tags($this->tipo_descuento));
         $this->precio_modificado = htmlspecialchars(strip_tags($this->precio_modificado));
+        $this->cantidad_precio_modificado = htmlspecialchars(strip_tags($this->cantidad_precio_modificado));
         
         // Vincular valores
         $stmt->bindParam(":despacho_id", $this->despacho_id);
@@ -45,6 +49,7 @@ class DetalleDespacho {
         $stmt->bindParam(":descuento", $this->descuento);
         $stmt->bindParam(":tipo_descuento", $this->tipo_descuento);
         $stmt->bindParam(":precio_modificado", $this->precio_modificado);
+        $stmt->bindParam(":cantidad_precio_modificado", $this->cantidad_precio_modificado);
         
         // Ejecutar query
         if($stmt->execute()) {
@@ -56,7 +61,7 @@ class DetalleDespacho {
     
     public function readByDespacho($despacho_id) {
         $query = "SELECT dd.id, dd.despacho_id, dd.producto_id, dd.salida_am, dd.recarga, 
-                        dd.retorno, dd.descuento, dd.tipo_descuento, dd.precio_modificado,
+                        dd.retorno, dd.descuento, dd.tipo_descuento, dd.precio_modificado, dd.cantidad_precio_modificado,
                         p.nombre, p.medida, p.precio, p.usa_formula, p.valor_formula_1, p.valor_formula_2,
                         c.nombre as categoria, t.nombre as tipo
                   FROM " . $this->table_name . " dd
@@ -74,7 +79,7 @@ class DetalleDespacho {
     
     public function readOne() {
         $query = "SELECT dd.id, dd.despacho_id, dd.producto_id, dd.salida_am, dd.recarga, 
-                        dd.retorno, dd.descuento, dd.tipo_descuento, dd.precio_modificado, 
+                        dd.retorno, dd.descuento, dd.tipo_descuento, dd.precio_modificado, dd.cantidad_precio_modificado, 
                         p.nombre, p.medida, p.precio, p.usa_formula, p.valor_formula_1, p.valor_formula_2
                   FROM " . $this->table_name . " dd
                   LEFT JOIN productos p ON dd.producto_id = p.id
@@ -95,6 +100,7 @@ class DetalleDespacho {
             $this->descuento = $row['descuento'];
             $this->tipo_descuento = $row['tipo_descuento'];
             $this->precio_modificado = $row['precio_modificado'];
+            $this->cantidad_precio_modificado = $row['cantidad_precio_modificado'];
         }
     }
     
@@ -102,7 +108,7 @@ class DetalleDespacho {
         $query = "UPDATE " . $this->table_name . " 
                 SET salida_am=:salida_am, recarga=:recarga, retorno=:retorno, 
                     descuento=:descuento, tipo_descuento=:tipo_descuento,
-                    precio_modificado=:precio_modificado
+                    precio_modificado=:precio_modificado, cantidad_precio_modificado=:cantidad_precio_modificado
                 WHERE id=:id";
         
         $stmt = $this->conn->prepare($query);
@@ -114,6 +120,7 @@ class DetalleDespacho {
         $this->descuento = htmlspecialchars(strip_tags($this->descuento));
         $this->tipo_descuento = htmlspecialchars(strip_tags($this->tipo_descuento));
         $this->precio_modificado = htmlspecialchars(strip_tags($this->precio_modificado));
+        $this->cantidad_precio_modificado = htmlspecialchars(strip_tags($this->cantidad_precio_modificado));
         $this->id = htmlspecialchars(strip_tags($this->id));
         
         // Vincular valores
@@ -123,6 +130,7 @@ class DetalleDespacho {
         $stmt->bindParam(":descuento", $this->descuento);
         $stmt->bindParam(":tipo_descuento", $this->tipo_descuento);
         $stmt->bindParam(":precio_modificado", $this->precio_modificado);
+        $stmt->bindParam(":cantidad_precio_modificado", $this->cantidad_precio_modificado);
         $stmt->bindParam(":id", $this->id);
         
         // Ejecutar query

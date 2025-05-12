@@ -289,7 +289,6 @@ class DespachoController {
         include_once '../app/views/templates/footer.php';
     }
     
-    // Método para actualizar detalles de despacho
     public function updateDetalle($data) {
         // Actualizar los detalles
         foreach ($data['detalles'] as $detalle) {
@@ -300,6 +299,7 @@ class DespachoController {
             $descuento = $detalle['descuento'] ?? 0;
             $tipo_descuento = $detalle['tipo_descuento'] ?? null;
             $precio_modificado = $detalle['precio_modificado'] ?? 0;
+            $cantidad_precio_modificado = $detalle['cantidad_precio_modificado'] ?? 0;
             
             // Obtener el detalle actual
             $this->detalleDespacho->id = $id;
@@ -312,6 +312,7 @@ class DespachoController {
             $this->detalleDespacho->descuento = $descuento;
             $this->detalleDespacho->tipo_descuento = $tipo_descuento;
             $this->detalleDespacho->precio_modificado = $precio_modificado;
+            $this->detalleDespacho->cantidad_precio_modificado = $cantidad_precio_modificado;
             
             // Guardar los cambios
             $this->detalleDespacho->update();
@@ -354,37 +355,38 @@ class DespachoController {
     }
     
     // Método para agregar un producto a un despacho
-    public function agregarProducto($despacho_id, $producto_id) {
-        // Verificar si ya existe el detalle
-        if ($this->detalleDespacho->existeDetalleProducto($despacho_id, $producto_id)) {
-            return [
-                'success' => false,
-                'message' => 'Este producto ya está asociado al despacho'
-            ];
-        }
-        
-        // Crear el detalle
-        $this->detalleDespacho->despacho_id = $despacho_id;
-        $this->detalleDespacho->producto_id = $producto_id;
-        $this->detalleDespacho->salida_am = 0;
-        $this->detalleDespacho->recarga = 0;
-        $this->detalleDespacho->retorno = 0;
-        $this->detalleDespacho->descuento = 0;
-        $this->detalleDespacho->tipo_descuento = null;
-        $this->detalleDespacho->precio_modificado = 0;
-        
-        if ($this->detalleDespacho->create()) {
-            return [
-                'success' => true,
-                'message' => 'Producto agregado correctamente'
-            ];
-        }
-        
+public function agregarProducto($despacho_id, $producto_id) {
+    // Verificar si ya existe el detalle
+    if ($this->detalleDespacho->existeDetalleProducto($despacho_id, $producto_id)) {
         return [
             'success' => false,
-            'message' => 'Error al agregar el producto'
+            'message' => 'Este producto ya está asociado al despacho'
         ];
     }
+    
+    // Crear el detalle
+    $this->detalleDespacho->despacho_id = $despacho_id;
+    $this->detalleDespacho->producto_id = $producto_id;
+    $this->detalleDespacho->salida_am = 0;
+    $this->detalleDespacho->recarga = 0;
+    $this->detalleDespacho->retorno = 0;
+    $this->detalleDespacho->descuento = 0;
+    $this->detalleDespacho->tipo_descuento = null;
+    $this->detalleDespacho->precio_modificado = 0;
+    $this->detalleDespacho->cantidad_precio_modificado = 0;
+    
+    if ($this->detalleDespacho->create()) {
+        return [
+            'success' => true,
+            'message' => 'Producto agregado correctamente'
+        ];
+    }
+    
+    return [
+        'success' => false,
+        'message' => 'Error al agregar el producto'
+    ];
+}
     
     // Método para eliminar un producto de un despacho
     public function eliminarProducto($detalle_id) {
