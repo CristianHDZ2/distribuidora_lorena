@@ -1,7 +1,4 @@
-<?php
-// app/views/despachos/edit.php
-
-?><div class="d-flex justify-content-between align-items-center mb-4">
+<div class="d-flex justify-content-between align-items-center mb-4">
     <h1>Editar Despacho</h1>
     <a href="<?= BASE_URL ?>/despachos" class="btn btn-secondary">
         <i class="fas fa-arrow-left"></i> Volver
@@ -22,13 +19,13 @@
                         <tr>
                             <th>Producto</th>
                             <th>Precio Original</th>
-                            <th>Precio Modificado</th>
                             <th>Salida AM</th>
                             <th>Recarga</th>
                             <th>Retorno</th>
                             <th>Total Vendido</th>
-                            <th>Total Dinero</th>
+                            <th>Precio Modificado</th>
                             <th>Descuento</th>
+                            <th>Total Dinero</th>
                             <th>Acciones</th>
                         </tr>
                     </thead>
@@ -37,8 +34,10 @@
                         $total_general = 0;
                         foreach ($detalles as $index => $detalle): 
                             $venta = $detalle['salida_am'] + $detalle['recarga'] - $detalle['retorno'];
+                            $precio_original = $detalle['precio'];
                             $precio_aplicado = $detalle['precio_modificado'] > 0 ? $detalle['precio_modificado'] : $detalle['precio'];
                             $cantidad_con_precio_modificado = isset($detalle['cantidad_precio_modificado']) ? $detalle['cantidad_precio_modificado'] : 0;
+                            $cantidad_con_descuento = isset($detalle['cantidad_descuento']) ? $detalle['cantidad_descuento'] : 0;
                             $monto = 0;
                             
                             if ($detalle['usa_formula']) {
@@ -53,19 +52,29 @@
                                     $monto_precio_modificado = $cantidad_con_precio_modificado * $precio_aplicado;
                                     
                                     // Calcular con precio original para el resto
-                                    $monto_precio_original = ($venta - $cantidad_con_precio_modificado) * $detalle['precio'];
+                                    $monto_precio_original = ($venta - $cantidad_con_precio_modificado) * $precio_original;
                                     
                                     $monto = $monto_precio_modificado + $monto_precio_original;
                                 } else {
-                                    $monto = $venta * $detalle['precio'];
+                                    $monto = $venta * $precio_original;
                                 }
                             }
                             
-                            if ($detalle['descuento'] > 0) {
+                            if ($detalle['descuento'] > 0 && $cantidad_con_descuento > 0) {
+                                // No debe superar el total vendido
+                                $cantidad_con_descuento = min($cantidad_con_descuento, $venta);
+                                
                                 if ($detalle['tipo_descuento'] == 'P') {
-                                    $monto = $monto - ($monto * ($detalle['descuento'] / 100));
+                                    // Si es porcentaje, calcular el descuento para la cantidad específica
+                                    $monto_por_unidad = $detalle['usa_formula'] ? 
+                                        ($detalle['valor_formula_1'] / $detalle['valor_formula_2']) : 
+                                        $precio_aplicado;
+                                        
+                                    $descuento_por_unidad = $monto_por_unidad * ($detalle['descuento'] / 100);
+                                    $monto -= $descuento_por_unidad * $cantidad_con_descuento;
                                 } else if ($detalle['tipo_descuento'] == 'D') {
-                                    $monto = $monto - $detalle['descuento'];
+                                    // Si es dinero, aplicar el descuento directo por la cantidad
+                                    $monto -= $detalle['descuento'] * $cantidad_con_descuento;
                                 }
                             }
                             
@@ -76,6 +85,19 @@
                             data-valor-formula-2="<?= $detalle['valor_formula_2'] ?? '0' ?>">
                             <td><?= $detalle['nombre'] ?> (<?= $detalle['medida'] ?>)</td>
                             <td>$<?= number_format($detalle['precio'], 2) ?></td>
+                            <td>
+                                <input type="hidden" name="detalles[<?= $index ?>][id]" value="<?= $detalle['id'] ?>">
+                                <input type="number" class="form-control salida-am" name="detalles[<?= $index ?>][salida_am]" value="<?= $detalle['salida_am'] ?>" min="0" data-index="<?= $index ?>" <?= $detalle['retorno'] > 0 ? 'readonly' : '' ?> onclick="this.select()">
+                            </td>
+                            <td>
+                                <input type="number" class="form-control recarga" name="detalles[<?= $index ?>][recarga]" value="<?= $detalle['recarga'] ?>" min="0" data-index="<?= $index ?>" <?= $detalle['retorno'] > 0 ? 'readonly' : '' ?> onclick="this.select()">
+                            </td>
+                            <td>
+                                <input type="number" class="form-control retorno" name="detalles[<?= $index ?>][retorno]" value="<?= $detalle['retorno'] ?>" min="0" data-index="<?= $index ?>" onclick="this.select()">
+                            </td>
+                            <td>
+                                <span class="venta-total" id="venta-<?= $index ?>"><?= $venta ?></span>
+                            </td>
                             <td>
                                 <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#precioModal<?= $detalle['id'] ?>">
                                     <?= $detalle['precio_modificado'] > 0 ? '$' . number_format($detalle['precio_modificado'], 2) . ' (' . $cantidad_con_precio_modificado . ' uds)' : 'Modificar' ?>
@@ -110,25 +132,8 @@
                                 </div>
                             </td>
                             <td>
-                                <input type="hidden" name="detalles[<?= $index ?>][id]" value="<?= $detalle['id'] ?>">
-                                <input type="number" class="form-control salida-am" name="detalles[<?= $index ?>][salida_am]" value="<?= $detalle['salida_am'] ?>" min="0" data-index="<?= $index ?>" <?= $detalle['retorno'] > 0 ? 'readonly' : '' ?> onclick="this.select()">
-                            </td>
-                            <td>
-                                <input type="number" class="form-control recarga" name="detalles[<?= $index ?>][recarga]" value="<?= $detalle['recarga'] ?>" min="0" data-index="<?= $index ?>" <?= $detalle['retorno'] > 0 ? 'readonly' : '' ?> onclick="this.select()">
-                            </td>
-                            <td>
-                                <input type="number" class="form-control retorno" name="detalles[<?= $index ?>][retorno]" value="<?= $detalle['retorno'] ?>" min="0" data-index="<?= $index ?>" onclick="this.select()">
-                            </td>
-                            <td>
-                                <span class="venta-total" id="venta-<?= $index ?>"><?= $venta ?></span>
-                            </td>
-                            <td>
-                                <span class="monto-total" id="monto-<?= $index ?>">$<?= number_format($monto, 2) ?></span>
-                                <input type="hidden" id="monto-valor-<?= $index ?>" value="<?= $monto ?>">
-                            </td>
-                            <td>
                                 <button type="button" class="btn btn-sm btn-info" data-bs-toggle="modal" data-bs-target="#descuentoModal<?= $detalle['id'] ?>">
-                                    <?= $detalle['descuento'] > 0 ? 'Editar' : 'Aplicar' ?>
+                                    <?= $detalle['descuento'] > 0 ? ($detalle['tipo_descuento'] == 'P' ? $detalle['descuento'] . '% (' . $cantidad_con_descuento . ' uds)' : '$' . number_format($detalle['descuento'], 2) . ' (' . $cantidad_con_descuento . ' uds)') : 'Aplicar' ?>
                                 </button>
                                 
                                 <!-- Modal para descuento -->
@@ -159,6 +164,11 @@
                                                     <label for="descuento_<?= $index ?>" class="form-label">Valor del Descuento</label>
                                                     <input type="number" class="form-control" id="descuento_<?= $index ?>" name="detalles[<?= $index ?>][descuento]" value="<?= $detalle['descuento'] ?>" min="0" step="0.01">
                                                 </div>
+                                                <div class="mb-3">
+                                                    <label for="cantidad_descuento_<?= $index ?>" class="form-label">Cantidad de productos con descuento</label>
+                                                    <input type="number" class="form-control" id="cantidad_descuento_<?= $index ?>" name="detalles[<?= $index ?>][cantidad_descuento]" value="<?= $cantidad_con_descuento ?>" min="0" max="<?= $venta ?>">
+                                                    <div class="form-text">Máximo: <?= $venta ?> unidades vendidas</div>
+                                                </div>
                                             </div>
                                             <div class="modal-footer">
                                                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
@@ -167,6 +177,10 @@
                                         </div>
                                     </div>
                                 </div>
+                            </td>
+                            <td>
+                                <span class="monto-total" id="monto-<?= $index ?>">$<?= number_format($monto, 2) ?></span>
+                                <input type="hidden" id="monto-valor-<?= $index ?>" value="<?= $monto ?>">
                             </td>
                             <td>
                                 <form action="<?= BASE_URL ?>/despachos/eliminar-producto" method="post">
@@ -182,9 +196,9 @@
                     </tbody>
                     <tfoot>
                         <tr>
-                            <th colspan="7" class="text-end">Total General:</th>
+                            <th colspan="8" class="text-end">Total General:</th>
                             <th id="total-general">$<?= number_format($total_general, 2) ?></th>
-                            <th colspan="2"></th>
+                            <th></th>
                         </tr>
                     </tfoot>
                 </table>
@@ -241,12 +255,22 @@ document.addEventListener('DOMContentLoaded', function() {
             document.getElementById(`venta-${i}`).textContent = totalVendido;
             
             // Actualizar límite de cantidad de productos con precio modificado
-            const cantidadInput = document.getElementById(`cantidad_precio_modificado_${i}`);
-            if (cantidadInput) {
-                cantidadInput.max = totalVendido;
+            const cantidadPrecioInput = document.getElementById(`cantidad_precio_modificado_${i}`);
+            if (cantidadPrecioInput) {
+                cantidadPrecioInput.max = totalVendido;
                 // Si la cantidad actual es mayor que el nuevo total vendido, ajustarla
-                if (parseInt(cantidadInput.value) > totalVendido) {
-                    cantidadInput.value = totalVendido;
+                if (parseInt(cantidadPrecioInput.value) > totalVendido) {
+                    cantidadPrecioInput.value = totalVendido;
+                }
+            }
+            
+            // Actualizar límite de cantidad de productos con descuento
+            const cantidadDescuentoInput = document.getElementById(`cantidad_descuento_${i}`);
+            if (cantidadDescuentoInput) {
+                cantidadDescuentoInput.max = totalVendido;
+                // Si la cantidad actual es mayor que el nuevo total vendido, ajustarla
+                if (parseInt(cantidadDescuentoInput.value) > totalVendido) {
+                    cantidadDescuentoInput.value = totalVendido;
                 }
             }
             
@@ -254,6 +278,12 @@ document.addEventListener('DOMContentLoaded', function() {
             const precioOriginal = parseFloat(fila.querySelector('td:nth-child(2)').innerText.replace('$', '').replace(',', ''));
             const precioModificado = parseFloat(document.getElementsByName(`detalles[${i}][precio_modificado]`)[0].value) || 0;
             const cantidadPrecioModificado = parseInt(document.getElementsByName(`detalles[${i}][cantidad_precio_modificado]`)[0]?.value) || 0;
+            
+            // Valores de descuento
+            const descuento = parseFloat(document.getElementsByName(`detalles[${i}][descuento]`)[0].value) || 0;
+            const cantidadDescuento = parseInt(document.getElementsByName(`detalles[${i}][cantidad_descuento]`)[0]?.value) || 0;
+            const tipoDescuentoP = document.getElementById(`tipo_descuento_p_${i}`);
+            const tipoDescuentoD = document.getElementById(`tipo_descuento_d_${i}`);
             
             // Verificar si el producto usa fórmula
             const usaFormula = fila.getAttribute('data-usa-formula') === '1';
@@ -287,22 +317,28 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             }
             
-            // Aplicar descuento si existe
-            const descuento = parseFloat(document.getElementsByName(`detalles[${i}][descuento]`)[0].value) || 0;
-            const tipoDescuentoP = document.getElementById(`tipo_descuento_p_${i}`);
-            const tipoDescuentoD = document.getElementById(`tipo_descuento_d_${i}`);
-            
+            // Aplicar descuento si existe y hay productos con descuento
             let montoDescuento = 0;
-            if (descuento > 0) {
+            if (descuento > 0 && cantidadDescuento > 0) {
+                // No debe superar el total vendido
+                const cantidadEfectivaDescuento = Math.min(cantidadDescuento, totalVendido);
+                
                 if (tipoDescuentoP && tipoDescuentoP.checked) {
-                    // Descuento porcentual
-                    montoDescuento = montoTotal * (descuento / 100);
-                    console.log(`Descuento %: ${montoTotal} * (${descuento} / 100) = ${montoDescuento}`);
+                    // Para descuento porcentual, calculamos el valor por unidad
+                    const precioUnitario = usaFormula ? 
+                        (valorFormula1 / valorFormula2) : 
+                        (precioModificado > 0 && cantidadPrecioModificado > 0 ? 
+                            ((cantidadPrecioModificado * precioModificado) + ((totalVendido - cantidadPrecioModificado) * precioOriginal)) / totalVendido : 
+                            precioOriginal);
+                            
+                    montoDescuento = (precioUnitario * descuento / 100) * cantidadEfectivaDescuento;
+                    console.log(`Descuento %: (${precioUnitario} * ${descuento / 100}) * ${cantidadEfectivaDescuento} = ${montoDescuento}`);
                 } else if (tipoDescuentoD && tipoDescuentoD.checked) {
-                    // Descuento en dinero
-                    montoDescuento = descuento;
-                    console.log(`Descuento $: ${descuento}`);
+                    // Para descuento en dinero, multiplicamos el valor por la cantidad
+                    montoDescuento = descuento * cantidadEfectivaDescuento;
+                    console.log(`Descuento $: ${descuento} * ${cantidadEfectivaDescuento} = ${montoDescuento}`);
                 }
+                
                 montoTotal = montoTotal - montoDescuento;
             }
             
@@ -341,6 +377,20 @@ document.addEventListener('DOMContentLoaded', function() {
         input.addEventListener('change', actualizarTotales);
     });
     
+    // Eventos para inputs de cantidad de descuento
+    document.querySelectorAll('[id^="cantidad_descuento_"]').forEach(input => {
+        input.addEventListener('change', function() {
+            // Asegurar que no supere el total vendido
+            const index = this.id.replace('cantidad_descuento_', '');
+            const totalVendido = calcularTotalVendido(index);
+            if (parseInt(this.value) > totalVendido) {
+                this.value = totalVendido;
+            }
+            actualizarTotales();
+        });
+        input.addEventListener('input', actualizarTotales);
+    });
+    
     // Eventos para radios de tipo de descuento
     document.querySelectorAll('[id^="tipo_descuento_"]').forEach(radio => {
         radio.addEventListener('change', actualizarTotales);
@@ -369,6 +419,18 @@ document.addEventListener('DOMContentLoaded', function() {
     document.querySelectorAll('.apply-price').forEach(button => {
         button.addEventListener('click', function() {
             const index = this.getAttribute('data-index');
+            // Actualizar el texto del botón para mostrar el nuevo precio y cantidad
+            const precio = parseFloat(document.getElementById(`precio_modificado_${index}`).value) || 0;
+            const cantidad = parseInt(document.getElementById(`cantidad_precio_modificado_${index}`).value) || 0;
+            
+            // Solo actualizar si hay un precio y cantidad válidos
+            if (precio > 0 && cantidad > 0) {
+                const btnPrecio = document.querySelector(`button[data-bs-target="#precioModal${index}"]`);
+                if (btnPrecio) {
+                    btnPrecio.textContent = `$${precio.toFixed(2)} (${cantidad} uds)`;
+                }
+            }
+            
             setTimeout(actualizarTotales, 100);
         });
     });
@@ -377,6 +439,23 @@ document.addEventListener('DOMContentLoaded', function() {
     document.querySelectorAll('.apply-discount').forEach(button => {
         button.addEventListener('click', function() {
             const index = this.getAttribute('data-index');
+            // Actualizar el texto del botón para mostrar el descuento y cantidad
+            const descuento = parseFloat(document.getElementById(`descuento_${index}`).value) || 0;
+            const cantidad = parseInt(document.getElementById(`cantidad_descuento_${index}`).value) || 0;
+            const tipoDescuentoP = document.getElementById(`tipo_descuento_p_${index}`);
+            
+            // Solo actualizar si hay un descuento y cantidad válidos
+            if (descuento > 0 && cantidad > 0) {
+                const btnDescuento = document.querySelector(`button[data-bs-target="#descuentoModal${index}"]`);
+                if (btnDescuento) {
+                    if (tipoDescuentoP && tipoDescuentoP.checked) {
+                        btnDescuento.textContent = `${descuento}% (${cantidad} uds)`;
+                    } else {
+                        btnDescuento.textContent = `$${descuento.toFixed(2)} (${cantidad} uds)`;
+                    }
+                }
+            }
+            
             setTimeout(actualizarTotales, 100);
         });
     });
@@ -385,6 +464,21 @@ document.addEventListener('DOMContentLoaded', function() {
     document.querySelectorAll('.modal').forEach(modal => {
         modal.addEventListener('hidden.bs.modal', function() {
             setTimeout(actualizarTotales, 100);
+        });
+    });
+    
+    // Antes de enviar el formulario, asegurarse que todos los valores están correctamente establecidos
+    document.getElementById('despachoForm').addEventListener('submit', function(e) {
+        // Recorrer todas las filas de productos para asegurarnos que los valores están correctos
+        const filas = document.querySelectorAll('#productosTable tbody tr');
+        filas.forEach((fila, i) => {
+            // Obtener valores actuales
+            const precioModificado = parseFloat(document.getElementsByName(`detalles[${i}][precio_modificado]`)[0].value) || 0;
+            const cantidadPrecioModificado = parseInt(document.getElementsByName(`detalles[${i}][cantidad_precio_modificado]`)[0]?.value) || 0;
+            const descuento = parseFloat(document.getElementsByName(`detalles[${i}][descuento]`)[0].value) || 0;
+            const cantidadDescuento = parseInt(document.getElementsByName(`detalles[${i}][cantidad_descuento]`)[0]?.value) || 0;
+            
+            console.log(`Enviando detalle ${i}: precio_mod=${precioModificado}, cant_precio_mod=${cantidadPrecioModificado}, descuento=${descuento}, cant_descuento=${cantidadDescuento}`);
         });
     });
     

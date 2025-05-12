@@ -289,37 +289,45 @@ class DespachoController {
         include_once '../app/views/templates/footer.php';
     }
     
-    public function updateDetalle($data) {
-        // Actualizar los detalles
-        foreach ($data['detalles'] as $detalle) {
-            $id = $detalle['id'];
-            $salida_am = $detalle['salida_am'] ?? 0;
-            $recarga = $detalle['recarga'] ?? 0;
-            $retorno = $detalle['retorno'] ?? 0;
-            $descuento = $detalle['descuento'] ?? 0;
-            $tipo_descuento = $detalle['tipo_descuento'] ?? null;
-            $precio_modificado = $detalle['precio_modificado'] ?? 0;
-            $cantidad_precio_modificado = $detalle['cantidad_precio_modificado'] ?? 0;
-            
-            // Obtener el detalle actual
-            $this->detalleDespacho->id = $id;
-            $this->detalleDespacho->readOne();
-            
-            // Actualizar los valores
-            $this->detalleDespacho->salida_am = $salida_am;
-            $this->detalleDespacho->recarga = $recarga;
-            $this->detalleDespacho->retorno = $retorno;
-            $this->detalleDespacho->descuento = $descuento;
-            $this->detalleDespacho->tipo_descuento = $tipo_descuento;
-            $this->detalleDespacho->precio_modificado = $precio_modificado;
-            $this->detalleDespacho->cantidad_precio_modificado = $cantidad_precio_modificado;
-            
-            // Guardar los cambios
-            $this->detalleDespacho->update();
-        }
+    
+public function updateDetalle($data) {
+    // Actualizar los detalles
+    foreach ($data['detalles'] as $detalle) {
+        $id = $detalle['id'];
+        $salida_am = $detalle['salida_am'] ?? 0;
+        $recarga = $detalle['recarga'] ?? 0;
+        $retorno = $detalle['retorno'] ?? 0;
+        $descuento = $detalle['descuento'] ?? 0;
+        $tipo_descuento = $detalle['tipo_descuento'] ?? null;
+        $precio_modificado = $detalle['precio_modificado'] ?? 0;
+        $cantidad_precio_modificado = $detalle['cantidad_precio_modificado'] ?? 0;
+        $cantidad_descuento = $detalle['cantidad_descuento'] ?? 0; // Verificamos que este valor se esté obteniendo correctamente
         
-        return true;
+        // Para depuración - podemos agregar estas líneas temporalmente
+        error_log("Actualizando detalle ID: $id");
+        error_log("Precio modificado: $precio_modificado, Cantidad: $cantidad_precio_modificado");
+        error_log("Descuento: $descuento, Tipo: $tipo_descuento, Cantidad: $cantidad_descuento");
+        
+        // Obtener el detalle actual
+        $this->detalleDespacho->id = $id;
+        $this->detalleDespacho->readOne();
+        
+        // Actualizar los valores
+        $this->detalleDespacho->salida_am = $salida_am;
+        $this->detalleDespacho->recarga = $recarga;
+        $this->detalleDespacho->retorno = $retorno;
+        $this->detalleDespacho->descuento = $descuento;
+        $this->detalleDespacho->tipo_descuento = $tipo_descuento;
+        $this->detalleDespacho->precio_modificado = $precio_modificado;
+        $this->detalleDespacho->cantidad_precio_modificado = $cantidad_precio_modificado;
+        $this->detalleDespacho->cantidad_descuento = $cantidad_descuento; // Asegurarnos que se asigna correctamente
+        
+        // Guardar los cambios
+        $this->detalleDespacho->update();
     }
+    
+    return true;
+}
     
     // Método para obtener detalles de un despacho
     public function getDetalles($despacho_id) {
@@ -374,6 +382,7 @@ public function agregarProducto($despacho_id, $producto_id) {
     $this->detalleDespacho->tipo_descuento = null;
     $this->detalleDespacho->precio_modificado = 0;
     $this->detalleDespacho->cantidad_precio_modificado = 0;
+    $this->detalleDespacho->cantidad_descuento = 0; // Nuevo campo
     
     if ($this->detalleDespacho->create()) {
         return [
