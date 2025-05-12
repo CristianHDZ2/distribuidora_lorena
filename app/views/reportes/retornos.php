@@ -50,7 +50,9 @@
                             <th>Salida Total</th>
                             <th>Ventas Totales</th>
                             <th>Retorno</th>
-                            <th>Porcentaje de Retorno</th>
+                            <th>% Retorno</th>
+                            <th>Precios Modificados</th>
+                            <th>Con Descuento</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -65,6 +67,20 @@
                             <td><?= $item['ventas_totales'] ?></td>
                             <td><?= $item['retorno'] ?></td>
                             <td><?= number_format($item['porcentaje_retorno'], 2) ?>%</td>
+                            <td>
+                                <?php if (isset($item['productos_precio_modificado']) && $item['productos_precio_modificado'] > 0): ?>
+                                    <span class="badge bg-info"><?= $item['productos_precio_modificado'] ?></span>
+                                <?php else: ?>
+                                    <span class="badge bg-secondary">0</span>
+                                <?php endif; ?>
+                            </td>
+                            <td>
+                                <?php if (isset($item['productos_con_descuento']) && $item['productos_con_descuento'] > 0): ?>
+                                    <span class="badge bg-warning"><?= $item['productos_con_descuento'] ?></span>
+                                <?php else: ?>
+                                    <span class="badge bg-secondary">0</span>
+                                <?php endif; ?>
+                            </td>
                         </tr>
                         <?php endforeach; ?>
                     </tbody>
@@ -95,7 +111,9 @@
                 <th style="border: 1px solid #ddd; padding: 8px; text-align: right;">Salida Total</th>
                 <th style="border: 1px solid #ddd; padding: 8px; text-align: right;">Ventas Totales</th>
                 <th style="border: 1px solid #ddd; padding: 8px; text-align: right;">Retorno</th>
-                <th style="border: 1px solid #ddd; padding: 8px; text-align: right;">Porcentaje</th>
+                <th style="border: 1px solid #ddd; padding: 8px; text-align: right;">% Retorno</th>
+                <th style="border: 1px solid #ddd; padding: 8px; text-align: center;">Precios Mod.</th>
+                <th style="border: 1px solid #ddd; padding: 8px; text-align: center;">Con Desc.</th>
             </tr>
         </thead>
         <tbody>
@@ -110,6 +128,8 @@
                 <td style="border: 1px solid #ddd; padding: 8px; text-align: right;"><?= $item['ventas_totales'] ?></td>
                 <td style="border: 1px solid #ddd; padding: 8px; text-align: right;"><?= $item['retorno'] ?></td>
                 <td style="border: 1px solid #ddd; padding: 8px; text-align: right;"><?= number_format($item['porcentaje_retorno'], 2) ?>%</td>
+                <td style="border: 1px solid #ddd; padding: 8px; text-align: center;"><?= isset($item['productos_precio_modificado']) ? $item['productos_precio_modificado'] : '0' ?></td>
+                <td style="border: 1px solid #ddd; padding: 8px; text-align: center;"><?= isset($item['productos_con_descuento']) ? $item['productos_con_descuento'] : '0' ?></td>
             </tr>
             <?php endforeach; ?>
         </tbody>

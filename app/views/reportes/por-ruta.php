@@ -79,7 +79,8 @@
                                 <th>Producto</th>
                                 <th>Medida</th>
                                 <th>Precio Original</th>
-                                <th>Precio Aplicado</th>
+                                <th>Precio Modificado</th>
+                                <th>Cant. con Precio Mod.</th>
                                 <th>Salida AM</th>
                                 <th>Recarga</th>
                                 <th>Retorno</th>
@@ -102,6 +103,7 @@
                                 <td><?= $item['medida'] ?></td>
                                 <td>$<?= number_format($item['precio'], 2) ?></td>
                                 <td><?= $item['precio_modificado'] > 0 ? '$' . number_format($item['precio_modificado'], 2) : '-' ?></td>
+                                <td><?= isset($item['cantidad_precio_modificado']) && $item['cantidad_precio_modificado'] > 0 ? $item['cantidad_precio_modificado'] : '-' ?></td>
                                 <td><?= $item['salida_am'] ?></td>
                                 <td><?= $item['recarga'] ?></td>
                                 <td><?= $item['retorno'] ?></td>
@@ -120,7 +122,7 @@
                         </tbody>
                         <tfoot>
                             <tr>
-                                <th colspan="8" class="text-end">Total del Día:</th>
+                                <th colspan="9" class="text-end">Total del Día:</th>
                                 <th colspan="2">$<?= number_format($total_fecha, 2) ?></th>
                             </tr>
                         </tfoot>
@@ -159,12 +161,14 @@
                     <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Producto</th>
                     <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Medida</th>
                     <th style="border: 1px solid #ddd; padding: 8px; text-align: right;">Precio Orig.</th>
-                    <th style="border: 1px solid #ddd; padding: 8px; text-align: right;">Precio Aplic.</th>
+                    <th style="border: 1px solid #ddd; padding: 8px; text-align: right;">Precio Mod.</th>
+                    <th style="border: 1px solid #ddd; padding: 8px; text-align: center;">Cant. Mod.</th>
                     <th style="border: 1px solid #ddd; padding: 8px; text-align: right;">Salida</th>
                     <th style="border: 1px solid #ddd; padding: 8px; text-align: right;">Recarga</th>
                     <th style="border: 1px solid #ddd; padding: 8px; text-align: right;">Retorno</th>
                     <th style="border: 1px solid #ddd; padding: 8px; text-align: right;">Vendido</th>
                     <th style="border: 1px solid #ddd; padding: 8px; text-align: right;">Total</th>
+                    <th style="border: 1px solid #ddd; padding: 8px; text-align: right;">Descuento</th>
                 </tr>
             </thead>
             <tbody>
@@ -181,18 +185,26 @@
                     <td style="border: 1px solid #ddd; padding: 8px;"><?= $item['medida'] ?></td>
                     <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">$<?= number_format($item['precio'], 2) ?></td>
                     <td style="border: 1px solid #ddd; padding: 8px; text-align: right;"><?= $item['precio_modificado'] > 0 ? '$' . number_format($item['precio_modificado'], 2) : '-' ?></td>
+                    <td style="border: 1px solid #ddd; padding: 8px; text-align: center;"><?= isset($item['cantidad_precio_modificado']) && $item['cantidad_precio_modificado'] > 0 ? $item['cantidad_precio_modificado'] : '-' ?></td>
                     <td style="border: 1px solid #ddd; padding: 8px; text-align: right;"><?= $item['salida_am'] ?></td>
                     <td style="border: 1px solid #ddd; padding: 8px; text-align: right;"><?= $item['recarga'] ?></td>
                     <td style="border: 1px solid #ddd; padding: 8px; text-align: right;"><?= $item['retorno'] ?></td>
                     <td style="border: 1px solid #ddd; padding: 8px; text-align: right;"><?= $item['total_vendido'] ?></td>
                     <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">$<?= number_format($print_total_con_descuento, 2) ?></td>
+                    <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">
+                        <?php if ($item['descuento'] > 0): ?>
+                            <?= $item['tipo_descuento'] == 'P' ? $item['descuento'] . '%' : '$' . number_format($item['descuento'], 2) ?>
+                        <?php else: ?>
+                            -
+                        <?php endif; ?>
+                    </td>
                 </tr>
                 <?php endforeach; ?>
             </tbody>
             <tfoot>
                 <tr>
-                    <th colspan="8" style="border: 1px solid #ddd; padding: 8px; text-align: right;">Total del Día:</th>
-                    <th style="border: 1px solid #ddd; padding: 8px; text-align: right;">$<?= number_format($print_total_fecha, 2) ?></th>
+                <th colspan="9" style="border: 1px solid #ddd; padding: 8px; text-align: right;">Total del Día:</th>
+                    <th colspan="2" style="border: 1px solid #ddd; padding: 8px; text-align: right;">$<?= number_format($print_total_fecha, 2) ?></th>
                 </tr>
             </tfoot>
         </table>

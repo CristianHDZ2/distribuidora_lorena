@@ -26,7 +26,9 @@ class ReporteController {
                             WHEN p.usa_formula = 1 THEN (p.valor_formula_1 / p.valor_formula_2) * (dd.salida_am + dd.recarga - dd.retorno)
                             ELSE (dd.salida_am + dd.recarga - dd.retorno) * COALESCE(dd.precio_modificado, p.precio)
                         END
-                    ) as total_dinero
+                    ) as total_dinero,
+                    COUNT(CASE WHEN dd.precio_modificado > 0 THEN 1 END) as productos_precio_modificado,
+                    COUNT(CASE WHEN dd.descuento > 0 THEN 1 END) as productos_con_descuento
                   FROM despachos d
                   JOIN rutas r ON d.ruta_id = r.id
                   JOIN detalles_despacho dd ON d.id = dd.despacho_id
@@ -54,6 +56,7 @@ class ReporteController {
                     p.nombre, p.medida, p.precio, 
                     dd.salida_am, dd.recarga, dd.retorno, dd.precio_modificado,
                     (dd.salida_am + dd.recarga - dd.retorno) as total_vendido,
+                    dd.cantidad_precio_modificado,
                     CASE 
                         WHEN p.usa_formula = 1 THEN (p.valor_formula_1 / p.valor_formula_2) * (dd.salida_am + dd.recarga - dd.retorno)
                         ELSE (dd.salida_am + dd.recarga - dd.retorno) * COALESCE(dd.precio_modificado, p.precio)
@@ -99,7 +102,9 @@ class ReporteController {
                     SUM(dd.salida_am + dd.recarga) as salida_total,
                     SUM(dd.salida_am + dd.recarga - dd.retorno) as ventas_totales,
                     SUM(dd.retorno) as retorno,
-                    (SUM(dd.retorno) / SUM(dd.salida_am + dd.recarga)) * 100 as porcentaje_retorno
+                    (SUM(dd.retorno) / SUM(dd.salida_am + dd.recarga)) * 100 as porcentaje_retorno,
+                    COUNT(CASE WHEN dd.precio_modificado > 0 THEN 1 END) as productos_precio_modificado,
+                    COUNT(CASE WHEN dd.descuento > 0 THEN 1 END) as productos_con_descuento
                 FROM detalles_despacho dd
                 JOIN despachos d ON dd.despacho_id = d.id
                 JOIN productos p ON dd.producto_id = p.id

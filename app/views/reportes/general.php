@@ -47,6 +47,8 @@
                             <th>Placa</th>
                             <th>Total Vendido</th>
                             <th>Total Dinero</th>
+                            <th>Productos con Precio Modificado</th>
+                            <th>Productos con Descuento</th>
                             <th>Acciones</th>
                         </tr>
                     </thead>
@@ -63,6 +65,20 @@
                             <td><?= $item['total_vendido'] ?></td>
                             <td>$<?= number_format($item['total_dinero'], 2) ?></td>
                             <td>
+                                <?php if ($item['productos_precio_modificado'] > 0): ?>
+                                    <span class="badge bg-info"><?= $item['productos_precio_modificado'] ?></span>
+                                <?php else: ?>
+                                    <span class="badge bg-secondary">0</span>
+                                <?php endif; ?>
+                            </td>
+                            <td>
+                                <?php if ($item['productos_con_descuento'] > 0): ?>
+                                    <span class="badge bg-warning"><?= $item['productos_con_descuento'] ?></span>
+                                <?php else: ?>
+                                    <span class="badge bg-secondary">0</span>
+                                <?php endif; ?>
+                            </td>
+                            <td>
                                 <a href="<?= BASE_URL ?>/reportes/detalle-despacho?despacho_id=<?= $item['id'] ?>" class="btn btn-sm btn-info">
                                     <i class="fas fa-eye"></i> Ver Detalle
                                 </a>
@@ -74,7 +90,7 @@
                         <tr>
                             <th colspan="4" class="text-end">Total General:</th>
                             <th>$<?= number_format($total_general, 2) ?></th>
-                            <th></th>
+                            <th colspan="3"></th>
                         </tr>
                     </tfoot>
                 </table>
@@ -101,6 +117,8 @@
                 <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Placa</th>
                 <th style="border: 1px solid #ddd; padding: 8px; text-align: right;">Total Vendido</th>
                 <th style="border: 1px solid #ddd; padding: 8px; text-align: right;">Total Dinero</th>
+                <th style="border: 1px solid #ddd; padding: 8px; text-align: center;">Precios Modificados</th>
+                <th style="border: 1px solid #ddd; padding: 8px; text-align: center;">Con Descuento</th>
             </tr>
         </thead>
         <tbody>
@@ -115,6 +133,8 @@
                 <td style="border: 1px solid #ddd; padding: 8px;"><?= $item['placa_vehiculo'] ?></td>
                 <td style="border: 1px solid #ddd; padding: 8px; text-align: right;"><?= $item['total_vendido'] ?></td>
                 <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">$<?= number_format($item['total_dinero'], 2) ?></td>
+                <td style="border: 1px solid #ddd; padding: 8px; text-align: center;"><?= $item['productos_precio_modificado'] ?></td>
+                <td style="border: 1px solid #ddd; padding: 8px; text-align: center;"><?= $item['productos_con_descuento'] ?></td>
             </tr>
             <?php endforeach; ?>
         </tbody>
@@ -122,6 +142,7 @@
             <tr>
                 <th colspan="4" style="border: 1px solid #ddd; padding: 8px; text-align: right;">Total General:</th>
                 <th style="border: 1px solid #ddd; padding: 8px; text-align: right;">$<?= number_format($total_print, 2) ?></th>
+                <th colspan="2" style="border: 1px solid #ddd; padding: 8px;"></th>
             </tr>
         </tfoot>
     </table>
