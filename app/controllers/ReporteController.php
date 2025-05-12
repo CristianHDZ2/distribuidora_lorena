@@ -21,7 +21,12 @@ class ReporteController {
     public function getReporteGeneral($fecha_inicio, $fecha_fin) {
         $query = "SELECT d.id, d.fecha, r.numero_ruta, r.placa_vehiculo,
                     SUM(dd.salida_am + dd.recarga - dd.retorno) as total_vendido,
-                    SUM((dd.salida_am + dd.recarga - dd.retorno) * p.precio) as total_dinero
+                    SUM(
+                        CASE 
+                            WHEN p.usa_formula = 1 THEN (p.valor_formula_1 / p.valor_formula_2) * (dd.salida_am + dd.recarga - dd.retorno)
+                            ELSE (dd.salida_am + dd.recarga - dd.retorno) * COALESCE(dd.precio_modificado, p.precio)
+                        END
+                    ) as total_dinero
                   FROM despachos d
                   JOIN rutas r ON d.ruta_id = r.id
                   JOIN detalles_despacho dd ON d.id = dd.despacho_id
@@ -47,17 +52,17 @@ class ReporteController {
     public function getReportePorRuta($ruta_id, $fecha_inicio, $fecha_fin) {
         $query = "SELECT d.id, d.fecha, r.numero_ruta, r.placa_vehiculo,
                     p.nombre, p.medida, p.precio, 
-                    dd.salida_am, dd.recarga, dd.retorno,
+                    dd.salida_am, dd.recarga, dd.retorno, dd.precio_modificado,
                     (dd.salida_am + dd.recarga - dd.retorno) as total_vendido,
                     CASE 
                         WHEN p.usa_formula = 1 THEN (p.valor_formula_1 / p.valor_formula_2) * (dd.salida_am + dd.recarga - dd.retorno)
-                        ELSE (dd.salida_am + dd.recarga - dd.retorno) * p.precio
+                        ELSE (dd.salida_am + dd.recarga - dd.retorno) * COALESCE(dd.precio_modificado, p.precio)
                     END as total_dinero,
                     dd.descuento, dd.tipo_descuento,
                     CASE 
                         WHEN dd.tipo_descuento = 'P' THEN dd.descuento * (CASE 
                             WHEN p.usa_formula = 1 THEN (p.valor_formula_1 / p.valor_formula_2) * (dd.salida_am + dd.recarga - dd.retorno)
-                            ELSE (dd.salida_am + dd.recarga - dd.retorno) * p.precio
+                            ELSE (dd.salida_am + dd.recarga - dd.retorno) * COALESCE(dd.precio_modificado, p.precio)
                         END) / 100
                         WHEN dd.tipo_descuento = 'D' THEN dd.descuento
                         ELSE 0

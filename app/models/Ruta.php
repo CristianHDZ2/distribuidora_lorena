@@ -61,10 +61,19 @@ class Ruta {
         $stmt->execute();
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
         
-        $this->numero_ruta = $row['numero_ruta'];
-        $this->placa_vehiculo = $row['placa_vehiculo'];
-        $this->exclusivo_big_cola = $row['exclusivo_big_cola'];
-        $this->estado = $row['estado'];
+        // Verificar si se obtuvo un resultado válido
+        if ($row) {
+            $this->numero_ruta = $row['numero_ruta'];
+            $this->placa_vehiculo = $row['placa_vehiculo'];
+            $this->exclusivo_big_cola = $row['exclusivo_big_cola'];
+            $this->estado = $row['estado'];
+        } else {
+            // Si no hay resultado, inicializar con valores predeterminados
+            $this->numero_ruta = "";
+            $this->placa_vehiculo = "";
+            $this->exclusivo_big_cola = 0;
+            $this->estado = 0;
+        }
     }
     
     public function update() {

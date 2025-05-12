@@ -14,7 +14,7 @@ class DespachoController {
         include_once '../app/models/Despacho.php';
         $this->despacho = new Despacho($this->db);
         
-        // Inicializar el objeto DetalleDespacho
+        // Inicializar el objeto DetalleDespacho - Corregir ruta de inclusión
         include_once '../app/models/DetalleDespacho.php';
         $this->detalleDespacho = new DetalleDespacho($this->db);
     }
@@ -42,10 +42,10 @@ class DespachoController {
         
         if ($ruta['exclusivo_big_cola']) {
             // Si es exclusivo para Big Cola, obtener solo productos de tipo Big Cola (asumiendo que el ID es 1)
-            $productos = $productoController->getByTipoOrAll(1, false); // Solo Big Cola
+            $productos = $productoController->getByTipoOrAll(1, false); // Big Cola
         } else {
             // Si no es exclusivo, obtener todos los productos (Big Cola + Otros Productos)
-            $productos = $productoController->getAll(); // Todos los productos
+            $productos = $productoController->getByTipoOrAll(2, true); // Incluir todos
         }
         
         // Definir el controlador para la plantilla
@@ -86,7 +86,7 @@ class DespachoController {
                     $this->detalleDespacho->retorno = 0;
                     $this->detalleDespacho->descuento = 0;
                     $this->detalleDespacho->tipo_descuento = null;
-                    $this->detalleDespacho->cantidad_descuento = 0; // Inicializar la cantidad de descuento
+                    $this->detalleDespacho->precio_modificado = 0;
                     
                     $this->detalleDespacho->create();
                 }
@@ -265,9 +265,9 @@ class DespachoController {
         
         // Obtener productos según el tipo de ruta
         if ($ruta['exclusivo_big_cola']) {
-            $productosDisponibles = $productoController->getByTipoOrAll(1, false); // Solo Big Cola
+            $productosDisponibles = $productoController->getByTipoOrAll(1, false); // Big Cola
         } else {
-            $productosDisponibles = $productoController->getAll(); // Todos los productos
+            $productosDisponibles = $productoController->getByTipoOrAll(2, true); // Incluir todos
         }
         
         // Filtrar productos ya asociados
@@ -291,13 +291,6 @@ class DespachoController {
     
     // Método para actualizar detalles de despacho
     public function updateDetalle($data) {
-        // Obtener el despacho_id para la redirección
-        $despacho_id = $data['despacho_id'];
-        
-        // Obtener información del despacho para conocer su fecha
-        $despacho = $this->getById($despacho_id);
-        $fecha = $despacho['fecha'];
-        
         // Actualizar los detalles
         foreach ($data['detalles'] as $detalle) {
             $id = $detalle['id'];
@@ -306,7 +299,7 @@ class DespachoController {
             $retorno = $detalle['retorno'] ?? 0;
             $descuento = $detalle['descuento'] ?? 0;
             $tipo_descuento = $detalle['tipo_descuento'] ?? null;
-            $cantidad_descuento = $detalle['cantidad_descuento'] ?? 0;
+            $precio_modificado = $detalle['precio_modificado'] ?? 0;
             
             // Obtener el detalle actual
             $this->detalleDespacho->id = $id;
@@ -318,27 +311,11 @@ class DespachoController {
             $this->detalleDespacho->retorno = $retorno;
             $this->detalleDespacho->descuento = $descuento;
             $this->detalleDespacho->tipo_descuento = $tipo_descuento;
-            $this->detalleDespacho->cantidad_descuento = $cantidad_descuento;
-            
-            // Validar que la cantidad con descuento no sea mayor a la venta total
-            $venta_total = $salida_am + $recarga - $retorno;
-            if ($cantidad_descuento > $venta_total) {
-                $this->detalleDespacho->cantidad_descuento = $venta_total; // Limitar al máximo de ventas
-            }
+            $this->detalleDespacho->precio_modificado = $precio_modificado;
             
             // Guardar los cambios
             $this->detalleDespacho->update();
         }
-        
-        // Establecer mensaje de éxito
-        $_SESSION['notification'] = [
-            'type' => 'success',
-            'message' => 'Despacho actualizado correctamente'
-        ];
-        
-        // Redirigir a la página de despachos
-        header("Location: " . BASE_URL . "/despachos?fecha=" . $fecha);
-        exit;
         
         return true;
     }
@@ -359,7 +336,7 @@ class DespachoController {
                 "retorno" => $retorno,
                 "descuento" => $descuento,
                 "tipo_descuento" => $tipo_descuento,
-                "cantidad_descuento" => $cantidad_descuento,
+                "precio_modificado" => $precio_modificado,
                 "nombre" => $nombre,
                 "medida" => $medida,
                 "precio" => $precio,
@@ -394,7 +371,7 @@ class DespachoController {
         $this->detalleDespacho->retorno = 0;
         $this->detalleDespacho->descuento = 0;
         $this->detalleDespacho->tipo_descuento = null;
-        $this->detalleDespacho->cantidad_descuento = 0;
+        $this->detalleDespacho->precio_modificado = 0;
         
         if ($this->detalleDespacho->create()) {
             return [
