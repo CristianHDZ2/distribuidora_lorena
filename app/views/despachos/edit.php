@@ -71,7 +71,9 @@
                             
                             $total_general += $monto;
                         ?>
-                        <tr>
+                        <tr data-usa-formula="<?= $detalle['usa_formula'] ? '1' : '0' ?>" 
+                            data-valor-formula-1="<?= $detalle['valor_formula_1'] ?? '0' ?>" 
+                            data-valor-formula-2="<?= $detalle['valor_formula_2'] ?? '0' ?>">
                             <td><?= $detalle['nombre'] ?> (<?= $detalle['medida'] ?>)</td>
                             <td>$<?= number_format($detalle['precio'], 2) ?></td>
                             <td>
@@ -101,7 +103,7 @@
                                             </div>
                                             <div class="modal-footer">
                                                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
-                                                <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Aplicar</button>
+                                                <button type="button" class="btn btn-primary apply-price" data-bs-dismiss="modal" data-index="<?= $index ?>">Aplicar</button>
                                             </div>
                                         </div>
                                     </div>
@@ -160,7 +162,7 @@
                                             </div>
                                             <div class="modal-footer">
                                                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
-                                                <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Aplicar</button>
+                                                <button type="button" class="btn btn-primary apply-discount" data-bs-dismiss="modal" data-index="<?= $index ?>">Aplicar</button>
                                             </div>
                                         </div>
                                     </div>
@@ -242,6 +244,10 @@ document.addEventListener('DOMContentLoaded', function() {
             const cantidadInput = document.getElementById(`cantidad_precio_modificado_${i}`);
             if (cantidadInput) {
                 cantidadInput.max = totalVendido;
+                // Si la cantidad actual es mayor que el nuevo total vendido, ajustarla
+                if (parseInt(cantidadInput.value) > totalVendido) {
+                    cantidadInput.value = totalVendido;
+                }
             }
             
             // Obtener los datos del producto
@@ -249,16 +255,17 @@ document.addEventListener('DOMContentLoaded', function() {
             const precioModificado = parseFloat(document.getElementsByName(`detalles[${i}][precio_modificado]`)[0].value) || 0;
             const cantidadPrecioModificado = parseInt(document.getElementsByName(`detalles[${i}][cantidad_precio_modificado]`)[0]?.value) || 0;
             
-            let montoTotal = 0;
-            
-            // Verificar si el producto usa fórmula (para productos como "Agua Caída del Cielo")
+            // Verificar si el producto usa fórmula
             const usaFormula = fila.getAttribute('data-usa-formula') === '1';
-            const valorFormula1 = parseFloat(fila.getAttribute('data-valor-formula-1') || 0);
-            const valorFormula2 = parseFloat(fila.getAttribute('data-valor-formula-2') || 0);
+            const valorFormula1 = parseFloat(fila.getAttribute('data-valor-formula-1')) || 0;
+            const valorFormula2 = parseFloat(fila.getAttribute('data-valor-formula-2')) || 0;
+            
+            let montoTotal = 0;
             
             if (usaFormula && valorFormula1 > 0 && valorFormula2 > 0) {
                 // Aplicar fórmula especial: valorFormula1 ÷ valorFormula2 × (Total vendido)
                 montoTotal = (valorFormula1 / valorFormula2) * totalVendido;
+                console.log(`Aplicando fórmula: (${valorFormula1} / ${valorFormula2}) * ${totalVendido} = ${montoTotal}`);
             } else {
                 // Cálculo con precio modificado para una cantidad específica
                 if (precioModificado > 0 && cantidadPrecioModificado > 0) {
@@ -272,9 +279,11 @@ document.addEventListener('DOMContentLoaded', function() {
                     const montoPrecioOriginal = (totalVendido - cantidadEfectiva) * precioOriginal;
                     
                     montoTotal = montoPrecioModificado + montoPrecioOriginal;
+                    console.log(`Precio mixto: (${cantidadEfectiva} * ${precioModificado}) + (${totalVendido - cantidadEfectiva} * ${precioOriginal}) = ${montoTotal}`);
                 } else {
                     // Si no hay precio modificado o cantidad, usar precio original
                     montoTotal = totalVendido * precioOriginal;
+                    console.log(`Precio estándar: ${totalVendido} * ${precioOriginal} = ${montoTotal}`);
                 }
             }
             
@@ -283,14 +292,18 @@ document.addEventListener('DOMContentLoaded', function() {
             const tipoDescuentoP = document.getElementById(`tipo_descuento_p_${i}`);
             const tipoDescuentoD = document.getElementById(`tipo_descuento_d_${i}`);
             
+            let montoDescuento = 0;
             if (descuento > 0) {
                 if (tipoDescuentoP && tipoDescuentoP.checked) {
                     // Descuento porcentual
-                    montoTotal = montoTotal - (montoTotal * (descuento / 100));
+                    montoDescuento = montoTotal * (descuento / 100);
+                    console.log(`Descuento %: ${montoTotal} * (${descuento} / 100) = ${montoDescuento}`);
                 } else if (tipoDescuentoD && tipoDescuentoD.checked) {
                     // Descuento en dinero
-                    montoTotal = montoTotal - descuento;
+                    montoDescuento = descuento;
+                    console.log(`Descuento $: ${descuento}`);
                 }
+                montoTotal = montoTotal - montoDescuento;
             }
             
             // Actualizar el monto total en la interfaz
@@ -336,6 +349,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Eventos para inputs de precio modificado y cantidad
     document.querySelectorAll('[id^="precio_modificado_"]').forEach(input => {
         input.addEventListener('change', actualizarTotales);
+        input.addEventListener('input', actualizarTotales);
     });
     
     document.querySelectorAll('[id^="cantidad_precio_modificado_"]').forEach(input => {
@@ -347,6 +361,30 @@ document.addEventListener('DOMContentLoaded', function() {
                 this.value = totalVendido;
             }
             actualizarTotales();
+        });
+        input.addEventListener('input', actualizarTotales);
+    });
+    
+    // Aplicar cambios de precio cuando se cierra el modal
+    document.querySelectorAll('.apply-price').forEach(button => {
+        button.addEventListener('click', function() {
+            const index = this.getAttribute('data-index');
+            setTimeout(actualizarTotales, 100);
+        });
+    });
+    
+    // Aplicar descuentos cuando se cierra el modal
+    document.querySelectorAll('.apply-discount').forEach(button => {
+        button.addEventListener('click', function() {
+            const index = this.getAttribute('data-index');
+            setTimeout(actualizarTotales, 100);
+        });
+    });
+    
+    // Escuchar eventos de cierre de modal para actualizar totales
+    document.querySelectorAll('.modal').forEach(modal => {
+        modal.addEventListener('hidden.bs.modal', function() {
+            setTimeout(actualizarTotales, 100);
         });
     });
     
