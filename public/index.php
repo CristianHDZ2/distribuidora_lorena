@@ -495,6 +495,54 @@ switch ($controller) {
                         'reporte' => $reporte
                     ]);
                     break;
+                case 'lorena-campos':
+                    $fecha_inicio = isset($_GET['fecha_inicio']) ? $_GET['fecha_inicio'] : date('Y-m-01');
+                    $fecha_fin = isset($_GET['fecha_fin']) ? $_GET['fecha_fin'] : date('Y-m-d');
+                    
+                    // Obtener ID de la categoría Lorena Campos
+                    $categoria = $controller_obj->getCategoriaByNombre('Lorena Campos');
+                    $categoria_id = $categoria ? $categoria['id'] : null;
+                    
+                    if ($categoria_id) {
+                        $reporte = $controller_obj->getReportePorCategoria($categoria_id, $fecha_inicio, $fecha_fin);
+                        
+                        loadView('reportes/lorena-campos', [
+                            'reporte' => $reporte,
+                            'fecha_inicio' => $fecha_inicio,
+                            'fecha_fin' => $fecha_fin
+                        ]);
+                    } else {
+                        $_SESSION['notification'] = [
+                            'message' => 'Categoría "Lorena Campos" no encontrada',
+                            'type' => 'danger'
+                        ];
+                        Utils::redirect(BASE_URL . '/reportes');
+                    }
+                    break;
+                case 'francisco-pineda':
+                    $fecha_inicio = isset($_GET['fecha_inicio']) ? $_GET['fecha_inicio'] : date('Y-m-01');
+                    $fecha_fin = isset($_GET['fecha_fin']) ? $_GET['fecha_fin'] : date('Y-m-d');
+                    
+                    // Obtener ID de la categoría Francisco Pineda
+                    $categoria = $controller_obj->getCategoriaByNombre('Francisco Pineda');
+                    $categoria_id = $categoria ? $categoria['id'] : null;
+                    
+                    if ($categoria_id) {
+                        $reporte = $controller_obj->getReportePorCategoria($categoria_id, $fecha_inicio, $fecha_fin);
+                        
+                        loadView('reportes/francisco-pineda', [
+                            'reporte' => $reporte,
+                            'fecha_inicio' => $fecha_inicio,
+                            'fecha_fin' => $fecha_fin
+                        ]);
+                    } else {
+                        $_SESSION['notification'] = [
+                            'message' => 'Categoría "Francisco Pineda" no encontrada',
+                            'type' => 'danger'
+                        ];
+                        Utils::redirect(BASE_URL . '/reportes');
+                    }
+                    break;
                 default:
                     loadView('errors/404');
                     break;

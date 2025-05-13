@@ -51,45 +51,45 @@ class ReporteController {
     }
     
     // Método para generar reporte por ruta
-public function getReportePorRuta($ruta_id, $fecha_inicio, $fecha_fin) {
-    $query = "SELECT d.id, d.fecha, r.numero_ruta, r.placa_vehiculo,
-                p.nombre, p.medida, p.precio, 
-                dd.salida_am, dd.recarga, dd.retorno, dd.precio_modificado,
-                dd.cantidad_precio_modificado, dd.cantidad_descuento,
-                (dd.salida_am + dd.recarga - dd.retorno) as total_vendido,
-                CASE 
-                    WHEN p.usa_formula = 1 THEN (p.valor_formula_1 / p.valor_formula_2) * (dd.salida_am + dd.recarga - dd.retorno)
-                    ELSE (dd.salida_am + dd.recarga - dd.retorno) * COALESCE(dd.precio_modificado, p.precio)
-                END as total_dinero,
-                dd.descuento, dd.tipo_descuento,
-                CASE 
-                    WHEN dd.tipo_descuento = 'P' THEN dd.descuento * (CASE 
+    public function getReportePorRuta($ruta_id, $fecha_inicio, $fecha_fin) {
+        $query = "SELECT d.id, d.fecha, r.numero_ruta, r.placa_vehiculo,
+                    p.nombre, p.medida, p.precio, 
+                    dd.salida_am, dd.recarga, dd.retorno, dd.precio_modificado,
+                    dd.cantidad_precio_modificado, dd.cantidad_descuento,
+                    (dd.salida_am + dd.recarga - dd.retorno) as total_vendido,
+                    CASE 
                         WHEN p.usa_formula = 1 THEN (p.valor_formula_1 / p.valor_formula_2) * (dd.salida_am + dd.recarga - dd.retorno)
                         ELSE (dd.salida_am + dd.recarga - dd.retorno) * COALESCE(dd.precio_modificado, p.precio)
-                    END) / 100
-                    WHEN dd.tipo_descuento = 'D' THEN dd.descuento
-                    ELSE 0
-                END as monto_descuento
-              FROM despachos d
-              JOIN rutas r ON d.ruta_id = r.id
-              JOIN detalles_despacho dd ON d.id = dd.despacho_id
-              JOIN productos p ON dd.producto_id = p.id
-              WHERE r.id = ? AND d.fecha BETWEEN ? AND ?
-              ORDER BY d.fecha, p.tipo_id, LENGTH(p.medida) DESC, p.medida DESC";
-    
-    $stmt = $this->db->prepare($query);
-    $stmt->bindParam(1, $ruta_id);
-    $stmt->bindParam(2, $fecha_inicio);
-    $stmt->bindParam(3, $fecha_fin);
-    $stmt->execute();
-    
-    $reporte = [];
-    while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-        array_push($reporte, $row);
+                    END as total_dinero,
+                    dd.descuento, dd.tipo_descuento,
+                    CASE 
+                        WHEN dd.tipo_descuento = 'P' THEN dd.descuento * (CASE 
+                            WHEN p.usa_formula = 1 THEN (p.valor_formula_1 / p.valor_formula_2) * (dd.salida_am + dd.recarga - dd.retorno)
+                            ELSE (dd.salida_am + dd.recarga - dd.retorno) * COALESCE(dd.precio_modificado, p.precio)
+                        END) / 100
+                        WHEN dd.tipo_descuento = 'D' THEN dd.descuento
+                        ELSE 0
+                    END as monto_descuento
+                  FROM despachos d
+                  JOIN rutas r ON d.ruta_id = r.id
+                  JOIN detalles_despacho dd ON d.id = dd.despacho_id
+                  JOIN productos p ON dd.producto_id = p.id
+                  WHERE r.id = ? AND d.fecha BETWEEN ? AND ?
+                  ORDER BY d.fecha, p.tipo_id, LENGTH(p.medida) DESC, p.medida DESC";
+        
+        $stmt = $this->db->prepare($query);
+        $stmt->bindParam(1, $ruta_id);
+        $stmt->bindParam(2, $fecha_inicio);
+        $stmt->bindParam(3, $fecha_fin);
+        $stmt->execute();
+        
+        $reporte = [];
+        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+            array_push($reporte, $row);
+        }
+        
+        return $reporte;
     }
-    
-    return $reporte;
-}
     
     // Método para generar reporte de retornos
     public function getReporteRetornos($fecha_inicio, $fecha_fin) {
@@ -136,6 +136,58 @@ public function getReportePorRuta($ruta_id, $fecha_inicio, $fecha_fin) {
             'despacho' => $despacho,
             'detalles' => $detalles
         ];
+    }
+    
+    // Método para generar reporte de ventas por categoría
+    public function getReportePorCategoria($categoria_id, $fecha_inicio, $fecha_fin) {
+        $query = "SELECT d.id, d.fecha, r.numero_ruta, r.placa_vehiculo,
+                    p.nombre, p.medida, p.precio, 
+                    dd.salida_am, dd.recarga, dd.retorno, dd.precio_modificado,
+                    dd.cantidad_precio_modificado, dd.cantidad_descuento,
+                    (dd.salida_am + dd.recarga - dd.retorno) as total_vendido,
+                    CASE 
+                        WHEN p.usa_formula = 1 THEN (p.valor_formula_1 / p.valor_formula_2) * (dd.salida_am + dd.recarga - dd.retorno)
+                        ELSE (dd.salida_am + dd.recarga - dd.retorno) * COALESCE(dd.precio_modificado, p.precio)
+                    END as total_dinero,
+                    dd.descuento, dd.tipo_descuento,
+                    CASE 
+                        WHEN dd.tipo_descuento = 'P' THEN dd.descuento * (CASE 
+                            WHEN p.usa_formula = 1 THEN (p.valor_formula_1 / p.valor_formula_2) * (dd.salida_am + dd.recarga - dd.retorno)
+                            ELSE (dd.salida_am + dd.recarga - dd.retorno) * COALESCE(dd.precio_modificado, p.precio)
+                        END) / 100
+                        WHEN dd.tipo_descuento = 'D' THEN dd.descuento
+                        ELSE 0
+                    END as monto_descuento,
+                    c.nombre as categoria
+                  FROM despachos d
+                  JOIN rutas r ON d.ruta_id = r.id
+                  JOIN detalles_despacho dd ON d.id = dd.despacho_id
+                  JOIN productos p ON dd.producto_id = p.id
+                  JOIN categorias c ON p.categoria_id = c.id
+                  WHERE p.categoria_id = ? AND d.fecha BETWEEN ? AND ?
+                  ORDER BY d.fecha, r.numero_ruta, p.tipo_id, LENGTH(p.medida) DESC, p.medida DESC";
+        
+        $stmt = $this->db->prepare($query);
+        $stmt->bindParam(1, $categoria_id);
+        $stmt->bindParam(2, $fecha_inicio);
+        $stmt->bindParam(3, $fecha_fin);
+        $stmt->execute();
+        
+        $reporte = [];
+        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+            array_push($reporte, $row);
+        }
+        
+        return $reporte;
+    }
+    
+    // Método para obtener una categoría por nombre
+    public function getCategoriaByNombre($nombre) {
+        $query = "SELECT id, nombre FROM categorias WHERE nombre = ?";
+        $stmt = $this->db->prepare($query);
+        $stmt->bindParam(1, $nombre);
+        $stmt->execute();
+        return $stmt->fetch(PDO::FETCH_ASSOC);
     }
 }
 ?>
