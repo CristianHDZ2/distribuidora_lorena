@@ -188,14 +188,15 @@
                                 <input type="hidden" id="monto-valor-<?= $index ?>" value="<?= $monto ?>">
                             </td>
                             <td>
-    <form action="<?= BASE_URL ?>/despachos/eliminar-producto" method="post" class="delete-product-form">
-        <input type="hidden" name="detalle_id" value="<?= $detalle['id'] ?>">
-        <input type="hidden" name="despacho_id" value="<?= $despacho['id'] ?>">
-        <button type="submit" class="btn btn-sm btn-danger" <?= $detalle['salida_am'] > 0 || $detalle['recarga'] > 0 || $detalle['retorno'] > 0 ? 'disabled' : '' ?>>
-            <i class="fas fa-trash"></i>
-        </button>
-    </form>
-</td>
+                                <form action="<?= BASE_URL ?>/despachos/eliminar-producto" method="post" class="delete-product-form" onsubmit="return confirm('¿Está seguro de eliminar este producto?');">
+                                    <input type="hidden" name="action" value="eliminar_producto">
+                                    <input type="hidden" name="detalle_id" value="<?= $detalle['id'] ?>">
+                                    <input type="hidden" name="despacho_id" value="<?= $despacho['id'] ?>">
+                                    <button type="submit" class="btn btn-sm btn-danger" <?= $detalle['salida_am'] > 0 || $detalle['recarga'] > 0 || $detalle['retorno'] > 0 ? 'disabled' : '' ?>>
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </form>
+                            </td>
                         </tr>
                         <?php endforeach; ?>
                     </tbody>
@@ -242,8 +243,24 @@ document.addEventListener('DOMContentLoaded', function() {
     // Prevenir que el formulario principal capture los eventos de formularios de eliminación
     document.querySelectorAll('.delete-product-form').forEach(form => {
         form.addEventListener('submit', function(e) {
-            e.stopPropagation(); // Detener la propagación del evento
+            // Detener la propagación del evento para evitar que el formulario principal lo capture
+            e.stopPropagation();
+            
+            // Asegurarse de que el formulario continúe al confirmar
+            const confirmar = confirm('¿Está seguro de eliminar este producto?');
+            if (!confirmar) {
+                e.preventDefault(); // Prevenir envío si cancela
+            }
         });
+    });
+    
+    // Asegurarse de que el formulario principal no procese eventos de formularios internos
+    document.getElementById('despachoForm').addEventListener('submit', function(e) {
+        // Verificar si el evento se originó desde un formulario de eliminación
+        if (e.target.classList.contains('delete-product-form')) {
+            e.preventDefault(); // Prevenir el envío del formulario principal
+            return false;
+        }
     });
     
     // Función para calcular el total vendido
@@ -544,6 +561,11 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Antes de enviar el formulario, asegurarse que todos los valores están correctamente establecidos
     document.getElementById('despachoForm').addEventListener('submit', function(e) {
+        // No procesar si el evento proviene de un formulario de eliminación
+        if (e.target !== this) {
+            return;
+        }
+        
         // Asegurarnos de que los campos ocultos tienen los valores actualizados
         const filas = document.querySelectorAll('#productosTable tbody tr');
         
