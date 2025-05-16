@@ -188,14 +188,12 @@
                                 <input type="hidden" id="monto-valor-<?= $index ?>" value="<?= $monto ?>">
                             </td>
                             <td>
-                                <form action="<?= BASE_URL ?>/despachos/eliminar-producto" method="post" class="delete-product-form" onsubmit="return confirm('¿Está seguro de eliminar este producto?');">
-                                    <input type="hidden" name="action" value="eliminar_producto">
-                                    <input type="hidden" name="detalle_id" value="<?= $detalle['id'] ?>">
-                                    <input type="hidden" name="despacho_id" value="<?= $despacho['id'] ?>">
-                                    <button type="submit" class="btn btn-sm btn-danger" <?= $detalle['salida_am'] > 0 || $detalle['recarga'] > 0 || $detalle['retorno'] > 0 ? 'disabled' : '' ?>>
-                                        <i class="fas fa-trash"></i>
-                                    </button>
-                                </form>
+                                <button type="button" class="btn btn-sm btn-danger delete-product-btn" 
+                                        data-detalle-id="<?= $detalle['id'] ?>" 
+                                        data-despacho-id="<?= $despacho['id'] ?>"
+                                        <?= $detalle['salida_am'] > 0 || $detalle['recarga'] > 0 || $detalle['retorno'] > 0 ? 'disabled' : '' ?>>
+                                    <i class="fas fa-trash"></i>
+                                </button>
                             </td>
                         </tr>
                         <?php endforeach; ?>
@@ -240,27 +238,47 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Prevenir que el formulario principal capture los eventos de formularios de eliminación
-    document.querySelectorAll('.delete-product-form').forEach(form => {
-        form.addEventListener('submit', function(e) {
-            // Detener la propagación del evento para evitar que el formulario principal lo capture
-            e.stopPropagation();
+    // Manejo de eliminación de productos
+    document.querySelectorAll('.delete-product-btn').forEach(button => {
+        button.addEventListener('click', function(e) {
+            e.preventDefault();
             
-            // Asegurarse de que el formulario continúe al confirmar
-            const confirmar = confirm('¿Está seguro de eliminar este producto?');
-            if (!confirmar) {
-                e.preventDefault(); // Prevenir envío si cancela
+            if (confirm('¿Está seguro de eliminar este producto?')) {
+                const detalleId = this.getAttribute('data-detalle-id');
+                const despachoId = this.getAttribute('data-despacho-id');
+                
+                // Crear formulario dinámicamente
+                const form = document.createElement('form');
+                form.method = 'POST';
+                form.action = '<?= BASE_URL ?>/despachos/eliminar-producto';
+                form.style.display = 'none'; // Ocultar el formulario
+                
+                // Crear campos ocultos
+                const actionInput = document.createElement('input');
+                actionInput.type = 'hidden';
+                actionInput.name = 'action';
+                actionInput.value = 'eliminar_producto';
+                
+                const detalleInput = document.createElement('input');
+                detalleInput.type = 'hidden';
+                detalleInput.name = 'detalle_id';
+                detalleInput.value = detalleId;
+                
+                const despachoInput = document.createElement('input');
+                despachoInput.type = 'hidden';
+                despachoInput.name = 'despacho_id';
+                despachoInput.value = despachoId;
+                
+                // Agregar campos al formulario
+                form.appendChild(actionInput);
+                form.appendChild(detalleInput);
+                form.appendChild(despachoInput);
+                
+                // Agregar formulario al documento y enviarlo
+                document.body.appendChild(form);
+                form.submit();
             }
         });
-    });
-    
-    // Asegurarse de que el formulario principal no procese eventos de formularios internos
-    document.getElementById('despachoForm').addEventListener('submit', function(e) {
-        // Verificar si el evento se originó desde un formulario de eliminación
-        if (e.target.classList.contains('delete-product-form')) {
-            e.preventDefault(); // Prevenir el envío del formulario principal
-            return false;
-        }
     });
     
     // Función para calcular el total vendido
@@ -561,11 +579,6 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Antes de enviar el formulario, asegurarse que todos los valores están correctamente establecidos
     document.getElementById('despachoForm').addEventListener('submit', function(e) {
-        // No procesar si el evento proviene de un formulario de eliminación
-        if (e.target !== this) {
-            return;
-        }
-        
         // Asegurarnos de que los campos ocultos tienen los valores actualizados
         const filas = document.querySelectorAll('#productosTable tbody tr');
         
