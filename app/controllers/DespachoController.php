@@ -407,12 +407,20 @@ class DespachoController {
     
     // Método para eliminar un producto de un despacho
     public function eliminarProducto($detalle_id) {
+    // Registrar la solicitud para depuración
+    error_log("Método eliminarProducto llamado con detalle_id: $detalle_id");
+    
     // Primero, obtener el detalle para verificar si tiene salida_am, recarga o retorno
     $this->detalleDespacho->id = $detalle_id;
     $this->detalleDespacho->readOne();
     
+    // Para depuración - verificar que se está obteniendo correctamente el detalle
+    error_log("Eliminando detalle ID: $detalle_id");
+    error_log("Salida AM: {$this->detalleDespacho->salida_am}, Recarga: {$this->detalleDespacho->recarga}, Retorno: {$this->detalleDespacho->retorno}");
+    
     // Verificar si el producto ya tiene registros
     if ($this->detalleDespacho->salida_am > 0 || $this->detalleDespacho->recarga > 0 || $this->detalleDespacho->retorno > 0) {
+        error_log("No se puede eliminar el producto porque ya tiene registros");
         return [
             'success' => false,
             'message' => 'No se puede eliminar un producto que ya tiene registros'
@@ -421,12 +429,14 @@ class DespachoController {
     
     // Si no tiene registros, proceder con la eliminación
     if ($this->detalleDespacho->delete()) {
+        error_log("Producto eliminado correctamente");
         return [
             'success' => true,
             'message' => 'Producto eliminado correctamente'
         ];
     }
     
+    error_log("Error al eliminar el producto");
     return [
         'success' => false,
         'message' => 'Error al eliminar el producto'

@@ -398,27 +398,48 @@ switch ($controller) {
                     }
                     break;
                 case 'eliminar-producto':
-                    if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action']) && $_POST['action'] === 'eliminar_producto') {
-                        $detalle_id = $_POST['detalle_id'];
-                        $despacho_id = $_POST['despacho_id'];
-                        
-                        $resultado = $controller_obj->eliminarProducto($detalle_id);
-                        if ($resultado['success']) {
-                            $_SESSION['notification'] = [
-                                'message' => $resultado['message'],
-                                'type' => 'success'
-                            ];
-                        } else {
-                            $_SESSION['notification'] = [
-                                'message' => $resultado['message'],
-                                'type' => 'danger'
-                            ];
-                        }
-                        Utils::redirect(BASE_URL . '/despachos/edit/' . $despacho_id);
-                    }
-                    break;
+    if ($_SERVER['REQUEST_METHOD'] == 'POST') {
+        // Añadir registros de depuración
+        error_log("Solicitud de eliminar-producto recibida");
+        error_log("POST data: " . print_r($_POST, true));
         
-    default:
+        // Eliminar la verificación de action que está causando problemas
+        $detalle_id = isset($_POST['detalle_id']) ? $_POST['detalle_id'] : null;
+        $despacho_id = isset($_POST['despacho_id']) ? $_POST['despacho_id'] : null;
+        
+        error_log("detalle_id: $detalle_id, despacho_id: $despacho_id");
+        
+        if (!$detalle_id || !$despacho_id) {
+            $_SESSION['notification'] = [
+                'message' => 'Datos incompletos para eliminar el producto',
+                'type' => 'danger'
+            ];
+            Utils::redirect(BASE_URL . '/despachos');
+            exit;
+        }
+        
+        // Asegurarse de que estamos usando la función correcta
+        $resultado = $controller_obj->eliminarProducto($detalle_id);
+        error_log("Resultado de eliminarProducto: " . print_r($resultado, true));
+        
+        if ($resultado['success']) {
+            $_SESSION['notification'] = [
+                'message' => 'Producto eliminado correctamente',
+                'type' => 'success'
+            ];
+        } else {
+            $_SESSION['notification'] = [
+                'message' => $resultado['message'],
+                'type' => 'danger'
+            ];
+        }
+        
+        // Asegurarse de que siempre redirige a la misma URL
+        Utils::redirect(BASE_URL . '/despachos/edit/' . $despacho_id);
+        exit; // Añadir exit para asegurarse de que no continúa la ejecución
+    }
+    break;
+                default:
                     loadView('errors/404');
                     break;
             }
