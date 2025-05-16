@@ -398,7 +398,7 @@ switch ($controller) {
                     }
                     break;
                 case 'eliminar-producto':
-                    if ($_SERVER['REQUEST_METHOD'] == 'POST') {
+                    if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action']) && $_POST['action'] === 'eliminar_producto') {
                         $detalle_id = $_POST['detalle_id'];
                         $despacho_id = $_POST['despacho_id'];
                         
@@ -417,7 +417,8 @@ switch ($controller) {
                         Utils::redirect(BASE_URL . '/despachos/edit/' . $despacho_id);
                     }
                     break;
-                default:
+        
+    default:
                     loadView('errors/404');
                     break;
             }

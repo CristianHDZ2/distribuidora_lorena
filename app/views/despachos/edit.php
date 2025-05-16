@@ -188,7 +188,8 @@
                                 <input type="hidden" id="monto-valor-<?= $index ?>" value="<?= $monto ?>">
                             </td>
                             <td>
-                                <form action="<?= BASE_URL ?>/despachos/eliminar-producto" method="post">
+                                <form action="<?= BASE_URL ?>/despachos/eliminar-producto" method="post" class="delete-product-form" onsubmit="return confirm('¿Está seguro de eliminar este producto?');">
+                                    <input type="hidden" name="action" value="eliminar_producto">
                                     <input type="hidden" name="detalle_id" value="<?= $detalle['id'] ?>">
                                     <input type="hidden" name="despacho_id" value="<?= $despacho['id'] ?>">
                                     <button type="submit" class="btn btn-sm btn-danger" <?= $detalle['salida_am'] > 0 || $detalle['recarga'] > 0 || $detalle['retorno'] > 0 ? 'disabled' : '' ?>>
@@ -239,6 +240,13 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    // Prevenir que el formulario principal capture los eventos de formularios de eliminación
+    document.querySelectorAll('.delete-product-form').forEach(form => {
+        form.addEventListener('submit', function(e) {
+            e.stopPropagation(); // Detener la propagación del evento
+        });
+    });
+    
     // Función para calcular el total vendido
     function calcularTotalVendido(index) {
         const salidaAm = parseInt(document.getElementsByName(`detalles[${index}][salida_am]`)[0].value) || 0;

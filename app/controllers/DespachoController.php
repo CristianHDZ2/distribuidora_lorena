@@ -407,20 +407,31 @@ class DespachoController {
     
     // Método para eliminar un producto de un despacho
     public function eliminarProducto($detalle_id) {
-        $this->detalleDespacho->id = $detalle_id;
-        
-        if ($this->detalleDespacho->delete()) {
-            return [
-                'success' => true,
-                'message' => 'Producto eliminado correctamente'
-            ];
-        }
-        
+    // Primero, obtener el detalle para verificar si tiene salida_am, recarga o retorno
+    $this->detalleDespacho->id = $detalle_id;
+    $this->detalleDespacho->readOne();
+    
+    // Verificar si el producto ya tiene registros
+    if ($this->detalleDespacho->salida_am > 0 || $this->detalleDespacho->recarga > 0 || $this->detalleDespacho->retorno > 0) {
         return [
             'success' => false,
-            'message' => 'Error al eliminar el producto'
+            'message' => 'No se puede eliminar un producto que ya tiene registros'
         ];
     }
+    
+    // Si no tiene registros, proceder con la eliminación
+    if ($this->detalleDespacho->delete()) {
+        return [
+            'success' => true,
+            'message' => 'Producto eliminado correctamente'
+        ];
+    }
+    
+    return [
+        'success' => false,
+        'message' => 'Error al eliminar el producto'
+    ];
+}
     
     // Método para obtener estadísticas para el dashboard
     public function getEstadisticas() {

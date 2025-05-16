@@ -90,11 +90,11 @@
                                 <td><?= $item['recarga'] ?></td>
                                 <td><?= $item['retorno'] ?></td>
                                 <td><?= $venta ?></td>
-                                <td><?= isset($item['precio_modificado']) && $item['precio_modificado'] > 0 ? '$' . number_format($item['precio_modificado'], 2) : '-' ?></td>
+                                <td><?= isset($item['precio_modificado']) && $item['precio_modificado'] > 0 ? '$' . number_format($item['precio_modificado'], 2) . ' (' . $item['cantidad_precio_modificado'] . ' uds)' : '-' ?></td>
                                 <td>
                                     <?php if (isset($item['descuento']) && $item['descuento'] > 0): ?>
                                         <?= $item['tipo_descuento'] == 'P' ? $item['descuento'] . '%' : '$' . number_format($item['descuento'], 2) ?>
-                                        ($<?= number_format($item['monto_descuento'], 2) ?>)
+                                        (<?= $item['cantidad_descuento'] ?> uds)
                                     <?php else: ?>
                                         -
                                     <?php endif; ?>
@@ -171,10 +171,11 @@
                     <td style="border: 1px solid #ddd; padding: 8px; text-align: right;"><?= $item['recarga'] ?></td>
                     <td style="border: 1px solid #ddd; padding: 8px; text-align: right;"><?= $item['retorno'] ?></td>
                     <td style="border: 1px solid #ddd; padding: 8px; text-align: right;"><?= $print_venta ?></td>
-                    <td style="border: 1px solid #ddd; padding: 8px; text-align: right;"><?= isset($item['precio_modificado']) && $item['precio_modificado'] > 0 ? '$' . number_format($item['precio_modificado'], 2) : '-' ?></td>
+                    <td style="border: 1px solid #ddd; padding: 8px; text-align: right;"><?= isset($item['precio_modificado']) && $item['precio_modificado'] > 0 ? '$' . number_format($item['precio_modificado'], 2) . ' (' . $item['cantidad_precio_modificado'] . ' uds)' : '-' ?></td>
                     <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">
                         <?php if (isset($item['descuento']) && $item['descuento'] > 0): ?>
                             <?= $item['tipo_descuento'] == 'P' ? $item['descuento'] . '%' : '$' . number_format($item['descuento'], 2) ?>
+                            (<?= $item['cantidad_descuento'] ?> uds)
                         <?php else: ?>
                             -
                         <?php endif; ?>
