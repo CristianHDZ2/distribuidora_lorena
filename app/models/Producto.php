@@ -17,39 +17,40 @@ class Producto {
         $this->conn = $db;
     }
     
-    public function create() {
-        $query = "INSERT INTO " . $this->table_name . " 
-                SET nombre=:nombre, medida=:medida, precio=:precio, 
-                    categoria_id=:categoria_id, tipo_id=:tipo_id, 
-                    usa_formula=:usa_formula, valor_formula_1=:valor_formula_1, 
-                    valor_formula_2=:valor_formula_2";
-        
-        $stmt = $this->conn->prepare($query);
-        
-        // Sanitizar datos
-        $this->nombre = htmlspecialchars(strip_tags($this->nombre));
-        $this->medida = htmlspecialchars(strip_tags($this->medida));
-        $this->precio = htmlspecialchars(strip_tags($this->precio));
-        $this->categoria_id = htmlspecialchars(strip_tags($this->categoria_id));
-        $this->tipo_id = htmlspecialchars(strip_tags($this->tipo_id));
-        
-        // Vincular valores
-        $stmt->bindParam(":nombre", $this->nombre);
-        $stmt->bindParam(":medida", $this->medida);
-        $stmt->bindParam(":precio", $this->precio);
-        $stmt->bindParam(":categoria_id", $this->categoria_id);
-        $stmt->bindParam(":tipo_id", $this->tipo_id);
-        $stmt->bindParam(":usa_formula", $this->usa_formula);
-        $stmt->bindParam(":valor_formula_1", $this->valor_formula_1);
-        $stmt->bindParam(":valor_formula_2", $this->valor_formula_2);
-        
-        // Ejecutar query
-        if($stmt->execute()) {
-            return true;
-        }
-        
-        return false;
+    // En el método create() del archivo app/models/Producto.php
+public function create() {
+    $query = "INSERT INTO " . $this->table_name . " 
+            SET nombre=:nombre, medida=:medida, precio=:precio, 
+                categoria_id=:categoria_id, tipo_id=:tipo_id, 
+                usa_formula=:usa_formula, valor_formula_1=:valor_formula_1, 
+                valor_formula_2=:valor_formula_2";
+    
+    $stmt = $this->conn->prepare($query);
+    
+    // Sanitizar datos
+    $this->nombre = htmlspecialchars(strip_tags($this->nombre));
+    $this->medida = htmlspecialchars(strip_tags($this->medida));
+    $this->precio = htmlspecialchars(strip_tags($this->precio));
+    $this->categoria_id = htmlspecialchars(strip_tags($this->categoria_id));
+    $this->tipo_id = htmlspecialchars(strip_tags($this->tipo_id));
+    
+    // Vincular valores
+    $stmt->bindParam(":nombre", $this->nombre);
+    $stmt->bindParam(":medida", $this->medida);
+    $stmt->bindParam(":precio", $this->precio);
+    $stmt->bindParam(":categoria_id", $this->categoria_id);
+    $stmt->bindParam(":tipo_id", $this->tipo_id);
+    $stmt->bindParam(":usa_formula", $this->usa_formula);
+    $stmt->bindParam(":valor_formula_1", $this->valor_formula_1, PDO::PARAM_NULL);
+    $stmt->bindParam(":valor_formula_2", $this->valor_formula_2, PDO::PARAM_NULL);
+    
+    // Ejecutar query
+    if($stmt->execute()) {
+        return true;
     }
+    
+    return false;
+}
     
     public function read() {
         $query = "SELECT p.id, p.nombre, p.medida, p.precio, p.usa_formula, 
@@ -121,42 +122,43 @@ class Producto {
                   $this->valor_formula_2 = $row['valor_formula_2'];
               }
               
-              public function update() {
-                  $query = "UPDATE " . $this->table_name . " 
-                          SET nombre=:nombre, medida=:medida, precio=:precio, 
-                              categoria_id=:categoria_id, tipo_id=:tipo_id, 
-                              usa_formula=:usa_formula, valor_formula_1=:valor_formula_1, 
-                              valor_formula_2=:valor_formula_2 
-                          WHERE id=:id";
-                  
-                  $stmt = $this->conn->prepare($query);
-                  
-                  // Sanitizar datos
-                  $this->nombre = htmlspecialchars(strip_tags($this->nombre));
-                  $this->medida = htmlspecialchars(strip_tags($this->medida));
-                  $this->precio = htmlspecialchars(strip_tags($this->precio));
-                  $this->categoria_id = htmlspecialchars(strip_tags($this->categoria_id));
-                  $this->tipo_id = htmlspecialchars(strip_tags($this->tipo_id));
-                  $this->id = htmlspecialchars(strip_tags($this->id));
-                  
-                  // Vincular valores
-                  $stmt->bindParam(":nombre", $this->nombre);
-                  $stmt->bindParam(":medida", $this->medida);
-                  $stmt->bindParam(":precio", $this->precio);
-                  $stmt->bindParam(":categoria_id", $this->categoria_id);
-                  $stmt->bindParam(":tipo_id", $this->tipo_id);
-                  $stmt->bindParam(":usa_formula", $this->usa_formula);
-                  $stmt->bindParam(":valor_formula_1", $this->valor_formula_1);
-                  $stmt->bindParam(":valor_formula_2", $this->valor_formula_2);
-                  $stmt->bindParam(":id", $this->id);
-                  
-                  // Ejecutar query
-                  if($stmt->execute()) {
-                      return true;
-                  }
-                  
-                  return false;
-              }
+              // En el método update() del archivo app/models/Producto.php
+public function update() {
+    $query = "UPDATE " . $this->table_name . " 
+            SET nombre=:nombre, medida=:medida, precio=:precio, 
+                categoria_id=:categoria_id, tipo_id=:tipo_id, 
+                usa_formula=:usa_formula, valor_formula_1=:valor_formula_1, 
+                valor_formula_2=:valor_formula_2 
+            WHERE id=:id";
+    
+    $stmt = $this->conn->prepare($query);
+    
+    // Sanitizar datos
+    $this->nombre = htmlspecialchars(strip_tags($this->nombre));
+    $this->medida = htmlspecialchars(strip_tags($this->medida));
+    $this->precio = htmlspecialchars(strip_tags($this->precio));
+    $this->categoria_id = htmlspecialchars(strip_tags($this->categoria_id));
+    $this->tipo_id = htmlspecialchars(strip_tags($this->tipo_id));
+    $this->id = htmlspecialchars(strip_tags($this->id));
+    
+    // Vincular valores
+    $stmt->bindParam(":nombre", $this->nombre);
+    $stmt->bindParam(":medida", $this->medida);
+    $stmt->bindParam(":precio", $this->precio);
+    $stmt->bindParam(":categoria_id", $this->categoria_id);
+    $stmt->bindParam(":tipo_id", $this->tipo_id);
+    $stmt->bindParam(":usa_formula", $this->usa_formula);
+    $stmt->bindParam(":valor_formula_1", $this->valor_formula_1, PDO::PARAM_NULL);
+    $stmt->bindParam(":valor_formula_2", $this->valor_formula_2, PDO::PARAM_NULL);
+    $stmt->bindParam(":id", $this->id);
+    
+    // Ejecutar query
+    if($stmt->execute()) {
+        return true;
+    }
+    
+    return false;
+}
               
               public function delete() {
                   $query = "DELETE FROM " . $this->table_name . " WHERE id = ?";

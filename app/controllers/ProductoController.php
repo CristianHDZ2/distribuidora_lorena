@@ -15,24 +15,33 @@ class ProductoController {
     }
     
     // Método para crear un nuevo producto
-    public function create($data) {
-        // Asignar valores
-        $this->producto->nombre = $data['nombre'];
-        $this->producto->medida = $data['medida'];
-        $this->producto->precio = $data['precio'];
-        $this->producto->categoria_id = $data['categoria_id'];
-        $this->producto->tipo_id = $data['tipo_id'];
-        $this->producto->usa_formula = isset($data['usa_formula']) ? 1 : 0;
-        $this->producto->valor_formula_1 = $data['valor_formula_1'] ?? null;
-        $this->producto->valor_formula_2 = $data['valor_formula_2'] ?? null;
-        
-        // Crear el producto
-        if ($this->producto->create()) {
-            return true;
-        }
-        
-        return false;
+    // En el método create() del archivo app/controllers/ProductoController.php
+public function create($data) {
+    // Asignar valores
+    $this->producto->nombre = $data['nombre'];
+    $this->producto->medida = $data['medida'];
+    $this->producto->precio = $data['precio'];
+    $this->producto->categoria_id = $data['categoria_id'];
+    $this->producto->tipo_id = $data['tipo_id'];
+    $this->producto->usa_formula = isset($data['usa_formula']) ? 1 : 0;
+    
+    // Si usa_formula es 0, establecer los valores de fórmula como NULL
+    if ($this->producto->usa_formula == 0) {
+        $this->producto->valor_formula_1 = null;
+        $this->producto->valor_formula_2 = null;
+    } else {
+        // Si usa_formula es 1, asignar los valores de la fórmula o usar valores por defecto
+        $this->producto->valor_formula_1 = !empty($data['valor_formula_1']) ? $data['valor_formula_1'] : null;
+        $this->producto->valor_formula_2 = !empty($data['valor_formula_2']) ? $data['valor_formula_2'] : null;
     }
+    
+    // Crear el producto
+    if ($this->producto->create()) {
+        return true;
+    }
+    
+    return false;
+}
     
     // Método para obtener todos los productos
     public function getAll() {
@@ -105,25 +114,34 @@ class ProductoController {
     }
     
     // Método para actualizar un producto
-    public function update($data) {
-        // Asignar valores
-        $this->producto->id = $data['id'];
-        $this->producto->nombre = $data['nombre'];
-        $this->producto->medida = $data['medida'];
-        $this->producto->precio = $data['precio'];
-        $this->producto->categoria_id = $data['categoria_id'];
-        $this->producto->tipo_id = $data['tipo_id'];
-        $this->producto->usa_formula = isset($data['usa_formula']) ? 1 : 0;
-        $this->producto->valor_formula_1 = $data['valor_formula_1'] ?? null;
-        $this->producto->valor_formula_2 = $data['valor_formula_2'] ?? null;
-        
-        // Actualizar el producto
-        if ($this->producto->update()) {
-            return true;
-        }
-        
-        return false;
+    // En el método update() del archivo app/controllers/ProductoController.php
+public function update($data) {
+    // Asignar valores
+    $this->producto->id = $data['id'];
+    $this->producto->nombre = $data['nombre'];
+    $this->producto->medida = $data['medida'];
+    $this->producto->precio = $data['precio'];
+    $this->producto->categoria_id = $data['categoria_id'];
+    $this->producto->tipo_id = $data['tipo_id'];
+    $this->producto->usa_formula = isset($data['usa_formula']) ? 1 : 0;
+    
+    // Si usa_formula es 0, establecer los valores de fórmula como NULL
+    if ($this->producto->usa_formula == 0) {
+        $this->producto->valor_formula_1 = null;
+        $this->producto->valor_formula_2 = null;
+    } else {
+        // Si usa_formula es 1, asignar los valores de la fórmula o usar valores por defecto
+        $this->producto->valor_formula_1 = !empty($data['valor_formula_1']) ? $data['valor_formula_1'] : null;
+        $this->producto->valor_formula_2 = !empty($data['valor_formula_2']) ? $data['valor_formula_2'] : null;
     }
+    
+    // Actualizar el producto
+    if ($this->producto->update()) {
+        return true;
+    }
+    
+    return false;
+}
     
     // Método para eliminar un producto
     public function delete($id) {
