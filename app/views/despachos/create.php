@@ -1,3 +1,19 @@
+<!-- Al inicio del archivo, antes del HTML -->
+<?php
+// Inicializar productos seleccionados si no está definido
+if (!isset($productos_seleccionados)) {
+    $productos_seleccionados = [];
+}
+?>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>Nuevo Despacho</h1>
+    <a href="<?= BASE_URL ?>/despachos" class="btn btn-secondary">
+        <i class="fas fa-arrow-left"></i> Volver
+    </a>
+</div>
+
+<!-- Resto del código sin cambios -->
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h1>Nuevo Despacho</h1>
     <a href="<?= BASE_URL ?>/despachos" class="btn btn-secondary">
