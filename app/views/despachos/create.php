@@ -15,7 +15,11 @@
             <input type="hidden" name="ruta_id" value="<?= $ruta['id'] ?>">
             
             <div class="alert alert-info">
-                Seleccione los productos para esta ruta:
+                <?php if (!empty($productos_seleccionados)): ?>
+                    Los productos del último despacho han sido preseleccionados. Puede modificar esta selección si es necesario.
+                <?php else: ?>
+                    Seleccione los productos para esta ruta:
+                <?php endif; ?>
             </div>
             
             <div class="table-responsive">
@@ -35,7 +39,7 @@
                         <tr>
                             <td>
                                 <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" id="producto_<?= $producto['id'] ?>" name="productos[]" value="<?= $producto['id'] ?>">
+                                    <input class="form-check-input" type="checkbox" id="producto_<?= $producto['id'] ?>" name="productos[]" value="<?= $producto['id'] ?>" <?= in_array($producto['id'], $productos_seleccionados) ? 'checked' : '' ?>>
                                 </div>
                             </td>
                             <td><?= $producto['nombre'] ?></td>

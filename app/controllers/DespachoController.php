@@ -21,66 +21,104 @@ class DespachoController {
     
     // Método para mostrar el formulario de creación de despacho
     public function createView() {
-        // Obtener parámetros de la URL
-        $ruta_id = isset($_GET['ruta_id']) ? $_GET['ruta_id'] : null;
-        $fecha = isset($_GET['fecha']) ? $_GET['fecha'] : date('Y-m-d');
-        
-        if (!$ruta_id) {
-            // Si no hay ruta_id, redirigir a la página de despachos
-            header("Location: " . BASE_URL . "/despachos");
-            exit;
-        }
-        
-        // Obtener información de la ruta
-        include_once '../app/controllers/RutaController.php';
-        $rutaController = new RutaController();
-        $ruta = $rutaController->getById($ruta_id);
-        
-        // Obtener productos según el tipo de ruta
-        include_once '../app/controllers/ProductoController.php';
-        $productoController = new ProductoController();
-        
-        if ($ruta['exclusivo_big_cola']) {
-            // Si es exclusivo para Big Cola, obtener solo productos de tipo Big Cola (asumiendo que el ID es 1)
-            $productos = $productoController->getByTipoOrAll(1, false); // Big Cola
-        } else {
-            // Si no es exclusivo, obtener todos los productos (Big Cola + Otros Productos)
-            $productos = $productoController->getByTipoOrAll(2, true); // Incluir todos
-        }
-        
-        // Definir el controlador para la plantilla
-        $controller = 'despachos';
-        
-        // Cargar la vista
-        include_once '../app/views/templates/header.php';
-        include_once '../app/views/despachos/create.php';
-        include_once '../app/views/templates/footer.php';
+    // Obtener parámetros de la URL
+    $ruta_id = isset($_GET['ruta_id']) ? $_GET['ruta_id'] : null;
+    $fecha = isset($_GET['fecha']) ? $_GET['fecha'] : date('Y-m-d');
+    
+    if (!$ruta_id) {
+        // Si no hay ruta_id, redirigir a la página de despachos
+        header("Location: " . BASE_URL . "/despachos");
+        exit;
     }
+    
+    // Obtener información de la ruta
+    include_once '../app/controllers/RutaController.php';
+    $rutaController = new RutaController();
+    $ruta = $rutaController->getById($ruta_id);
+    
+    // Obtener productos según el tipo de ruta
+    include_once '../app/controllers/ProductoController.php';
+    $productoController = new ProductoController();
+    
+    if ($ruta['exclusivo_big_cola']) {
+        // Si es exclusivo para Big Cola, obtener solo productos de tipo Big Cola (asumiendo que el ID es 1)
+        $productos = $productoController->getByTipoOrAll(1, false); // Big Cola
+    } else {
+        // Si no es exclusivo, obtener todos los productos (Big Cola + Otros Productos)
+        $productos = $productoController->getByTipoOrAll(2, true); // Incluir todos
+    }
+    
+    // Inicializar el array de productos seleccionados
+    $productos_seleccionados = [];
+    
+    // Buscar el último despacho de esta ruta
+    $ultimo_despacho_id = $this->despacho->getLastDespachoByRuta($ruta_id);
+    
+    if ($ultimo_despacho_id) {
+        // Obtener productos del último despacho
+        $detalles_ultimo = $this->detalleDespacho->readByDespacho($ultimo_despacho_id);
+        while ($detalle = $detalles_ultimo->fetch(PDO::FETCH_ASSOC)) {
+            $productos_seleccionados[] = $detalle['producto_id'];
+        }
+    }
+    
+    // Definir el controlador para la plantilla
+    $controller = 'despachos';
+    
+    // Cargar la vista con todas las variables necesarias
+    include_once '../app/views/templates/header.php';
+    include_once '../app/views/despachos/create.php';
+    include_once '../app/views/templates/footer.php';
+}
     
     // Método para crear un nuevo despacho
     public function create($data) {
-        // Asignar valores al despacho
-        $this->despacho->fecha = $data['fecha'];
-        $this->despacho->ruta_id = $data['ruta_id'];
-        $this->despacho->estado = 'A'; // Activo por defecto
-        
-        // Verificar si ya existe un despacho para esa fecha y ruta
-        if ($this->despacho->existeDespacho($data['fecha'], $data['ruta_id'])) {
-            return [
-                'success' => false,
-                'message' => 'Ya existe un despacho para esta ruta en la fecha seleccionada'
-            ];
-        }
-        
-        // Crear el despacho
-        $despacho_id = $this->despacho->create();
-        
-        if ($despacho_id) {
-            // Procesar los productos
-            if (isset($data['productos'])) {
-                foreach ($data['productos'] as $producto_id) {
+    // Asignar valores al despacho
+    $this->despacho->fecha = $data['fecha'];
+    $this->despacho->ruta_id = $data['ruta_id'];
+    $this->despacho->estado = 'A'; // Activo por defecto
+    
+    // Verificar si ya existe un despacho para esa fecha y ruta
+    if ($this->despacho->existeDespacho($data['fecha'], $data['ruta_id'])) {
+        return [
+            'success' => false,
+            'message' => 'Ya existe un despacho para esta ruta en la fecha seleccionada'
+        ];
+    }
+    
+    // Crear el despacho
+    $despacho_id = $this->despacho->create();
+    
+    if ($despacho_id) {
+        // Procesar los productos
+        if (isset($data['productos']) && !empty($data['productos'])) {
+            // Si se especificaron productos en el formulario, usarlos
+            foreach ($data['productos'] as $producto_id) {
+                $this->detalleDespacho->despacho_id = $despacho_id;
+                $this->detalleDespacho->producto_id = $producto_id;
+                $this->detalleDespacho->salida_am = 0;
+                $this->detalleDespacho->recarga = 0;
+                $this->detalleDespacho->retorno = 0;
+                $this->detalleDespacho->descuento = 0;
+                $this->detalleDespacho->tipo_descuento = null;
+                $this->detalleDespacho->precio_modificado = 0;
+                $this->detalleDespacho->cantidad_precio_modificado = 0;
+                $this->detalleDespacho->cantidad_descuento = 0;
+                
+                $this->detalleDespacho->create();
+            }
+        } else {
+            // Si no se especificaron productos, buscar el último despacho de esta ruta
+            $ultimo_despacho_id = $this->despacho->getLastDespachoByRuta($data['ruta_id']);
+            
+            if ($ultimo_despacho_id && $ultimo_despacho_id != $despacho_id) {
+                // Obtener los productos del último despacho
+                $detalles_ultimo = $this->detalleDespacho->readByDespacho($ultimo_despacho_id);
+                
+                // Agregar los mismos productos al nuevo despacho
+                while ($detalle = $detalles_ultimo->fetch(PDO::FETCH_ASSOC)) {
                     $this->detalleDespacho->despacho_id = $despacho_id;
-                    $this->detalleDespacho->producto_id = $producto_id;
+                    $this->detalleDespacho->producto_id = $detalle['producto_id'];
                     $this->detalleDespacho->salida_am = 0;
                     $this->detalleDespacho->recarga = 0;
                     $this->detalleDespacho->retorno = 0;
@@ -93,71 +131,20 @@ class DespachoController {
                     $this->detalleDespacho->create();
                 }
             }
-            
-            return [
-                'success' => true,
-                'message' => 'Despacho creado correctamente',
-                'despacho_id' => $despacho_id
-            ];
         }
         
         return [
-            'success' => false,
-            'message' => 'Error al crear el despacho'
+            'success' => true,
+            'message' => 'Despacho creado correctamente',
+            'despacho_id' => $despacho_id
         ];
     }
     
-    // Método para procesar el formulario de creación
-    public function store() {
-        // Recoger los datos del formulario
-        $fecha = isset($_POST['fecha']) ? $_POST['fecha'] : null;
-        $ruta_id = isset($_POST['ruta_id']) ? $_POST['ruta_id'] : null;
-        $productos = isset($_POST['productos']) ? $_POST['productos'] : [];
-        
-        if (!$fecha || !$ruta_id) {
-            // Establecer mensaje de error
-            $_SESSION['notification'] = [
-                'type' => 'danger',
-                'message' => 'Datos incompletos. Verifique la información.'
-            ];
-            
-            // Redirigir al formulario
-            header("Location: " . BASE_URL . "/despachos");
-            exit;
-        }
-        
-        // Preparar datos para crear el despacho
-        $data = [
-            'fecha' => $fecha,
-            'ruta_id' => $ruta_id,
-            'productos' => $productos
-        ];
-        
-        // Crear el despacho
-        $result = $this->create($data);
-        
-        if ($result['success']) {
-            // Establecer mensaje de éxito
-            $_SESSION['notification'] = [
-                'type' => 'success',
-                'message' => $result['message']
-            ];
-            
-            // Redirigir a la página de despachos
-            header("Location: " . BASE_URL . "/despachos?fecha=" . $fecha);
-            exit;
-        } else {
-            // Establecer mensaje de error
-            $_SESSION['notification'] = [
-                'type' => 'danger',
-                'message' => $result['message']
-            ];
-            
-            // Redirigir al formulario
-            header("Location: " . BASE_URL . "/despachos/create?ruta_id=" . $ruta_id . "&fecha=" . $fecha);
-            exit;
-        }
-    }
+    return [
+        'success' => false,
+        'message' => 'Error al crear el despacho'
+    ];
+}
     
     // Método para obtener despachos por fecha
     public function getByFecha($fecha) {

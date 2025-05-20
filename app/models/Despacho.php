@@ -48,6 +48,20 @@ class Despacho {
         $stmt->execute();
         return $stmt;
     }
+
+    public function getLastDespachoByRuta($ruta_id) {
+    $query = "SELECT d.id FROM " . $this->table_name . " d
+              WHERE d.ruta_id = ?
+              ORDER BY d.fecha DESC
+              LIMIT 1";
+    
+    $stmt = $this->conn->prepare($query);
+    $stmt->bindParam(1, $ruta_id);
+    $stmt->execute();
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    
+    return $row ? $row['id'] : null;
+}
     
     public function readOne() {
         $query = "SELECT d.id, d.fecha, d.ruta_id, d.estado, r.numero_ruta, r.placa_vehiculo, r.exclusivo_big_cola
