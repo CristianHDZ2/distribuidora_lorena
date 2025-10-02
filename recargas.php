@@ -19,14 +19,10 @@ $recargas_existentes_data = [];
 // Verificar si ya existe una recarga para esta ruta hoy
 if ($ruta_id > 0) {
     $modo_edicion = existeRecarga($conn, $ruta_id, $fecha_hoy);
-    
-    // Verificar si ya hay salida registrada hoy
-    $tiene_salida_hoy = existeSalida($conn, $ruta_id, $fecha_hoy);
-    if ($tiene_salida_hoy) {
-        $mensaje = 'Esta ruta ya tiene una salida registrada para hoy. No se pueden registrar recargas si ya hay salida en el mismo día.';
-        $tipo_mensaje = 'warning';
-    }
 }
+
+// Verificar si puede registrar recargas
+$puede_registrar = $ruta_id > 0 && puedeRegistrarRecarga($conn, $ruta_id, $fecha_hoy);
 
 // Procesar registro/actualización de recargas
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['registrar_recargas'])) {
@@ -34,12 +30,17 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['registrar_recargas']))
     $fecha = $_POST['fecha'];
     $es_edicion = isset($_POST['es_edicion']) && $_POST['es_edicion'] == '1';
     
-    // Validar que no haya salida registrada hoy
-    if (existeSalida($conn, $ruta_id, $fecha)) {
-        $mensaje = 'Error: No se puede registrar recarga porque ya existe una salida para esta ruta en esta fecha';
-        $tipo_mensaje = 'danger';
-    } elseif (!validarFechaHoy($fecha)) {
+    // Validar que sea hoy
+    if (!validarFechaHoy($fecha)) {
         $mensaje = 'Error: Solo se pueden registrar recargas para el día de hoy';
+        $tipo_mensaje = 'danger';
+    } elseif (!puedeRegistrarRecarga($conn, $ruta_id, $fecha)) {
+        // Verificar si ya completó todos los registros del día
+        if (rutaCompletaHoy($conn, $ruta_id, $fecha)) {
+            $mensaje = 'Error: Esta ruta ya completó todos sus registros del día (salida, recarga y retorno). No se pueden hacer más registros para hoy.';
+        } else {
+            $mensaje = 'Error: No se puede registrar recarga en este momento';
+        }
         $tipo_mensaje = 'danger';
     } else {
         $productos = $_POST['productos'] ?? [];
@@ -156,9 +157,6 @@ if ($ruta_id > 0) {
     $stmt->close();
 }
 
-// Verificar si puede registrar recargas
-$puede_registrar = $ruta_id > 0 && !existeSalida($conn, $ruta_id, $fecha_hoy);
-
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -221,7 +219,6 @@ $puede_registrar = $ruta_id > 0 && !existeSalida($conn, $ruta_id, $fecha_hoy);
             </div>
         </div>
     </nav>
-
     <!-- Dashboard Container -->
     <div class="dashboard-container">
         <div class="content-card">
@@ -234,8 +231,15 @@ $puede_registrar = $ruta_id > 0 && !existeSalida($conn, $ruta_id, $fecha_hoy);
             
             <div class="alert alert-info alert-custom">
                 <i class="fas fa-info-circle"></i>
-                <strong>Importante:</strong> Solo se pueden registrar recargas para el día de hoy (<?php echo date('d/m/Y'); ?>). Solo una recarga por ruta al día.
+                <strong>Importante:</strong> 
+                <ul class="mb-0 mt-2">
+                    <li>Solo se pueden registrar recargas para <strong>HOY</strong> (<?php echo date('d/m/Y'); ?>)</li>
+                    <li>Puede registrar 1 recarga por ruta al día</li>
+                    <li>Puede haber salida del día y aún así registrar recarga</li>
+                    <li>Una vez complete salida, recarga y retorno del día, no podrá hacer más registros hasta mañana</li>
+                </ul>
             </div>
+            
             <?php if ($mensaje): ?>
                 <div class="alert alert-<?php echo $tipo_mensaje; ?> alert-custom alert-dismissible fade show">
                     <i class="fas fa-<?php echo $tipo_mensaje == 'success' ? 'check-circle' : 'exclamation-circle'; ?>"></i>
@@ -268,105 +272,112 @@ $puede_registrar = $ruta_id > 0 && !existeSalida($conn, $ruta_id, $fecha_hoy);
                 </div>
             </div>
             
-            <?php if ($ruta_id > 0 && $puede_registrar): ?>
-                <!-- Formulario de Productos -->
-                <form method="POST" id="formRecargas">
-                    <input type="hidden" name="registrar_recargas" value="1">
-                    <input type="hidden" name="ruta_id" value="<?php echo $ruta_id; ?>">
-                    <input type="hidden" name="fecha" value="<?php echo $fecha_hoy; ?>">
-                    <input type="hidden" name="es_edicion" value="<?php echo $modo_edicion ? '1' : '0'; ?>">
-                    
-                    <?php if ($modo_edicion): ?>
-                        <div class="alert alert-warning">
-                            <i class="fas fa-edit"></i>
-                            <strong>Modo Edición:</strong> Ya existe una recarga registrada para esta ruta hoy. Puede modificar las cantidades y guardar los cambios.
-                        </div>
-                    <?php endif; ?>
-                    
-                    <div class="card mb-4">
-                        <div class="card-header bg-success text-white">
-                            <h5 class="mb-0">
-                                <i class="fas fa-box"></i> Productos de <?php echo $nombre_ruta; ?>
-                            </h5>
-                        </div>
-                        <div class="card-body">
-                            <div class="table-responsive">
-                                <table class="table table-bordered">
-                                    <thead class="table-light">
-                                        <tr>
-                                            <th>Producto</th>
-                                            <th width="150">Precio</th>
-                                            <th width="200">Cantidad</th>
-                                            <th width="150">Subtotal</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        <?php 
-                                        $productos_ruta->data_seek(0);
-                                        while ($producto = $productos_ruta->fetch_assoc()): 
-                                            $cantidad_recarga = isset($recargas_existentes_data[$producto['id']]) ? $recargas_existentes_data[$producto['id']] : 0;
-                                            $cantidad_salida = isset($salidas_hoy[$producto['id']]) ? $salidas_hoy[$producto['id']] : 0;
-                                        ?>
+            <?php if ($ruta_id > 0): ?>
+                <?php if (!$puede_registrar): ?>
+                    <div class="alert alert-danger text-center">
+                        <i class="fas fa-ban fa-3x mb-3"></i>
+                        <h5>No se puede registrar recarga</h5>
+                        <?php if (rutaCompletaHoy($conn, $ruta_id, $fecha_hoy)): ?>
+                            <p>Esta ruta ya completó <strong>todos sus registros del día</strong> (salida, recarga y retorno).</p>
+                            <p>No se permiten más registros para hoy. Puede hacer nuevos registros mañana.</p>
+                        <?php else: ?>
+                            <p>No se puede registrar recarga en este momento.</p>
+                        <?php endif; ?>
+                    </div>
+                <?php else: ?>
+                    <!-- Formulario de Productos -->
+                    <form method="POST" id="formRecargas">
+                        <input type="hidden" name="registrar_recargas" value="1">
+                        <input type="hidden" name="ruta_id" value="<?php echo $ruta_id; ?>">
+                        <input type="hidden" name="fecha" value="<?php echo $fecha_hoy; ?>">
+                        <input type="hidden" name="es_edicion" value="<?php echo $modo_edicion ? '1' : '0'; ?>">
+                        
+                        <?php if ($modo_edicion): ?>
+                            <div class="alert alert-warning">
+                                <i class="fas fa-edit"></i>
+                                <strong>Modo Edición:</strong> Ya existe una recarga registrada para esta ruta hoy. Puede modificar las cantidades y guardar los cambios.
+                            </div>
+                        <?php endif; ?>
+                        
+                        <div class="card mb-4">
+                            <div class="card-header bg-success text-white">
+                                <h5 class="mb-0">
+                                    <i class="fas fa-box"></i> Productos de <?php echo $nombre_ruta; ?>
+                                </h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="table-responsive">
+                                    <table class="table table-bordered">
+                                        <thead class="table-light">
                                             <tr>
+                                                <th>Producto</th>
+                                                <th width="150">Precio</th>
+                                                <th width="200">Cantidad</th>
+                                                <th width="150">Subtotal</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <?php 
+                                            $productos_ruta->data_seek(0);
+                                            while ($producto = $productos_ruta->fetch_assoc()): 
+                                                $cantidad_recarga = isset($recargas_existentes_data[$producto['id']]) ? $recargas_existentes_data[$producto['id']] : 0;
+                                                $cantidad_salida = isset($salidas_hoy[$producto['id']]) ? $salidas_hoy[$producto['id']] : 0;
+                                            ?>
+                                                <tr>
+                                                    <td>
+                                                        <strong><?php echo $producto['nombre']; ?></strong>
+                                                        <?php if ($cantidad_salida > 0): ?>
+                                                            <br><small class="text-primary"><i class="fas fa-arrow-up"></i> Salida hoy: <?php echo $cantidad_salida; ?></small>
+                                                        <?php endif; ?>
+                                                    </td>
+                                                    <td class="text-success fw-bold">
+                                                        <?php echo formatearDinero($producto['precio']); ?>
+                                                    </td>
+                                                    <td>
+                                                        <input type="number" 
+                                                               class="form-control cantidad-input" 
+                                                               name="productos[<?php echo $producto['id']; ?>]" 
+                                                               data-precio="<?php echo $producto['precio']; ?>"
+                                                               data-producto-id="<?php echo $producto['id']; ?>"
+                                                               value="<?php echo $cantidad_recarga > 0 ? $cantidad_recarga : ''; ?>"
+                                                               step="0.5" 
+                                                               min="0"
+                                                               placeholder="0"
+                                                               onchange="validarCantidadInput(this); calcularSubtotal(this);"
+                                                               onkeyup="calcularSubtotal(this);">
+                                                        <small class="text-muted">Ejemplo: 1, 2, 0.5, 1.5</small>
+                                                    </td>
+                                                    <td>
+                                                        <span class="subtotal fw-bold text-success" id="subtotal_<?php echo $producto['id']; ?>">
+                                                            <?php echo formatearDinero($cantidad_recarga * $producto['precio']); ?>
+                                                        </span>
+                                                    </td>
+                                                </tr>
+                                            <?php endwhile; ?>
+                                        </tbody>
+                                        <tfoot class="table-light">
+                                            <tr>
+                                                <td colspan="3" class="text-end fw-bold">TOTAL ESTIMADO:</td>
                                                 <td>
-                                                    <strong><?php echo $producto['nombre']; ?></strong>
-                                                    <?php if ($cantidad_salida > 0): ?>
-                                                        <br><small class="text-primary"><i class="fas fa-arrow-up"></i> Salida hoy: <?php echo $cantidad_salida; ?></small>
-                                                    <?php endif; ?>
-                                                </td>
-                                                <td class="text-success fw-bold">
-                                                    <?php echo formatearDinero($producto['precio']); ?>
-                                                </td>
-                                                <td>
-                                                    <input type="number" 
-                                                           class="form-control cantidad-input" 
-                                                           name="productos[<?php echo $producto['id']; ?>]" 
-                                                           data-precio="<?php echo $producto['precio']; ?>"
-                                                           data-producto-id="<?php echo $producto['id']; ?>"
-                                                           value="<?php echo $cantidad_recarga > 0 ? $cantidad_recarga : ''; ?>"
-                                                           step="0.5" 
-                                                           min="0"
-                                                           placeholder="0"
-                                                           onchange="validarCantidadInput(this); calcularSubtotal(this);"
-                                                           onkeyup="calcularSubtotal(this);">
-                                                    <small class="text-muted">Ejemplo: 1, 2, 0.5, 1.5</small>
-                                                </td>
-                                                <td>
-                                                    <span class="subtotal fw-bold text-success" id="subtotal_<?php echo $producto['id']; ?>">
-                                                        <?php echo formatearDinero($cantidad_recarga * $producto['precio']); ?>
-                                                    </span>
+                                                    <span class="fw-bold text-success fs-5" id="total_general">$0.00</span>
                                                 </td>
                                             </tr>
-                                        <?php endwhile; ?>
-                                    </tbody>
-                                    <tfoot class="table-light">
-                                        <tr>
-                                            <td colspan="3" class="text-end fw-bold">TOTAL ESTIMADO:</td>
-                                            <td>
-                                                <span class="fw-bold text-success fs-5" id="total_general">$0.00</span>
-                                            </td>
-                                        </tr>
-                                    </tfoot>
-                                </table>
-                            </div>
-                            
-                            <div class="text-center mt-4">
-                                <button type="submit" class="btn btn-custom-success btn-lg">
-                                    <i class="fas fa-save"></i> <?php echo $modo_edicion ? 'Actualizar Recargas' : 'Registrar Recargas'; ?>
-                                </button>
-                                <a href="recargas.php" class="btn btn-secondary btn-lg">
-                                    <i class="fas fa-times"></i> Cancelar
-                                </a>
+                                        </tfoot>
+                                    </table>
+                                </div>
+                                
+                                <div class="text-center mt-4">
+                                    <button type="submit" class="btn btn-custom-success btn-lg">
+                                        <i class="fas fa-save"></i> <?php echo $modo_edicion ? 'Actualizar Recargas' : 'Registrar Recargas'; ?>
+                                    </button>
+                                    <a href="recargas.php" class="btn btn-secondary btn-lg">
+                                        <i class="fas fa-times"></i> Cancelar
+                                    </a>
+                                </div>
                             </div>
                         </div>
-                    </div>
-                </form>
-            <?php elseif ($ruta_id > 0 && !$puede_registrar): ?>
-                <div class="alert alert-danger text-center">
-                    <i class="fas fa-ban fa-3x mb-3"></i>
-                    <h5>No se puede registrar recarga</h5>
-                    <p>Esta ruta ya tiene una <strong>salida</strong> registrada para hoy. No se permiten recargas si ya existe una salida en el mismo día.</p>
-                </div>
+                    </form>
+                <?php endif; ?>
             <?php else: ?>
                 <div class="alert alert-warning text-center">
                     <i class="fas fa-route fa-3x mb-3"></i>
@@ -375,7 +386,6 @@ $puede_registrar = $ruta_id > 0 && !existeSalida($conn, $ruta_id, $fecha_hoy);
             <?php endif; ?>
         </div>
     </div>
-
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         function cambiarRuta() {

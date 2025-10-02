@@ -27,9 +27,17 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['registrar_salidas'])) 
     $fecha = $_POST['fecha'];
     $es_edicion = isset($_POST['es_edicion']) && $_POST['es_edicion'] == '1';
     
-    // Validar fecha (hoy, mañana o futuro)
+    // Validar fecha (no permitir ayer o antes)
     if (!validarFechaSalida($fecha)) {
-        $mensaje = 'Error: Solo se pueden registrar salidas para hoy o fechas futuras';
+        $mensaje = 'Error: No se pueden registrar salidas para fechas pasadas (ayer o antes)';
+        $tipo_mensaje = 'danger';
+    } elseif (!puedeRegistrarSalida($conn, $ruta_id, $fecha)) {
+        // Verificar si es porque ya completó hoy
+        if ($fecha === date('Y-m-d') && rutaCompletaHoy($conn, $ruta_id, $fecha)) {
+            $mensaje = 'Error: Esta ruta ya completó todos sus registros del día (salida, recarga y retorno). No se pueden hacer más registros para hoy.';
+        } else {
+            $mensaje = 'Error: Ya existe una salida registrada para esta ruta en esta fecha';
+        }
         $tipo_mensaje = 'danger';
     } else {
         $productos = $_POST['productos'] ?? [];
@@ -96,8 +104,12 @@ $rutas = $conn->query("SELECT * FROM rutas WHERE activo = 1 ORDER BY id");
 // Si hay una ruta seleccionada, obtener sus productos y salidas existentes
 $productos_ruta = [];
 $nombre_ruta = '';
+$puede_registrar = false;
 
-if ($ruta_id > 0) {
+if ($ruta_id > 0 && !empty($fecha_seleccionada)) {
+    // Verificar si puede registrar
+    $puede_registrar = puedeRegistrarSalida($conn, $ruta_id, $fecha_seleccionada);
+    
     // Obtener nombre de la ruta
     $stmt = $conn->prepare("SELECT nombre FROM rutas WHERE id = ? AND activo = 1");
     $stmt->bind_param("i", $ruta_id);
@@ -122,18 +134,16 @@ if ($ruta_id > 0) {
     $productos_ruta = $stmt->get_result();
     $stmt->close();
     
-    // Si hay una fecha seleccionada, obtener salidas existentes
-    if (!empty($fecha_seleccionada)) {
-        $stmt = $conn->prepare("SELECT producto_id, SUM(cantidad) as total FROM salidas WHERE ruta_id = ? AND fecha = ? GROUP BY producto_id");
-        $stmt->bind_param("is", $ruta_id, $fecha_seleccionada);
-        $stmt->execute();
-        $result = $stmt->get_result();
-        
-        while ($row = $result->fetch_assoc()) {
-            $salidas_existentes[$row['producto_id']] = $row['total'];
-        }
-        $stmt->close();
+    // Obtener salidas existentes
+    $stmt = $conn->prepare("SELECT producto_id, SUM(cantidad) as total FROM salidas WHERE ruta_id = ? AND fecha = ? GROUP BY producto_id");
+    $stmt->bind_param("is", $ruta_id, $fecha_seleccionada);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    
+    while ($row = $result->fetch_assoc()) {
+        $salidas_existentes[$row['producto_id']] = $row['total'];
     }
+    $stmt->close();
 }
 
 ?>
@@ -198,20 +208,25 @@ if ($ruta_id > 0) {
             </div>
         </div>
     </nav>
-
     <!-- Dashboard Container -->
     <div class="dashboard-container">
         <div class="content-card">
             <h1 class="page-title">
                 <i class="fas fa-arrow-up"></i> Registro de Salidas
-                <?php if ($modo_edicion): ?>
+                <?php if ($modo_edicion && $puede_registrar): ?>
                     <span class="badge bg-warning text-dark">Modo Edición</span>
                 <?php endif; ?>
             </h1>
             
             <div class="alert alert-info alert-custom">
                 <i class="fas fa-info-circle"></i>
-                <strong>Importante:</strong> Se pueden registrar salidas para hoy, mañana o fechas futuras. Solo se permite una salida por ruta al día.
+                <strong>Importante:</strong> 
+                <ul class="mb-0 mt-2">
+                    <li><strong>HOY:</strong> Puede registrar 1 salida, 1 recarga y 1 retorno por ruta</li>
+                    <li><strong>MAÑANA o FUTURO:</strong> Solo puede registrar 1 salida por ruta</li>
+                    <li><strong>AYER:</strong> No se permiten registros de fechas pasadas</li>
+                    <li>Cuando complete salida, recarga y retorno para hoy, no podrá hacer más registros hasta mañana</li>
+                </ul>
             </div>
             
             <?php if ($mensaje): ?>
@@ -246,95 +261,109 @@ if ($ruta_id > 0) {
                     <small class="text-muted">Se permiten fechas desde hoy en adelante</small>
                 </div>
             </div>
+            
             <?php if ($ruta_id > 0 && !empty($fecha_seleccionada)): ?>
-                <!-- Formulario de Productos -->
-                <form method="POST" id="formSalidas">
-                    <input type="hidden" name="registrar_salidas" value="1">
-                    <input type="hidden" name="ruta_id" value="<?php echo $ruta_id; ?>">
-                    <input type="hidden" name="fecha" value="<?php echo $fecha_seleccionada; ?>">
-                    <input type="hidden" name="es_edicion" value="<?php echo $modo_edicion ? '1' : '0'; ?>">
-                    
-                    <?php if ($modo_edicion): ?>
-                        <div class="alert alert-warning">
-                            <i class="fas fa-edit"></i>
-                            <strong>Modo Edición:</strong> Ya existe una salida registrada para esta ruta en esta fecha. Puede modificar las cantidades y guardar los cambios.
-                        </div>
-                    <?php endif; ?>
-                    
-                    <div class="card mb-4">
-                        <div class="card-header bg-primary text-white">
-                            <h5 class="mb-0">
-                                <i class="fas fa-box"></i> Productos de <?php echo $nombre_ruta; ?>
-                            </h5>
-                        </div>
-                        <div class="card-body">
-                            <div class="table-responsive">
-                                <table class="table table-bordered">
-                                    <thead class="table-light">
-                                        <tr>
-                                            <th>Producto</th>
-                                            <th width="150">Precio</th>
-                                            <th width="200">Cantidad</th>
-                                            <th width="150">Subtotal</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        <?php 
-                                        $productos_ruta->data_seek(0);
-                                        while ($producto = $productos_ruta->fetch_assoc()): 
-                                            $cantidad_existente = isset($salidas_existentes[$producto['id']]) ? $salidas_existentes[$producto['id']] : 0;
-                                        ?>
+                <?php if (!$puede_registrar): ?>
+                    <div class="alert alert-danger text-center">
+                        <i class="fas fa-ban fa-3x mb-3"></i>
+                        <h5>No se puede registrar salida</h5>
+                        <?php if ($fecha_seleccionada === date('Y-m-d') && rutaCompletaHoy($conn, $ruta_id, $fecha_seleccionada)): ?>
+                            <p>Esta ruta ya completó <strong>todos sus registros del día</strong> (salida, recarga y retorno).</p>
+                            <p>No se permiten más registros para hoy. Puede registrar salidas para mañana o fechas futuras.</p>
+                        <?php else: ?>
+                            <p>Ya existe una salida registrada para esta ruta en esta fecha.</p>
+                        <?php endif; ?>
+                    </div>
+                <?php else: ?>
+                    <!-- Formulario de Productos -->
+                    <form method="POST" id="formSalidas">
+                        <input type="hidden" name="registrar_salidas" value="1">
+                        <input type="hidden" name="ruta_id" value="<?php echo $ruta_id; ?>">
+                        <input type="hidden" name="fecha" value="<?php echo $fecha_seleccionada; ?>">
+                        <input type="hidden" name="es_edicion" value="<?php echo $modo_edicion ? '1' : '0'; ?>">
+                        
+                        <?php if ($modo_edicion): ?>
+                            <div class="alert alert-warning">
+                                <i class="fas fa-edit"></i>
+                                <strong>Modo Edición:</strong> Ya existe una salida registrada para esta ruta en esta fecha. Puede modificar las cantidades y guardar los cambios.
+                            </div>
+                        <?php endif; ?>
+                        
+                        <div class="card mb-4">
+                            <div class="card-header bg-primary text-white">
+                                <h5 class="mb-0">
+                                    <i class="fas fa-box"></i> Productos de <?php echo $nombre_ruta; ?>
+                                </h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="table-responsive">
+                                    <table class="table table-bordered">
+                                        <thead class="table-light">
                                             <tr>
+                                                <th>Producto</th>
+                                                <th width="150">Precio</th>
+                                                <th width="200">Cantidad</th>
+                                                <th width="150">Subtotal</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <?php 
+                                            $productos_ruta->data_seek(0);
+                                            while ($producto = $productos_ruta->fetch_assoc()): 
+                                                $cantidad_existente = isset($salidas_existentes[$producto['id']]) ? $salidas_existentes[$producto['id']] : 0;
+                                            ?>
+                                                <tr>
+                                                    <td>
+                                                        <strong><?php echo $producto['nombre']; ?></strong>
+                                                    </td>
+                                                    <td class="text-success fw-bold">
+                                                        <?php echo formatearDinero($producto['precio']); ?>
+                                                    </td>
+                                                    <td>
+                                                        <input type="number" 
+                                                               class="form-control cantidad-input" 
+                                                               name="productos[<?php echo $producto['id']; ?>]" 
+                                                               data-precio="<?php echo $producto['precio']; ?>"
+                                                               data-producto-id="<?php echo $producto['id']; ?>"
+                                                               value="<?php echo $cantidad_existente > 0 ? $cantidad_existente : ''; ?>"
+                                                               step="0.5" 
+                                                               min="0"
+                                                               placeholder="0"
+                                                               onchange="validarCantidadInput(this); calcularSubtotal(this);"
+                                                               onkeyup="calcularSubtotal(this);">
+                                                        <small class="text-muted">Ejemplo: 1, 2, 0.5, 1.5</small>
+                                                    </td>
+                                                    <td>
+                                                        <span class="subtotal fw-bold text-primary" id="subtotal_<?php echo $producto['id']; ?>">
+                                                            <?php echo formatearDinero($cantidad_existente * $producto['precio']); ?>
+                                                        </span>
+                                                    </td>
+                                                </tr>
+                                            <?php endwhile; ?>
+                                        </tbody>
+                                        <tfoot class="table-light">
+                                            <tr>
+                                                <td colspan="3" class="text-end fw-bold">TOTAL ESTIMADO:</td>
                                                 <td>
-                                                    <strong><?php echo $producto['nombre']; ?></strong>
-                                                </td>
-                                                <td class="text-success fw-bold">
-                                                    <?php echo formatearDinero($producto['precio']); ?>
-                                                </td>
-                                                <td>
-                                                    <input type="number" 
-                                                           class="form-control cantidad-input" 
-                                                           name="productos[<?php echo $producto['id']; ?>]" 
-                                                           data-precio="<?php echo $producto['precio']; ?>"
-                                                           data-producto-id="<?php echo $producto['id']; ?>"
-                                                           value="<?php echo $cantidad_existente > 0 ? $cantidad_existente : ''; ?>"
-                                                           step="0.5" 
-                                                           min="0"
-                                                           placeholder="0"
-                                                           onchange="validarCantidadInput(this); calcularSubtotal(this);"
-                                                           onkeyup="calcularSubtotal(this);">
-                                                    <small class="text-muted">Ejemplo: 1, 2, 0.5, 1.5</small>
-                                                </td>
-                                                <td>
-                                                    <span class="subtotal fw-bold text-primary" id="subtotal_<?php echo $producto['id']; ?>">
-                                                        <?php echo formatearDinero($cantidad_existente * $producto['precio']); ?>
-                                                    </span>
+                                                    <span class="fw-bold text-success fs-5" id="total_general">$0.00</span>
                                                 </td>
                                             </tr>
-                                        <?php endwhile; ?>
-                                    </tbody>
-                                    <tfoot class="table-light">
-                                        <tr>
-                                            <td colspan="3" class="text-end fw-bold">TOTAL ESTIMADO:</td>
-                                            <td>
-                                                <span class="fw-bold text-success fs-5" id="total_general">$0.00</span>
-                                            </td>
-                                        </tr>
-                                    </tfoot>
-                                </table>
-                            </div>
-                            
-                            <div class="text-center mt-4">
-                                <button type="submit" class="btn btn-custom-success btn-lg">
-                                    <i class="fas fa-save"></i> <?php echo $modo_edicion ? 'Actualizar Salidas' : 'Registrar Salidas'; ?>
-                                </button>
-                                <a href="salidas.php" class="btn btn-secondary btn-lg">
-                                    <i class="fas fa-times"></i> Cancelar
-                                </a>
+                                        </tfoot>
+                                    </table>
+                                </div>
+                                
+                                <div class="text-center mt-4">
+                                    <button type="submit" class="btn btn-custom-success btn-lg">
+                                        <i class="fas fa-save"></i> <?php echo $modo_edicion ? 'Actualizar Salidas' : 'Registrar Salidas'; ?>
+                                    </button>
+                                    <a href="salidas.php" class="btn btn-secondary btn-lg">
+                                        <i class="fas fa-times"></i> Cancelar
+                                    </a>
+                                </div>
                             </div>
                         </div>
-                    </div>
-                </form>
+                    </form>
+                <?php endif; ?>
             <?php elseif ($ruta_id > 0 && empty($fecha_seleccionada)): ?>
                 <div class="alert alert-warning text-center">
                     <i class="fas fa-calendar-alt fa-3x mb-3"></i>
@@ -348,7 +377,6 @@ if ($ruta_id > 0) {
             <?php endif; ?>
         </div>
     </div>
-
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         function cambiarRuta() {
