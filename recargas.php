@@ -17,6 +17,7 @@ $fecha_hoy = date('Y-m-d');
 // Variable para modo edición
 $modo_edicion = false;
 $recargas_existentes_data = [];
+$precios_unitarios_usados = [];
 
 // Verificar si ya existe una recarga para esta ruta hoy
 if ($ruta_id > 0) {
@@ -46,6 +47,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['registrar_recargas']))
         $tipo_mensaje = 'danger';
     } else {
         $productos = $_POST['productos'] ?? [];
+        $precios_unitarios = $_POST['usar_precio_unitario'] ?? [];
         $errores = [];
         $registros_exitosos = 0;
         
@@ -63,15 +65,19 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['registrar_recargas']))
             // Insertar nuevas recargas
             foreach ($productos as $producto_id => $cantidad) {
                 if (!empty($cantidad) && $cantidad > 0) {
-                    // Validar cantidad
-                    if (!validarCantidad($cantidad)) {
-                        throw new Exception("Cantidad inválida para producto ID $producto_id");
+                    // Verificar si se marcó precio unitario para este producto
+                    $usa_precio_unitario = isset($precios_unitarios[$producto_id]) ? 1 : 0;
+                    
+                    // Validar cantidad según tipo de precio
+                    if (!validarCantidad($cantidad, $usa_precio_unitario)) {
+                        $tipo_texto = $usa_precio_unitario ? 'precio unitario (solo enteros)' : 'precio por caja (enteros o .5)';
+                        throw new Exception("Cantidad inválida para producto ID $producto_id. Use $tipo_texto");
                     }
                     
                     // Insertar recarga
-                    $stmt = $conn->prepare("INSERT INTO recargas (ruta_id, producto_id, cantidad, fecha, usuario_id) VALUES (?, ?, ?, ?, ?)");
+                    $stmt = $conn->prepare("INSERT INTO recargas (ruta_id, producto_id, cantidad, usa_precio_unitario, fecha, usuario_id) VALUES (?, ?, ?, ?, ?, ?)");
                     $usuario_id = $_SESSION['usuario_id'];
-                    $stmt->bind_param("iidsi", $ruta_id, $producto_id, $cantidad, $fecha, $usuario_id);
+                    $stmt->bind_param("iidisi", $ruta_id, $producto_id, $cantidad, $usa_precio_unitario, $fecha, $usuario_id);
                     
                     if ($stmt->execute()) {
                         $registros_exitosos++;
@@ -122,39 +128,31 @@ if ($ruta_id > 0) {
     }
     $stmt->close();
     
-    // Determinar qué tipo de productos mostrar según la ruta
-    if ($ruta_id == 5) {
-        $tipo_producto = 'Big Cola';
-    } else {
-        $tipo_producto = 'Varios';
-    }
+    // Obtener productos para esta ruta (incluye tipo "Ambos")
+    $productos_ruta = obtenerProductosParaRuta($conn, $ruta_id);
     
-    // Obtener productos según el tipo
-    $stmt = $conn->prepare("SELECT * FROM productos WHERE tipo = ? AND activo = 1 ORDER BY nombre");
-    $stmt->bind_param("s", $tipo_producto);
-    $stmt->execute();
-    $productos_ruta = $stmt->get_result();
-    $stmt->close();
-    
-    // Obtener recargas existentes del día
-    $stmt = $conn->prepare("SELECT producto_id, SUM(cantidad) as total FROM recargas WHERE ruta_id = ? AND fecha = ? GROUP BY producto_id");
+    // Obtener recargas existentes del día con información de precio unitario
+    $stmt = $conn->prepare("SELECT producto_id, SUM(cantidad) as total, MAX(usa_precio_unitario) as usa_unitario FROM recargas WHERE ruta_id = ? AND fecha = ? GROUP BY producto_id");
     $stmt->bind_param("is", $ruta_id, $fecha_hoy);
     $stmt->execute();
     $result = $stmt->get_result();
     
     while ($row = $result->fetch_assoc()) {
         $recargas_existentes_data[$row['producto_id']] = $row['total'];
+        $precios_unitarios_usados[$row['producto_id']] = (bool)$row['usa_unitario'];
     }
     $stmt->close();
     
-    // Obtener salidas del día de hoy (para referencia)
-    $stmt = $conn->prepare("SELECT producto_id, SUM(cantidad) as total FROM salidas WHERE ruta_id = ? AND fecha = ? GROUP BY producto_id");
+    // Obtener salidas del día de hoy (para referencia) con información de precio unitario
+    $stmt = $conn->prepare("SELECT producto_id, SUM(cantidad) as total, MAX(usa_precio_unitario) as usa_unitario FROM salidas WHERE ruta_id = ? AND fecha = ? GROUP BY producto_id");
     $stmt->bind_param("is", $ruta_id, $fecha_hoy);
     $stmt->execute();
     $result = $stmt->get_result();
     
+    $salidas_precio_unitario = [];
     while ($row = $result->fetch_assoc()) {
         $salidas_hoy[$row['producto_id']] = $row['total'];
+        $salidas_precio_unitario[$row['producto_id']] = (bool)$row['usa_unitario'];
     }
     $stmt->close();
 }
@@ -169,6 +167,76 @@ if ($ruta_id > 0) {
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="assets/css/custom.css">
+    <style>
+        .precio-unitario-switch {
+            background: #fff3cd;
+            padding: 10px;
+            border-radius: 5px;
+            border-left: 3px solid #f39c12;
+        }
+        
+        .precio-unitario-switch.active {
+            background: #d4edda;
+            border-left-color: #28a745;
+        }
+        
+        .precio-unitario-switch.heredado {
+            background: #e7f3ff;
+            border-left-color: #007bff;
+        }
+        
+        .precio-actual {
+            font-weight: 700;
+            color: #27ae60;
+            font-size: 14px;
+        }
+        
+        .precio-actual.unitario {
+            color: #f39c12;
+        }
+        
+        .form-check-input:checked {
+            background-color: #28a745;
+            border-color: #28a745;
+        }
+        
+        .form-check-input:disabled {
+            background-color: #007bff;
+            border-color: #007bff;
+            opacity: 0.8;
+        }
+        
+        .badge-precio-tipo {
+            font-size: 10px;
+            padding: 3px 8px;
+            border-radius: 10px;
+            margin-left: 5px;
+        }
+        
+        .badge-caja {
+            background: #27ae60;
+            color: white;
+        }
+        
+        .badge-unitario {
+            background: #f39c12;
+            color: white;
+        }
+        
+        .badge-heredado {
+            background: #007bff;
+            color: white;
+        }
+        
+        .info-heredado {
+            background: #cfe2ff;
+            border: 1px solid #9ec5fe;
+            border-radius: 5px;
+            padding: 8px;
+            margin-top: 5px;
+            font-size: 11px;
+        }
+    </style>
 </head>
 <body>
     <!-- Navbar -->
@@ -238,6 +306,7 @@ if ($ruta_id > 0) {
                     <li><strong>RECARGAS:</strong> Solo se pueden registrar para <strong>HOY</strong> (<?php echo date('d/m/Y'); ?>)</li>
                     <li>Puede registrar 1 recarga por ruta al día</li>
                     <li>Puede haber salida del día y aún así registrar recarga</li>
+                    <li><strong>PRECIO AUTOMÁTICO:</strong> Si usó precio unitario en salida, aquí se mantendrá automáticamente</li>
                     <li>Una vez complete salida, recarga y retorno del día, no podrá hacer más registros hasta mañana</li>
                 </ul>
             </div>
@@ -312,9 +381,10 @@ if ($ruta_id > 0) {
                                         <thead class="table-light">
                                             <tr>
                                                 <th>Producto</th>
-                                                <th width="150">Precio</th>
-                                                <th width="200">Cantidad</th>
-                                                <th width="150">Subtotal</th>
+                                                <th width="120" class="text-center">Precio</th>
+                                                <th width="180" class="text-center">Tipo Precio</th>
+                                                <th width="180">Cantidad</th>
+                                                <th width="130" class="text-center">Subtotal</th>
                                             </tr>
                                         </thead>
                                         <tbody>
@@ -323,6 +393,11 @@ if ($ruta_id > 0) {
                                             while ($producto = $productos_ruta->fetch_assoc()): 
                                                 $cantidad_recarga = isset($recargas_existentes_data[$producto['id']]) ? $recargas_existentes_data[$producto['id']] : 0;
                                                 $cantidad_salida = isset($salidas_hoy[$producto['id']]) ? $salidas_hoy[$producto['id']] : 0;
+                                                $tiene_precio_unitario = $producto['precio_unitario'] !== null;
+                                                
+                                                // Determinar si hereda precio unitario de salida
+                                                $hereda_unitario = isset($salidas_precio_unitario[$producto['id']]) && $salidas_precio_unitario[$producto['id']];
+                                                $usa_unitario_recarga = isset($precios_unitarios_usados[$producto['id']]) ? $precios_unitarios_usados[$producto['id']] : $hereda_unitario;
                                             ?>
                                                 <tr>
                                                     <td>
@@ -330,27 +405,91 @@ if ($ruta_id > 0) {
                                                         <?php if ($cantidad_salida > 0): ?>
                                                             <br><small class="text-primary"><i class="fas fa-arrow-up"></i> Salida hoy: <?php echo $cantidad_salida; ?></small>
                                                         <?php endif; ?>
+                                                        <br>
+                                                        <small class="text-muted">
+                                                            Caja: <?php echo formatearDinero($producto['precio_caja']); ?>
+                                                            <?php if ($tiene_precio_unitario): ?>
+                                                                | Unitario: <?php echo formatearDinero($producto['precio_unitario']); ?>
+                                                            <?php endif; ?>
+                                                        </small>
                                                     </td>
-                                                    <td class="text-success fw-bold">
-                                                        <?php echo formatearDinero($producto['precio']); ?>
+                                                    <td class="text-center">
+                                                        <span class="precio-actual <?php echo $usa_unitario_recarga ? 'unitario' : ''; ?>" 
+                                                              id="precio_display_<?php echo $producto['id']; ?>" 
+                                                              data-precio-caja="<?php echo $producto['precio_caja']; ?>"
+                                                              data-precio-unitario="<?php echo $producto['precio_unitario'] ?? 0; ?>">
+                                                            <?php 
+                                                            $precio_mostrar = $usa_unitario_recarga && $tiene_precio_unitario ? $producto['precio_unitario'] : $producto['precio_caja'];
+                                                            echo formatearDinero($precio_mostrar); 
+                                                            ?>
+                                                        </span>
+                                                        <br>
+                                                        <span class="badge badge-precio-tipo <?php 
+                                                            echo $hereda_unitario ? 'badge-heredado' : ($usa_unitario_recarga ? 'badge-unitario' : 'badge-caja'); 
+                                                        ?>" 
+                                                              id="badge_tipo_<?php echo $producto['id']; ?>">
+                                                            <?php 
+                                                            if ($hereda_unitario) {
+                                                                echo 'HEREDADO';
+                                                            } else {
+                                                                echo $usa_unitario_recarga ? 'UNITARIO' : 'CAJA';
+                                                            }
+                                                            ?>
+                                                        </span>
+                                                    </td>
+                                                    <td class="text-center">
+                                                        <?php if ($tiene_precio_unitario): ?>
+                                                            <div class="precio-unitario-switch <?php 
+                                                                echo $hereda_unitario ? 'heredado' : ($usa_unitario_recarga ? 'active' : ''); 
+                                                            ?>" 
+                                                                 id="switch_container_<?php echo $producto['id']; ?>">
+                                                                <div class="form-check form-switch">
+                                                                    <input class="form-check-input" 
+                                                                           type="checkbox" 
+                                                                           name="usar_precio_unitario[<?php echo $producto['id']; ?>]"
+                                                                           id="switch_<?php echo $producto['id']; ?>"
+                                                                           data-producto-id="<?php echo $producto['id']; ?>"
+                                                                           onchange="cambiarTipoPrecio(<?php echo $producto['id']; ?>)"
+                                                                           <?php echo $usa_unitario_recarga ? 'checked' : ''; ?>
+                                                                           <?php echo $hereda_unitario ? 'disabled' : ''; ?>>
+                                                                    <label class="form-check-label" for="switch_<?php echo $producto['id']; ?>">
+                                                                        <small><strong>Precio Unitario</strong></small>
+                                                                    </label>
+                                                                </div>
+                                                                <?php if ($hereda_unitario): ?>
+                                                                    <div class="info-heredado">
+                                                                        <i class="fas fa-info-circle"></i> Heredado de salida
+                                                                    </div>
+                                                                    <!-- Campo oculto para mantener el estado heredado -->
+                                                                    <input type="hidden" name="usar_precio_unitario[<?php echo $producto['id']; ?>]" value="1">
+                                                                <?php endif; ?>
+                                                            </div>
+                                                        <?php else: ?>
+                                                            <small class="text-muted">Solo por caja</small>
+                                                        <?php endif; ?>
                                                     </td>
                                                     <td>
                                                         <input type="number" 
                                                                class="form-control cantidad-input" 
                                                                name="productos[<?php echo $producto['id']; ?>]" 
-                                                               data-precio="<?php echo $producto['precio']; ?>"
+                                                               id="cantidad_<?php echo $producto['id']; ?>"
                                                                data-producto-id="<?php echo $producto['id']; ?>"
                                                                value="<?php echo $cantidad_recarga > 0 ? $cantidad_recarga : ''; ?>"
-                                                               step="0.5" 
+                                                               step="<?php echo $usa_unitario_recarga ? '1' : '0.5'; ?>" 
                                                                min="0"
                                                                placeholder="0"
-                                                               onchange="validarCantidadInput(this); calcularSubtotal(this);"
-                                                               onkeyup="calcularSubtotal(this);">
-                                                        <small class="text-muted">Ejemplo: 1, 2, 0.5, 1.5</small>
+                                                               onchange="validarCantidadInput(this); calcularSubtotal(<?php echo $producto['id']; ?>);"
+                                                               onkeyup="calcularSubtotal(<?php echo $producto['id']; ?>);">
+                                                        <small class="text-muted cantidad-hint" id="hint_<?php echo $producto['id']; ?>">
+                                                            <?php echo $usa_unitario_recarga ? 'Solo enteros: 1, 2, 3...' : 'Ej: 1, 2, 0.5, 1.5'; ?>
+                                                        </small>
                                                     </td>
-                                                    <td>
+                                                    <td class="text-center">
                                                         <span class="subtotal fw-bold text-success" id="subtotal_<?php echo $producto['id']; ?>">
-                                                            <?php echo formatearDinero($cantidad_recarga * $producto['precio']); ?>
+                                                            <?php 
+                                                            $precio_calc = $usa_unitario_recarga && $tiene_precio_unitario ? $producto['precio_unitario'] : $producto['precio_caja'];
+                                                            echo formatearDinero($cantidad_recarga * $precio_calc); 
+                                                            ?>
                                                         </span>
                                                     </td>
                                                 </tr>
@@ -358,15 +497,14 @@ if ($ruta_id > 0) {
                                         </tbody>
                                         <tfoot class="table-light">
                                             <tr>
-                                                <td colspan="3" class="text-end fw-bold">TOTAL ESTIMADO:</td>
-                                                <td>
+                                                <td colspan="4" class="text-end fw-bold">TOTAL ESTIMADO:</td>
+                                                <td class="text-center">
                                                     <span class="fw-bold text-success fs-5" id="total_general">$0.00</span>
                                                 </td>
                                             </tr>
                                         </tfoot>
                                     </table>
                                 </div>
-                                
                                 <div class="text-center mt-4">
                                     <button type="submit" class="btn btn-custom-success btn-lg">
                                         <i class="fas fa-save"></i> <?php echo $modo_edicion ? 'Actualizar Recargas' : 'Registrar Recargas'; ?>
@@ -424,7 +562,58 @@ if ($ruta_id > 0) {
             }
         }
         
+        // Cambiar tipo de precio (caja o unitario) - solo si NO está heredado
+        function cambiarTipoPrecio(productoId) {
+            const checkbox = document.getElementById('switch_' + productoId);
+            
+            // Si está deshabilitado (heredado), no hacer nada
+            if (checkbox.disabled) {
+                return;
+            }
+            
+            const precioDisplay = document.getElementById('precio_display_' + productoId);
+            const badgeTipo = document.getElementById('badge_tipo_' + productoId);
+            const cantidadInput = document.getElementById('cantidad_' + productoId);
+            const hint = document.getElementById('hint_' + productoId);
+            const switchContainer = document.getElementById('switch_container_' + productoId);
+            
+            const usaUnitario = checkbox.checked;
+            const precioCaja = parseFloat(precioDisplay.getAttribute('data-precio-caja'));
+            const precioUnitario = parseFloat(precioDisplay.getAttribute('data-precio-unitario'));
+            
+            // Actualizar precio mostrado
+            if (usaUnitario) {
+                precioDisplay.textContent = '$' + precioUnitario.toFixed(2);
+                precioDisplay.classList.add('unitario');
+                badgeTipo.textContent = 'UNITARIO';
+                badgeTipo.classList.remove('badge-caja');
+                badgeTipo.classList.add('badge-unitario');
+                cantidadInput.step = '1';
+                hint.textContent = 'Solo enteros: 1, 2, 3...';
+                switchContainer.classList.add('active');
+            } else {
+                precioDisplay.textContent = '$' + precioCaja.toFixed(2);
+                precioDisplay.classList.remove('unitario');
+                badgeTipo.textContent = 'CAJA';
+                badgeTipo.classList.remove('badge-unitario');
+                badgeTipo.classList.add('badge-caja');
+                cantidadInput.step = '0.5';
+                hint.textContent = 'Ej: 1, 2, 0.5, 1.5';
+                switchContainer.classList.remove('active');
+            }
+            
+            // Limpiar cantidad si cambia el tipo
+            cantidadInput.value = '';
+            
+            // Recalcular subtotal
+            calcularSubtotal(productoId);
+        }
+        
         function validarCantidadInput(input) {
+            const productoId = input.getAttribute('data-producto-id');
+            const checkbox = document.getElementById('switch_' + productoId);
+            const usaUnitario = checkbox ? checkbox.checked : false;
+            
             const valor = parseFloat(input.value);
             
             if (input.value === '' || input.value === '0') {
@@ -437,24 +626,41 @@ if ($ruta_id > 0) {
                 return false;
             }
             
-            // Verificar que solo sea entero o con .5
-            const decimal = valor - Math.floor(valor);
-            
-            if (decimal !== 0 && decimal !== 0.5) {
-                alert('Solo se permiten cantidades enteras (1, 2, 3...) o con .5 (0.5, 1.5, 2.5...)');
-                input.value = '';
-                return false;
+            if (usaUnitario) {
+                // Para precio unitario: solo enteros
+                if (valor !== Math.floor(valor)) {
+                    alert('Para precio unitario solo se permiten cantidades enteras (1, 2, 3...)');
+                    input.value = '';
+                    return false;
+                }
+            } else {
+                // Para precio por caja: enteros o con .5
+                const decimal = valor - Math.floor(valor);
+                
+                if (decimal !== 0 && decimal !== 0.5) {
+                    alert('Solo se permiten cantidades enteras (1, 2, 3...) o con .5 (0.5, 1.5, 2.5...)');
+                    input.value = '';
+                    return false;
+                }
             }
             
             return true;
         }
         
-        function calcularSubtotal(input) {
-            const cantidad = parseFloat(input.value) || 0;
-            const precio = parseFloat(input.getAttribute('data-precio'));
-            const productoId = input.getAttribute('data-producto-id');
+        function calcularSubtotal(productoId) {
+            const input = document.getElementById('cantidad_' + productoId);
+            const precioDisplay = document.getElementById('precio_display_' + productoId);
+            const checkbox = document.getElementById('switch_' + productoId);
             
+            const cantidad = parseFloat(input.value) || 0;
+            const usaUnitario = checkbox ? checkbox.checked : false;
+            
+            const precioCaja = parseFloat(precioDisplay.getAttribute('data-precio-caja'));
+            const precioUnitario = parseFloat(precioDisplay.getAttribute('data-precio-unitario'));
+            
+            const precio = usaUnitario ? precioUnitario : precioCaja;
             const subtotal = cantidad * precio;
+            
             document.getElementById('subtotal_' + productoId).textContent = '$' + subtotal.toFixed(2);
             
             calcularTotal();
@@ -465,8 +671,17 @@ if ($ruta_id > 0) {
             const inputs = document.querySelectorAll('.cantidad-input');
             
             inputs.forEach(input => {
+                const productoId = input.getAttribute('data-producto-id');
                 const cantidad = parseFloat(input.value) || 0;
-                const precio = parseFloat(input.getAttribute('data-precio'));
+                
+                const precioDisplay = document.getElementById('precio_display_' + productoId);
+                const checkbox = document.getElementById('switch_' + productoId);
+                const usaUnitario = checkbox ? checkbox.checked : false;
+                
+                const precioCaja = parseFloat(precioDisplay.getAttribute('data-precio-caja'));
+                const precioUnitario = parseFloat(precioDisplay.getAttribute('data-precio-unitario'));
+                
+                const precio = usaUnitario ? precioUnitario : precioCaja;
                 total += cantidad * precio;
             });
             

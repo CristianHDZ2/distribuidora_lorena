@@ -14,12 +14,13 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     
     if ($accion == 'agregar') {
         $nombre = limpiarInput($_POST['nombre']);
-        $precio = floatval($_POST['precio']);
+        $precio_caja = floatval($_POST['precio_caja']);
+        $precio_unitario = !empty($_POST['precio_unitario']) ? floatval($_POST['precio_unitario']) : NULL;
         $tipo = limpiarInput($_POST['tipo']);
         
-        if (!empty($nombre) && $precio > 0 && in_array($tipo, ['Big Cola', 'Varios'])) {
-            $stmt = $conn->prepare("INSERT INTO productos (nombre, precio, tipo) VALUES (?, ?, ?)");
-            $stmt->bind_param("sds", $nombre, $precio, $tipo);
+        if (!empty($nombre) && $precio_caja > 0 && in_array($tipo, ['Big Cola', 'Varios', 'Ambos'])) {
+            $stmt = $conn->prepare("INSERT INTO productos (nombre, precio_caja, precio_unitario, tipo) VALUES (?, ?, ?, ?)");
+            $stmt->bind_param("sdds", $nombre, $precio_caja, $precio_unitario, $tipo);
             
             if ($stmt->execute()) {
                 $mensaje = 'Producto agregado exitosamente';
@@ -41,12 +42,13 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     } elseif ($accion == 'editar') {
         $id = intval($_POST['id']);
         $nombre = limpiarInput($_POST['nombre']);
-        $precio = floatval($_POST['precio']);
+        $precio_caja = floatval($_POST['precio_caja']);
+        $precio_unitario = !empty($_POST['precio_unitario']) ? floatval($_POST['precio_unitario']) : NULL;
         $tipo = limpiarInput($_POST['tipo']);
         
-        if (!empty($nombre) && $precio > 0 && $id > 0 && in_array($tipo, ['Big Cola', 'Varios'])) {
-            $stmt = $conn->prepare("UPDATE productos SET nombre = ?, precio = ?, tipo = ? WHERE id = ?");
-            $stmt->bind_param("sdsi", $nombre, $precio, $tipo, $id);
+        if (!empty($nombre) && $precio_caja > 0 && $id > 0 && in_array($tipo, ['Big Cola', 'Varios', 'Ambos'])) {
+            $stmt = $conn->prepare("UPDATE productos SET nombre = ?, precio_caja = ?, precio_unitario = ?, tipo = ? WHERE id = ?");
+            $stmt->bind_param("sddsi", $nombre, $precio_caja, $precio_unitario, $tipo, $id);
             
             if ($stmt->execute()) {
                 $mensaje = 'Producto actualizado exitosamente';
@@ -201,9 +203,23 @@ $productos = $stmt->get_result();
             padding: 6px 14px;
             border-radius: 20px;
             font-weight: 700;
-            font-size: 14px;
+            font-size: 13px;
             display: inline-block;
             box-shadow: 0 2px 5px rgba(39, 174, 96, 0.3);
+            margin: 2px 0;
+        }
+        
+        .precio-badge.unitario {
+            background: linear-gradient(135deg, #f39c12, #e67e22);
+            box-shadow: 0 2px 5px rgba(243, 156, 18, 0.3);
+        }
+        
+        .precio-label {
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            display: block;
+            margin-bottom: 2px;
         }
         
         .tipo-badge {
@@ -228,6 +244,11 @@ $productos = $stmt->get_result();
             box-shadow: 0 2px 5px rgba(155, 89, 182, 0.3);
         }
         
+        .tipo-ambos {
+            background: linear-gradient(135deg, #e74c3c, #c0392b);
+            color: white;
+            box-shadow: 0 2px 5px rgba(231, 76, 60, 0.3);
+        }
         .fecha-texto {
             color: #7f8c8d;
             font-size: 13px;
@@ -289,6 +310,18 @@ $productos = $stmt->get_result();
         .total-productos .numero {
             font-size: 28px;
             font-weight: 800;
+        }
+        
+        .precio-unitario-container {
+            background: #fff3cd;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #f39c12;
+            margin-top: 15px;
+        }
+        
+        .precio-unitario-container label {
+            margin-bottom: 0;
         }
     </style>
 </head>
@@ -372,6 +405,7 @@ $productos = $stmt->get_result();
                             <option value="todos" <?php echo $filtro_tipo == 'todos' ? 'selected' : ''; ?>>Todos los tipos</option>
                             <option value="Big Cola" <?php echo $filtro_tipo == 'Big Cola' ? 'selected' : ''; ?>>Big Cola</option>
                             <option value="Varios" <?php echo $filtro_tipo == 'Varios' ? 'selected' : ''; ?>>Varios</option>
+                            <option value="Ambos" <?php echo $filtro_tipo == 'Ambos' ? 'selected' : ''; ?>>Ambos</option>
                         </select>
                     </div>
                     <div class="col-md-6 mb-2">
@@ -408,7 +442,7 @@ $productos = $stmt->get_result();
                         <tr>
                             <th width="60" class="text-center">#</th>
                             <th>Nombre del Producto</th>
-                            <th width="120" class="text-center">Precio</th>
+                            <th width="140" class="text-center">Precios</th>
                             <th width="140" class="text-center">Tipo</th>
                             <th width="140" class="text-center">Fecha Creación</th>
                             <th width="180" class="text-center">Acciones</th>
@@ -428,11 +462,31 @@ $productos = $stmt->get_result();
                                         <span class="producto-nombre"><?php echo $producto['nombre']; ?></span>
                                     </td>
                                     <td class="text-center">
-                                        <span class="precio-badge"><?php echo formatearDinero($producto['precio']); ?></span>
+                                        <div>
+                                            <span class="precio-label">Caja</span>
+                                            <span class="precio-badge"><?php echo formatearDinero($producto['precio_caja']); ?></span>
+                                        </div>
+                                        <?php if ($producto['precio_unitario'] !== null): ?>
+                                            <div style="margin-top: 5px;">
+                                                <span class="precio-label">Unitario</span>
+                                                <span class="precio-badge unitario"><?php echo formatearDinero($producto['precio_unitario']); ?></span>
+                                            </div>
+                                        <?php endif; ?>
                                     </td>
                                     <td class="text-center">
-                                        <span class="tipo-badge <?php echo $producto['tipo'] == 'Big Cola' ? 'tipo-big-cola' : 'tipo-varios'; ?>">
-                                            <?php echo $producto['tipo'] == 'Big Cola' ? '<i class="fas fa-bottle-water"></i> ' : '<i class="fas fa-boxes"></i> '; ?>
+                                        <span class="tipo-badge <?php 
+                                            echo $producto['tipo'] == 'Big Cola' ? 'tipo-big-cola' : 
+                                                ($producto['tipo'] == 'Ambos' ? 'tipo-ambos' : 'tipo-varios'); 
+                                        ?>">
+                                            <?php 
+                                            if ($producto['tipo'] == 'Big Cola') {
+                                                echo '<i class="fas fa-bottle-water"></i> ';
+                                            } elseif ($producto['tipo'] == 'Ambos') {
+                                                echo '<i class="fas fa-globe"></i> ';
+                                            } else {
+                                                echo '<i class="fas fa-boxes"></i> ';
+                                            }
+                                            ?>
                                             <?php echo $producto['tipo']; ?>
                                         </span>
                                     </td>
@@ -446,7 +500,8 @@ $productos = $stmt->get_result();
                                         <button class="btn btn-action btn-editar" 
                                                 data-id="<?php echo $producto['id']; ?>"
                                                 data-nombre="<?php echo htmlspecialchars($producto['nombre'], ENT_QUOTES); ?>"
-                                                data-precio="<?php echo $producto['precio']; ?>"
+                                                data-precio-caja="<?php echo $producto['precio_caja']; ?>"
+                                                data-precio-unitario="<?php echo $producto['precio_unitario'] ?? ''; ?>"
                                                 data-tipo="<?php echo htmlspecialchars($producto['tipo'], ENT_QUOTES); ?>"
                                                 onclick="editarProducto(this)" 
                                                 title="Editar">
@@ -496,16 +551,28 @@ $productos = $stmt->get_result();
                         </div>
                         
                         <div class="mb-3">
-                            <label class="form-label fw-bold">Precio ($) *</label>
-                            <input type="number" class="form-control" name="precio" step="0.01" min="0.01" required placeholder="0.00">
+                            <label class="form-label fw-bold">Precio por Caja ($) *</label>
+                            <input type="number" class="form-control" name="precio_caja" step="0.01" min="0.01" required placeholder="0.00">
+                            <small class="text-muted">Precio cuando se vende por caja/paquete</small>
                         </div>
                         
-                        <div class="mb-3">
+                        <div class="precio-unitario-container">
+                            <label class="form-label fw-bold">
+                                <i class="fas fa-info-circle"></i> Precio Unitario ($) - Opcional
+                            </label>
+                            <input type="number" class="form-control" name="precio_unitario" step="0.01" min="0.01" placeholder="Dejar vacío si no aplica">
+                            <small class="text-muted d-block mt-2">
+                                <i class="fas fa-lightbulb"></i> Solo si el producto se vende también por unidades individuales
+                            </small>
+                        </div>
+                        
+                        <div class="mb-3 mt-3">
                             <label class="form-label fw-bold">Tipo de Producto *</label>
                             <select class="form-select" name="tipo" required>
                                 <option value="">Seleccione un tipo</option>
-                                <option value="Big Cola">Big Cola</option>
-                                <option value="Varios">Varios</option>
+                                <option value="Big Cola">Big Cola (Solo Ruta 5)</option>
+                                <option value="Varios">Varios (Rutas 1-4)</option>
+                                <option value="Ambos">Ambos (Todas las Rutas)</option>
                             </select>
                         </div>
                     </div>
@@ -521,7 +588,6 @@ $productos = $stmt->get_result();
             </div>
         </div>
     </div>
-
     <!-- Modal Editar Producto -->
     <div class="modal fade" id="modalEditar" tabindex="-1">
         <div class="modal-dialog">
@@ -541,16 +607,28 @@ $productos = $stmt->get_result();
                         </div>
                         
                         <div class="mb-3">
-                            <label class="form-label fw-bold">Precio ($) *</label>
-                            <input type="number" class="form-control" name="precio" id="edit_precio" step="0.01" min="0.01" required>
+                            <label class="form-label fw-bold">Precio por Caja ($) *</label>
+                            <input type="number" class="form-control" name="precio_caja" id="edit_precio_caja" step="0.01" min="0.01" required>
+                            <small class="text-muted">Precio cuando se vende por caja/paquete</small>
                         </div>
                         
-                        <div class="mb-3">
+                        <div class="precio-unitario-container">
+                            <label class="form-label fw-bold">
+                                <i class="fas fa-info-circle"></i> Precio Unitario ($) - Opcional
+                            </label>
+                            <input type="number" class="form-control" name="precio_unitario" id="edit_precio_unitario" step="0.01" min="0.01" placeholder="Dejar vacío si no aplica">
+                            <small class="text-muted d-block mt-2">
+                                <i class="fas fa-lightbulb"></i> Solo si el producto se vende también por unidades individuales
+                            </small>
+                        </div>
+                        
+                        <div class="mb-3 mt-3">
                             <label class="form-label fw-bold">Tipo de Producto *</label>
                             <select class="form-select" name="tipo" id="edit_tipo" required>
                                 <option value="">Seleccione un tipo</option>
-                                <option value="Big Cola">Big Cola</option>
-                                <option value="Varios">Varios</option>
+                                <option value="Big Cola">Big Cola (Solo Ruta 5)</option>
+                                <option value="Varios">Varios (Rutas 1-4)</option>
+                                <option value="Ambos">Ambos (Todas las Rutas)</option>
                             </select>
                         </div>
                     </div>
@@ -620,15 +698,17 @@ $productos = $stmt->get_result();
             // Obtener datos del botón
             const id = button.getAttribute('data-id');
             const nombre = button.getAttribute('data-nombre');
-            const precio = button.getAttribute('data-precio');
+            const precio_caja = button.getAttribute('data-precio-caja');
+            const precio_unitario = button.getAttribute('data-precio-unitario');
             const tipo = button.getAttribute('data-tipo');
             
-            console.log('Editando producto:', {id, nombre, precio, tipo}); // Para debug
+            console.log('Editando producto:', {id, nombre, precio_caja, precio_unitario, tipo}); // Para debug
             
             // Llenar los campos del formulario
             document.getElementById('edit_id').value = id;
             document.getElementById('edit_nombre').value = nombre;
-            document.getElementById('edit_precio').value = precio;
+            document.getElementById('edit_precio_caja').value = precio_caja;
+            document.getElementById('edit_precio_unitario').value = precio_unitario;
             document.getElementById('edit_tipo').value = tipo;
             
             // Mostrar el modal

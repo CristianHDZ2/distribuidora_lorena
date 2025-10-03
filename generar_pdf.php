@@ -47,9 +47,27 @@ if ($generar && $ruta_id > 0) {
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>Reporte de Liquidación - <?php echo $ruta['nombre']; ?></title>
         <style>
+            @page {
+                size: letter;
+                margin: 0.5cm;
+            }
+            
             @media print {
                 .no-print {
                     display: none;
+                }
+                
+                body {
+                    width: 100%;
+                    height: 100%;
+                }
+                
+                .container {
+                    page-break-inside: avoid;
+                }
+                
+                table {
+                    page-break-inside: avoid;
                 }
             }
             
@@ -61,44 +79,46 @@ if ($generar && $ruta_id > 0) {
             
             body {
                 font-family: 'Arial', sans-serif;
-                padding: 20px;
+                padding: 10px;
                 background: #f5f5f5;
+                font-size: 11px;
             }
             
             .container {
-                max-width: 900px;
+                max-width: 100%;
                 margin: 0 auto;
                 background: white;
-                padding: 30px;
+                padding: 15px;
                 box-shadow: 0 0 10px rgba(0,0,0,0.1);
             }
             
             .header {
                 text-align: center;
-                margin-bottom: 30px;
-                border-bottom: 3px solid #2c3e50;
-                padding-bottom: 20px;
+                margin-bottom: 15px;
+                border-bottom: 3px solid #667eea;
+                padding-bottom: 10px;
             }
             
             .header h1 {
                 color: #2c3e50;
-                font-size: 28px;
-                margin-bottom: 10px;
+                font-size: 20px;
+                margin-bottom: 5px;
             }
             
             .header h2 {
-                color: #3498db;
-                font-size: 20px;
+                color: #667eea;
+                font-size: 14px;
                 font-weight: normal;
             }
             
             .info-section {
                 display: flex;
                 justify-content: space-between;
-                margin-bottom: 30px;
-                padding: 15px;
-                background: #ecf0f1;
+                margin-bottom: 15px;
+                padding: 10px;
+                background: #f8f9fa;
                 border-radius: 5px;
+                font-size: 10px;
             }
             
             .info-item {
@@ -108,44 +128,46 @@ if ($generar && $ruta_id > 0) {
             .info-item strong {
                 color: #2c3e50;
                 display: block;
-                margin-bottom: 5px;
+                margin-bottom: 3px;
+                font-size: 9px;
+                text-transform: uppercase;
             }
             
             .info-item span {
                 color: #555;
-                font-size: 16px;
+                font-size: 11px;
+                font-weight: 600;
             }
             
             table {
                 width: 100%;
                 border-collapse: collapse;
-                margin-bottom: 20px;
+                margin-bottom: 10px;
+                font-size: 9px;
             }
             
             thead {
-                background: linear-gradient(135deg, #2c3e50, #34495e);
+                background: linear-gradient(135deg, #667eea, #764ba2);
                 color: white;
             }
             
             thead th {
-                padding: 12px;
-                text-align: left;
+                padding: 6px 4px;
+                text-align: center;
                 font-weight: 600;
-                font-size: 14px;
+                font-size: 8px;
+                border: 1px solid #5a67d8;
             }
             
             tbody td {
-                padding: 10px 12px;
-                border-bottom: 1px solid #ddd;
-                font-size: 13px;
+                padding: 5px 4px;
+                border: 1px solid #ddd;
+                font-size: 8px;
+                vertical-align: middle;
             }
             
             tbody tr:nth-child(even) {
                 background-color: #f8f9fa;
-            }
-            
-            tbody tr:hover {
-                background-color: #e3f2fd;
             }
             
             .text-right {
@@ -158,10 +180,11 @@ if ($generar && $ruta_id > 0) {
             
             .badge {
                 display: inline-block;
-                padding: 4px 10px;
-                border-radius: 12px;
-                font-size: 12px;
+                padding: 2px 6px;
+                border-radius: 8px;
+                font-size: 7px;
                 font-weight: 600;
+                white-space: nowrap;
             }
             
             .badge-success {
@@ -179,12 +202,22 @@ if ($generar && $ruta_id > 0) {
                 color: white;
             }
             
-            .total-section {
+            .badge-unitario {
+                background: #f39c12;
+                color: white;
+            }
+            
+            .badge-caja {
                 background: #27ae60;
                 color: white;
-                padding: 20px;
+            }
+            
+            .total-section {
+                background: linear-gradient(135deg, #27ae60, #229954);
+                color: white;
+                padding: 12px;
                 border-radius: 5px;
-                margin-top: 20px;
+                margin-top: 10px;
             }
             
             .total-section .total-row {
@@ -194,48 +227,48 @@ if ($generar && $ruta_id > 0) {
             }
             
             .total-section h3 {
-                font-size: 24px;
+                font-size: 14px;
                 margin: 0;
             }
             
             .total-section .amount {
-                font-size: 32px;
+                font-size: 20px;
                 font-weight: bold;
             }
             
             .footer {
-                margin-top: 40px;
-                padding-top: 20px;
+                margin-top: 15px;
+                padding-top: 10px;
                 border-top: 2px solid #ddd;
                 text-align: center;
                 color: #777;
-                font-size: 12px;
+                font-size: 8px;
             }
             
             .btn-print {
-                background: #3498db;
+                background: #667eea;
                 color: white;
-                padding: 12px 30px;
+                padding: 10px 25px;
                 border: none;
                 border-radius: 5px;
                 cursor: pointer;
-                font-size: 16px;
-                margin-bottom: 20px;
+                font-size: 14px;
+                margin-bottom: 15px;
             }
             
             .btn-print:hover {
-                background: #2980b9;
+                background: #5a67d8;
             }
             
             .btn-back {
                 background: #95a5a6;
                 color: white;
-                padding: 12px 30px;
+                padding: 10px 25px;
                 border: none;
                 border-radius: 5px;
                 cursor: pointer;
-                font-size: 16px;
-                margin-bottom: 20px;
+                font-size: 14px;
+                margin-bottom: 15px;
                 margin-left: 10px;
                 text-decoration: none;
                 display: inline-block;
@@ -247,17 +280,29 @@ if ($generar && $ruta_id > 0) {
             
             .ajustes-info {
                 background: #fff3cd;
-                padding: 8px;
-                margin-top: 5px;
-                border-radius: 4px;
-                font-size: 11px;
-                border-left: 3px solid #ffc107;
+                padding: 4px;
+                margin-top: 3px;
+                border-radius: 3px;
+                font-size: 7px;
+                border-left: 2px solid #ffc107;
             }
             
             .ajustes-info strong {
                 color: #856404;
             }
             
+            .nombre-producto {
+                font-weight: 600;
+                color: #2c3e50;
+                font-size: 9px;
+            }
+            
+            .precio-tipo-badge {
+                display: block;
+                margin-top: 2px;
+            }
+            
+            /* Ajustes para que quepa todo en una página */
             @media print {
                 body {
                     background: white;
@@ -266,14 +311,36 @@ if ($generar && $ruta_id > 0) {
                 
                 .container {
                     box-shadow: none;
-                    padding: 20px;
+                    padding: 10px;
+                }
+                
+                table {
+                    font-size: 8px;
+                }
+                
+                thead th {
+                    padding: 4px 2px;
+                    font-size: 7px;
+                }
+                
+                tbody td {
+                    padding: 3px 2px;
+                    font-size: 7px;
+                }
+                
+                .header h1 {
+                    font-size: 18px;
+                }
+                
+                .header h2 {
+                    font-size: 12px;
                 }
             }
         </style>
     </head>
     <body>
         <div class="container">
-            <div class="no-print" style="text-align: center; margin-bottom: 20px;">
+            <div class="no-print" style="text-align: center; margin-bottom: 15px;">
                 <button class="btn-print" onclick="window.print()">
                     🖨️ Imprimir / Guardar PDF
                 </button>
@@ -306,25 +373,26 @@ if ($generar && $ruta_id > 0) {
                 <table>
                     <thead>
                         <tr>
-                            <th>PRODUCTO</th>
-                            <th class="text-center">SALIDA</th>
-                            <th class="text-center">RECARGA</th>
-                            <th class="text-center">RETORNO</th>
-                            <th class="text-center">VENDIDO</th>
-                            <th class="text-right">PRECIO</th>
-                            <th class="text-right">TOTAL</th>
+                            <th style="width: 28%;">PRODUCTO</th>
+                            <th style="width: 8%;">SALIDA</th>
+                            <th style="width: 8%;">RECARGA</th>
+                            <th style="width: 8%;">RETORNO</th>
+                            <th style="width: 8%;">VENDIDO</th>
+                            <th style="width: 12%;">PRECIO</th>
+                            <th style="width: 10%;">TIPO</th>
+                            <th style="width: 12%;">TOTAL</th>
                         </tr>
                     </thead>
                     <tbody>
                         <?php foreach ($productos_vendidos as $producto): ?>
                             <tr>
                                 <td>
-                                    <strong><?php echo $producto['nombre']; ?></strong>
+                                    <span class="nombre-producto"><?php echo $producto['nombre']; ?></span>
                                     <?php if (!empty($producto['ajustes'])): ?>
                                         <div class="ajustes-info">
-                                            <strong>⚠️ Ajustes de precio:</strong><br>
+                                            <strong>⚠️ Ajustes:</strong>
                                             <?php foreach ($producto['ajustes'] as $ajuste): ?>
-                                                • <?php echo $ajuste['cantidad']; ?> unidad(es) a <?php echo formatearDinero($ajuste['precio_ajustado']); ?><br>
+                                                <?php echo $ajuste['cantidad']; ?> a <?php echo formatearDinero($ajuste['precio_ajustado']); ?>
                                             <?php endforeach; ?>
                                         </div>
                                     <?php endif; ?>
@@ -344,8 +412,15 @@ if ($generar && $ruta_id > 0) {
                                 <td class="text-right">
                                     <?php echo formatearDinero($producto['precio']); ?>
                                 </td>
+                                <td class="text-center">
+                                    <?php if ($producto['usa_precio_unitario']): ?>
+                                        <span class="badge badge-unitario">UNITARIO</span>
+                                    <?php else: ?>
+                                        <span class="badge badge-caja">CAJA</span>
+                                    <?php endif; ?>
+                                </td>
                                 <td class="text-right">
-                                    <strong style="color: #27ae60; font-size: 15px;">
+                                    <strong style="color: #27ae60; font-size: 10px;">
                                         <?php echo formatearDinero($producto['total_dinero']); ?>
                                     </strong>
                                 </td>
@@ -353,6 +428,7 @@ if ($generar && $ruta_id > 0) {
                         <?php endforeach; ?>
                     </tbody>
                 </table>
+                
                 <div class="total-section">
                     <div class="total-row">
                         <h3>TOTAL LIQUIDACIÓN:</h3>
@@ -363,13 +439,13 @@ if ($generar && $ruta_id > 0) {
                 <div class="footer">
                     <p><strong>Distribuidora LORENA</strong> - Sistema de Liquidación</p>
                     <p>Usuario: <?php echo $_SESSION['nombre']; ?> | Generado: <?php echo date('d/m/Y H:i:s'); ?></p>
-                    <p style="margin-top: 10px;">
+                    <p style="margin-top: 5px;">
                         Este documento es un reporte generado automáticamente por el sistema.<br>
                         Para cualquier consulta o aclaración, contacte al administrador.
                     </p>
                 </div>
             <?php else: ?>
-                <div style="text-align: center; padding: 50px; color: #999;">
+                <div style="text-align: center; padding: 30px; color: #999;">
                     <h3>No hay registros de ventas para esta ruta en la fecha seleccionada</h3>
                     <p>Por favor, verifique que haya salidas y retornos registrados.</p>
                 </div>
@@ -464,14 +540,14 @@ if ($generar && $ruta_id > 0) {
             
             <div class="alert alert-info alert-custom">
                 <i class="fas fa-info-circle"></i>
-                <strong>Instrucciones:</strong> Seleccione la ruta y fecha para generar el reporte de liquidación en formato PDF.
+                <strong>Instrucciones:</strong> Seleccione la ruta y fecha para generar el reporte de liquidación en formato PDF optimizado para tamaño carta.
             </div>
             
             <div class="row justify-content-center">
                 <div class="col-md-8">
                     <div class="card">
                         <div class="card-body p-4">
-                            <form method="GET" action="generar_pdf.php" id="formGenerarPDF">
+                            <form method="GET" action="generar_pdf.php" id="formGenerarPDF" target="_self">
                                 <input type="hidden" name="generar" value="1">
                                 
                                 <div class="mb-4">
@@ -507,7 +583,6 @@ if ($generar && $ruta_id > 0) {
                             </form>
                         </div>
                     </div>
-                    
                     <!-- Información adicional -->
                     <div class="card mt-4">
                         <div class="card-header bg-primary text-white">
@@ -519,6 +594,7 @@ if ($generar && $ruta_id > 0) {
                                 <li>Nombre de la ruta y fecha de la liquidación</li>
                                 <li>Listado completo de productos con sus movimientos (Salida, Recarga, Retorno)</li>
                                 <li>Cantidad vendida por producto</li>
+                                <li><strong>Tipo de precio usado:</strong> Badge indicando si fue precio por CAJA o UNITARIO</li>
                                 <li>Precio unitario y total por producto</li>
                                 <li>Ajustes de precios aplicados (si existen)</li>
                                 <li>Total general de la liquidación</li>
@@ -528,6 +604,16 @@ if ($generar && $ruta_id > 0) {
                             <div class="alert alert-warning mt-3">
                                 <i class="fas fa-exclamation-triangle"></i>
                                 <strong>Nota:</strong> Asegúrese de haber registrado las salidas, recargas y retornos antes de generar el reporte.
+                            </div>
+                            
+                            <div class="alert alert-success mt-3">
+                                <i class="fas fa-check-circle"></i>
+                                <strong>Optimizado:</strong> El reporte está diseñado para caber completamente en una página tamaño carta al imprimir.
+                            </div>
+                            
+                            <div class="alert alert-info mt-3">
+                                <i class="fas fa-mobile-alt"></i>
+                                <strong>Compatible con dispositivos móviles:</strong> Puede generar reportes desde cualquier dispositivo.
                             </div>
                         </div>
                     </div>

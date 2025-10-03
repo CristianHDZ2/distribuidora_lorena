@@ -45,6 +45,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['registrar_retornos']))
         $tipo_mensaje = 'danger';
     } else {
         $productos = $_POST['productos'] ?? [];
+        $precios_unitarios = $_POST['usar_precio_unitario'] ?? [];
         $ajustes = $_POST['ajustes'] ?? [];
         $errores = [];
         $registros_exitosos = 0;
@@ -69,16 +70,19 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['registrar_retornos']))
             // Insertar nuevos retornos
             foreach ($productos as $producto_id => $cantidad) {
                 if (!empty($cantidad) && $cantidad > 0) {
+                    // Verificar si se marcó precio unitario para este producto
+                    $usa_precio_unitario = isset($precios_unitarios[$producto_id]) ? 1 : 0;
+                    
                     // Validar cantidad
-                    if (!validarCantidad($cantidad)) {
-                        $errores[] = "Cantidad inválida para producto ID $producto_id";
-                        continue;
+                    if (!validarCantidad($cantidad, $usa_precio_unitario)) {
+                        $tipo_texto = $usa_precio_unitario ? 'precio unitario (solo enteros)' : 'precio por caja (enteros o .5)';
+                        throw new Exception("Cantidad inválida para producto ID $producto_id. Use $tipo_texto");
                     }
                     
                     // Insertar retorno
-                    $stmt = $conn->prepare("INSERT INTO retornos (ruta_id, producto_id, cantidad, fecha, usuario_id) VALUES (?, ?, ?, ?, ?)");
+                    $stmt = $conn->prepare("INSERT INTO retornos (ruta_id, producto_id, cantidad, usa_precio_unitario, fecha, usuario_id) VALUES (?, ?, ?, ?, ?, ?)");
                     $usuario_id = $_SESSION['usuario_id'];
-                    $stmt->bind_param("iidsi", $ruta_id, $producto_id, $cantidad, $fecha, $usuario_id);
+                    $stmt->bind_param("iidisi", $ruta_id, $producto_id, $cantidad, $usa_precio_unitario, $fecha, $usuario_id);
                     
                     if ($stmt->execute()) {
                         $registros_exitosos++;
@@ -94,7 +98,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['registrar_retornos']))
                         
                         if ($cantidad_ajuste > 0 && $precio_ajuste > 0) {
                             // Validar cantidad del ajuste
-                            if (!validarCantidad($cantidad_ajuste)) {
+                            if (!validarCantidad($cantidad_ajuste, $usa_precio_unitario)) {
                                 throw new Exception("Cantidad de ajuste inválida para producto ID $producto_id");
                             }
                             
@@ -149,30 +153,36 @@ if ($ruta_id > 0 && $puede_registrar) {
     }
     $stmt->close();
     
-    // Determinar qué tipo de productos mostrar según la ruta
-    if ($ruta_id == 5) {
-        $tipo_producto = 'Big Cola';
-    } else {
-        $tipo_producto = 'Varios';
-    }
+    // Obtener productos para esta ruta (incluye tipo "Ambos")
+    $productos_ruta = obtenerProductosParaRuta($conn, $ruta_id);
     
-    // Obtener productos con sus movimientos del día
-    $stmt = $conn->prepare("SELECT * FROM productos WHERE tipo = ? AND activo = 1 ORDER BY nombre");
-    $stmt->bind_param("s", $tipo_producto);
-    $stmt->execute();
-    $productos = $stmt->get_result();
-    
-    while ($producto = $productos->fetch_assoc()) {
+    while ($producto = $productos_ruta->fetch_assoc()) {
         $producto_id = $producto['id'];
         
-        // Salida
-        $salida = obtenerCantidad($conn, 'salidas', $ruta_id, $producto_id, $fecha_hoy);
+        // Salida con información de precio unitario
+        $salida_data = obtenerCantidadConPrecio($conn, 'salidas', $ruta_id, $producto_id, $fecha_hoy);
+        $salida = $salida_data['cantidad'];
+        $usa_unitario_salida = $salida_data['usa_precio_unitario'];
         
-        // Recarga
-        $recarga = obtenerCantidad($conn, 'recargas', $ruta_id, $producto_id, $fecha_hoy);
+        // Recarga con información de precio unitario
+        $recarga_data = obtenerCantidadConPrecio($conn, 'recargas', $ruta_id, $producto_id, $fecha_hoy);
+        $recarga = $recarga_data['cantidad'];
+        $usa_unitario_recarga = $recarga_data['usa_precio_unitario'];
         
-        // Retorno
-        $retorno = obtenerCantidad($conn, 'retornos', $ruta_id, $producto_id, $fecha_hoy);
+        // Retorno con información de precio unitario
+        $retorno_data = obtenerCantidadConPrecio($conn, 'retornos', $ruta_id, $producto_id, $fecha_hoy);
+        $retorno = $retorno_data['cantidad'];
+        $usa_unitario_retorno = $retorno_data['usa_precio_unitario'];
+        
+        // Determinar si se usó precio unitario (prioridad: salida > recarga)
+        $usa_precio_unitario = $usa_unitario_salida || $usa_unitario_recarga;
+        
+        // Determinar el precio a usar
+        $tiene_precio_unitario = $producto['precio_unitario'] !== null;
+        $precio_usado = $producto['precio_caja'];
+        if ($usa_precio_unitario && $tiene_precio_unitario) {
+            $precio_usado = $producto['precio_unitario'];
+        }
         
         // Obtener ajuste de precio si existe
         $ajuste_precio = null;
@@ -195,15 +205,18 @@ if ($ruta_id > 0 && $puede_registrar) {
             $total_vendido = 0;
             if ($ajuste_precio && $ajuste_cantidad > 0) {
                 $cantidad_precio_normal = $vendido - $ajuste_cantidad;
-                $total_vendido = ($ajuste_cantidad * $ajuste_precio) + ($cantidad_precio_normal * $producto['precio']);
+                $total_vendido = ($ajuste_cantidad * $ajuste_precio) + ($cantidad_precio_normal * $precio_usado);
             } else {
-                $total_vendido = $vendido * $producto['precio'];
+                $total_vendido = $vendido * $precio_usado;
             }
             
             $productos_info[] = [
                 'id' => $producto_id,
                 'nombre' => $producto['nombre'],
-                'precio' => $producto['precio'],
+                'precio' => $precio_usado,
+                'precio_caja' => $producto['precio_caja'],
+                'precio_unitario' => $producto['precio_unitario'],
+                'usa_precio_unitario' => $usa_precio_unitario,
                 'salida' => $salida,
                 'recarga' => $recarga,
                 'retorno' => $retorno,
@@ -215,8 +228,6 @@ if ($ruta_id > 0 && $puede_registrar) {
             ];
         }
     }
-    
-    $stmt->close();
 } elseif ($ruta_id > 0) {
     // Obtener nombre de la ruta para mostrar mensaje
     $stmt = $conn->prepare("SELECT nombre FROM rutas WHERE id = ? AND activo = 1");
@@ -246,6 +257,38 @@ if ($ruta_id > 0 && $puede_registrar) {
             margin-top: 10px;
             border-radius: 5px;
             border-left: 3px solid #ffc107;
+        }
+        
+        .badge-precio-tipo {
+            font-size: 10px;
+            padding: 3px 8px;
+            border-radius: 10px;
+            margin-left: 5px;
+        }
+        
+        .badge-caja {
+            background: #27ae60;
+            color: white;
+        }
+        
+        .badge-unitario {
+            background: #f39c12;
+            color: white;
+        }
+        
+        .badge-heredado {
+            background: #007bff;
+            color: white;
+        }
+        
+        .info-heredado {
+            background: #cfe2ff;
+            border: 1px solid #9ec5fe;
+            border-radius: 5px;
+            padding: 5px 8px;
+            margin-top: 5px;
+            font-size: 10px;
+            text-align: center;
         }
     </style>
 </head>
@@ -317,6 +360,7 @@ if ($ruta_id > 0 && $puede_registrar) {
                     <li><strong>RETORNOS:</strong> Solo se pueden registrar para <strong>HOY</strong> (<?php echo date('d/m/Y'); ?>)</li>
                     <li>Puede registrar 1 retorno por ruta al día</li>
                     <li>Puede ajustar precio de UN producto si se vendió a precio diferente</li>
+                    <li><strong>PRECIO AUTOMÁTICO:</strong> Se mantiene el tipo de precio usado en salida/recarga</li>
                     <li>Una vez complete salida, recarga y retorno del día, no podrá hacer más registros hasta mañana</li>
                 </ul>
             </div>
@@ -380,6 +424,13 @@ if ($ruta_id > 0 && $puede_registrar) {
                         <input type="hidden" name="fecha" value="<?php echo $fecha_hoy; ?>">
                         <input type="hidden" name="es_edicion" value="<?php echo $modo_edicion ? '1' : '0'; ?>">
                         
+                        <!-- Campos ocultos para mantener el tipo de precio heredado -->
+                        <?php foreach ($productos_info as $producto): ?>
+                            <?php if ($producto['usa_precio_unitario']): ?>
+                                <input type="hidden" name="usar_precio_unitario[<?php echo $producto['id']; ?>]" value="1">
+                            <?php endif; ?>
+                        <?php endforeach; ?>
+                        
                         <div class="card mb-4">
                             <div class="card-header bg-warning text-dark">
                                 <h5 class="mb-0">
@@ -406,7 +457,16 @@ if ($ruta_id > 0 && $puede_registrar) {
                                                 <tr id="row_<?php echo $producto['id']; ?>">
                                                     <td>
                                                         <strong><?php echo $producto['nombre']; ?></strong>
-                                                        <br><small class="text-muted">Precio: <?php echo formatearDinero($producto['precio']); ?></small>
+                                                        <br>
+                                                        <small class="text-muted">
+                                                            <?php if ($producto['usa_precio_unitario']): ?>
+                                                                Precio Unitario: <?php echo formatearDinero($producto['precio']); ?>
+                                                                <span class="badge badge-heredado">HEREDADO</span>
+                                                            <?php else: ?>
+                                                                Precio Caja: <?php echo formatearDinero($producto['precio']); ?>
+                                                                <span class="badge badge-caja">CAJA</span>
+                                                            <?php endif; ?>
+                                                        </small>
                                                         <?php if ($producto['retorno'] > 0): ?>
                                                             <br><small class="text-danger"><i class="fas fa-check"></i> Retorno: <?php echo $producto['retorno']; ?></small>
                                                         <?php endif; ?>
@@ -434,12 +494,16 @@ if ($ruta_id > 0 && $puede_registrar) {
                                                                data-precio="<?php echo $producto['precio']; ?>"
                                                                data-salida="<?php echo $producto['salida']; ?>"
                                                                data-recarga="<?php echo $producto['recarga']; ?>"
+                                                               data-usa-unitario="<?php echo $producto['usa_precio_unitario'] ? '1' : '0'; ?>"
                                                                value="<?php echo $producto['retorno'] > 0 ? $producto['retorno'] : ''; ?>"
-                                                               step="0.5" 
+                                                               step="<?php echo $producto['usa_precio_unitario'] ? '1' : '0.5'; ?>" 
                                                                min="0"
                                                                max="<?php echo $producto['disponible']; ?>"
                                                                placeholder="0"
                                                                onchange="validarRetorno(this); calcularVendido(<?php echo $producto['id']; ?>);">
+                                                        <small class="text-muted">
+                                                            <?php echo $producto['usa_precio_unitario'] ? 'Solo enteros: 1, 2, 3...' : 'Ej: 1, 2, 0.5, 1.5'; ?>
+                                                        </small>
                                                     </td>
                                                     <td class="text-center">
                                                         <strong class="text-primary" id="vendido_<?php echo $producto['id']; ?>">
@@ -478,9 +542,10 @@ if ($ruta_id > 0 && $puede_registrar) {
                                                                            name="ajustes[<?php echo $producto['id']; ?>][cantidad]"
                                                                            id="ajuste_cantidad_<?php echo $producto['id']; ?>"
                                                                            data-producto-id="<?php echo $producto['id']; ?>"
+                                                                           data-usa-unitario="<?php echo $producto['usa_precio_unitario'] ? '1' : '0'; ?>"
                                                                            value="<?php echo $producto['ajuste_cantidad'] > 0 ? $producto['ajuste_cantidad'] : ''; ?>"
-                                                                           step="0.5" 
-                                                                           min="0.5"
+                                                                           step="<?php echo $producto['usa_precio_unitario'] ? '1' : '0.5'; ?>" 
+                                                                           min="<?php echo $producto['usa_precio_unitario'] ? '1' : '0.5'; ?>"
                                                                            placeholder="Ej: 2"
                                                                            onchange="validarCantidadAjuste(this, <?php echo $producto['id']; ?>); calcularTotalConAjuste(<?php echo $producto['id']; ?>)">
                                                                     <small class="text-muted">Máx: <span id="max_ajuste_<?php echo $producto['id']; ?>"><?php echo $producto['vendido']; ?></span></small>
@@ -489,7 +554,8 @@ if ($ruta_id > 0 && $puede_registrar) {
                                                                     <label class="form-label fw-bold">Precio Ajustado ($)</label>
                                                                     <input type="number" 
                                                                            class="form-control ajuste-precio" 
-                                                                           name="ajustes[<?php echo $producto['id']; ?>][precio]"
+                                                                           name="ajustes[<?php echo
+                                                                           $producto['id']; ?>][precio]"
                                                                            id="ajuste_precio_<?php echo $producto['id']; ?>"
                                                                            data-producto-id="<?php echo $producto['id']; ?>"
                                                                            value="<?php echo $producto['ajuste_precio'] > 0 ? $producto['ajuste_precio'] : ''; ?>"
@@ -592,6 +658,7 @@ if ($ruta_id > 0 && $puede_registrar) {
         function validarRetorno(input) {
             const valor = parseFloat(input.value);
             const max = parseFloat(input.getAttribute('max'));
+            const usaUnitario = input.getAttribute('data-usa-unitario') === '1';
             
             if (input.value === '' || input.value === '0') {
                 return true;
@@ -609,13 +676,22 @@ if ($ruta_id > 0 && $puede_registrar) {
                 return false;
             }
             
-            // Verificar que solo sea entero o con .5
-            const decimal = valor - Math.floor(valor);
-            
-            if (decimal !== 0 && decimal !== 0.5) {
-                alert('Solo se permiten cantidades enteras (1, 2, 3...) o con .5 (0.5, 1.5, 2.5...)');
-                input.value = '';
-                return false;
+            if (usaUnitario) {
+                // Para precio unitario: solo enteros
+                if (valor !== Math.floor(valor)) {
+                    alert('Para precio unitario solo se permiten cantidades enteras (1, 2, 3...)');
+                    input.value = '';
+                    return false;
+                }
+            } else {
+                // Para precio por caja: enteros o con .5
+                const decimal = valor - Math.floor(valor);
+                
+                if (decimal !== 0 && decimal !== 0.5) {
+                    alert('Solo se permiten cantidades enteras (1, 2, 3...) o con .5 (0.5, 1.5, 2.5...)');
+                    input.value = '';
+                    return false;
+                }
             }
             
             return true;
@@ -662,6 +738,7 @@ if ($ruta_id > 0 && $puede_registrar) {
         
         function validarCantidadAjuste(input, productoId) {
             const valor = parseFloat(input.value);
+            const usaUnitario = input.getAttribute('data-usa-unitario') === '1';
             
             if (input.value === '' || input.value === '0') {
                 return true;
@@ -673,11 +750,21 @@ if ($ruta_id > 0 && $puede_registrar) {
                 return false;
             }
             
-            const decimal = valor - Math.floor(valor);
-            if (decimal !== 0 && decimal !== 0.5) {
-                alert('Solo se permiten cantidades enteras o con .5');
-                input.value = '';
-                return false;
+            if (usaUnitario) {
+                // Para precio unitario: solo enteros
+                if (valor !== Math.floor(valor)) {
+                    alert('Para precio unitario solo se permiten cantidades enteras');
+                    input.value = '';
+                    return false;
+                }
+            } else {
+                // Para precio por caja: enteros o con .5
+                const decimal = valor - Math.floor(valor);
+                if (decimal !== 0 && decimal !== 0.5) {
+                    alert('Solo se permiten cantidades enteras o con .5');
+                    input.value = '';
+                    return false;
+                }
             }
             
             // Verificar que no supere el vendido

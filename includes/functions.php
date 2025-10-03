@@ -9,8 +9,8 @@ function verificarSesion() {
     }
 }
 
-// Validar cantidad (solo enteros o decimales con .5)
-function validarCantidad($cantidad) {
+// Validar cantidad según tipo de precio
+function validarCantidad($cantidad, $usa_precio_unitario = false) {
     // Convertir a float
     $num = floatval($cantidad);
     
@@ -19,15 +19,14 @@ function validarCantidad($cantidad) {
         return false;
     }
     
-    // Obtener la parte decimal
-    $decimal = $num - floor($num);
-    
-    // Solo permitir .0 (enteros) o .5
-    if ($decimal == 0 || $decimal == 0.5) {
-        return true;
+    if ($usa_precio_unitario) {
+        // Para precio unitario: solo números enteros
+        return ($num == floor($num));
+    } else {
+        // Para precio por caja: enteros o con .5
+        $decimal = $num - floor($num);
+        return ($decimal == 0 || $decimal == 0.5);
     }
-    
-    return false;
 }
 
 // Validar fecha de salida (solo hoy o mañana)
@@ -158,6 +157,38 @@ function puedeRegistrarRetorno($conn, $ruta_id, $fecha) {
     return true;
 }
 
+// Verificar si un producto se registró con precio unitario en la salida
+function usaPrecioUnitarioEnSalida($conn, $ruta_id, $producto_id, $fecha) {
+    $stmt = $conn->prepare("SELECT usa_precio_unitario FROM salidas WHERE ruta_id = ? AND producto_id = ? AND fecha = ? LIMIT 1");
+    $stmt->bind_param("iis", $ruta_id, $producto_id, $fecha);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    
+    if ($row = $result->fetch_assoc()) {
+        $stmt->close();
+        return (bool)$row['usa_precio_unitario'];
+    }
+    
+    $stmt->close();
+    return false;
+}
+
+// Verificar si un producto se registró con precio unitario en la recarga
+function usaPrecioUnitarioEnRecarga($conn, $ruta_id, $producto_id, $fecha) {
+    $stmt = $conn->prepare("SELECT usa_precio_unitario FROM recargas WHERE ruta_id = ? AND producto_id = ? AND fecha = ? LIMIT 1");
+    $stmt->bind_param("iis", $ruta_id, $producto_id, $fecha);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    
+    if ($row = $result->fetch_assoc()) {
+        $stmt->close();
+        return (bool)$row['usa_precio_unitario'];
+    }
+    
+    $stmt->close();
+    return false;
+}
+
 // Formatear dinero
 function formatearDinero($cantidad) {
     return '$' . number_format($cantidad, 2);
@@ -178,7 +209,7 @@ function calcularVentas($conn, $ruta_id, $fecha) {
     $productos = [];
     
     // Obtener todos los productos con movimientos en esa fecha y ruta
-    $query = "SELECT DISTINCT p.id, p.nombre, p.precio, p.tipo 
+    $query = "SELECT DISTINCT p.id, p.nombre, p.precio_caja, p.precio_unitario, p.tipo 
               FROM productos p 
               WHERE p.activo = 1 
               AND (
@@ -195,13 +226,28 @@ function calcularVentas($conn, $ruta_id, $fecha) {
     
     while ($producto = $result->fetch_assoc()) {
         // Obtener salida
-        $salida = obtenerCantidad($conn, 'salidas', $ruta_id, $producto['id'], $fecha);
+        $salida_data = obtenerCantidadConPrecio($conn, 'salidas', $ruta_id, $producto['id'], $fecha);
+        $salida = $salida_data['cantidad'];
+        $usa_unitario_salida = $salida_data['usa_precio_unitario'];
         
         // Obtener recarga
-        $recarga = obtenerCantidad($conn, 'recargas', $ruta_id, $producto['id'], $fecha);
+        $recarga_data = obtenerCantidadConPrecio($conn, 'recargas', $ruta_id, $producto['id'], $fecha);
+        $recarga = $recarga_data['cantidad'];
+        $usa_unitario_recarga = $recarga_data['usa_precio_unitario'];
         
         // Obtener retorno
-        $retorno = obtenerCantidad($conn, 'retornos', $ruta_id, $producto['id'], $fecha);
+        $retorno_data = obtenerCantidadConPrecio($conn, 'retornos', $ruta_id, $producto['id'], $fecha);
+        $retorno = $retorno_data['cantidad'];
+        $usa_unitario_retorno = $retorno_data['usa_precio_unitario'];
+        
+        // Determinar si se usó precio unitario (prioridad: salida > recarga > retorno)
+        $usa_precio_unitario = $usa_unitario_salida || $usa_unitario_recarga || $usa_unitario_retorno;
+        
+        // Determinar el precio a usar
+        $precio_usado = $producto['precio_caja'];
+        if ($usa_precio_unitario && $producto['precio_unitario'] !== null) {
+            $precio_usado = $producto['precio_unitario'];
+        }
         
         // Calcular vendido
         $vendido = ($salida + $recarga) - $retorno;
@@ -223,18 +269,21 @@ function calcularVentas($conn, $ruta_id, $fecha) {
             
             // Calcular lo que queda con precio normal
             if ($cantidad_con_precio_normal > 0) {
-                $total_dinero += $cantidad_con_precio_normal * $producto['precio'];
+                $total_dinero += $cantidad_con_precio_normal * $precio_usado;
             }
         } else {
             // Sin ajustes, precio normal
-            $total_dinero = $vendido * $producto['precio'];
+            $total_dinero = $vendido * $precio_usado;
         }
         
         if ($salida > 0 || $recarga > 0 || $retorno > 0) {
             $productos[] = [
                 'id' => $producto['id'],
                 'nombre' => $producto['nombre'],
-                'precio' => $producto['precio'],
+                'precio' => $precio_usado,
+                'precio_caja' => $producto['precio_caja'],
+                'precio_unitario' => $producto['precio_unitario'],
+                'usa_precio_unitario' => $usa_precio_unitario,
                 'salida' => $salida,
                 'recarga' => $recarga,
                 'retorno' => $retorno,
@@ -249,7 +298,7 @@ function calcularVentas($conn, $ruta_id, $fecha) {
     return $productos;
 }
 
-// Obtener cantidad de una tabla específica
+// Obtener cantidad de una tabla específica (MODIFICADA para incluir usa_precio_unitario)
 function obtenerCantidad($conn, $tabla, $ruta_id, $producto_id, $fecha) {
     $stmt = $conn->prepare("SELECT COALESCE(SUM(cantidad), 0) as total FROM $tabla WHERE ruta_id = ? AND producto_id = ? AND fecha = ?");
     $stmt->bind_param("iis", $ruta_id, $producto_id, $fecha);
@@ -258,6 +307,21 @@ function obtenerCantidad($conn, $tabla, $ruta_id, $producto_id, $fecha) {
     $row = $result->fetch_assoc();
     $stmt->close();
     return floatval($row['total']);
+}
+
+// Obtener cantidad con información de precio unitario
+function obtenerCantidadConPrecio($conn, $tabla, $ruta_id, $producto_id, $fecha) {
+    $stmt = $conn->prepare("SELECT COALESCE(SUM(cantidad), 0) as total, MAX(usa_precio_unitario) as usa_unitario FROM $tabla WHERE ruta_id = ? AND producto_id = ? AND fecha = ?");
+    $stmt->bind_param("iis", $ruta_id, $producto_id, $fecha);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $row = $result->fetch_assoc();
+    $stmt->close();
+    
+    return [
+        'cantidad' => floatval($row['total']),
+        'usa_precio_unitario' => (bool)$row['usa_unitario']
+    ];
 }
 
 // Obtener ajustes de precios
@@ -274,6 +338,24 @@ function obtenerAjustesPrecios($conn, $ruta_id, $producto_id, $fecha) {
     
     $stmt->close();
     return $ajustes;
+}
+
+// Obtener productos según ruta (MODIFICADA para incluir tipo "Ambos")
+function obtenerProductosParaRuta($conn, $ruta_id) {
+    // Determinar qué tipo de productos mostrar según la ruta
+    if ($ruta_id == 5) {
+        $tipo_producto = 'Big Cola';
+    } else {
+        $tipo_producto = 'Varios';
+    }
+    
+    // Obtener productos del tipo específico + productos tipo "Ambos"
+    $stmt = $conn->prepare("SELECT * FROM productos WHERE (tipo = ? OR tipo = 'Ambos') AND activo = 1 ORDER BY nombre");
+    $stmt->bind_param("s", $tipo_producto);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    
+    return $result;
 }
 
 // Función para sanitizar entrada

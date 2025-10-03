@@ -17,6 +17,7 @@ $fecha_seleccionada = isset($_GET['fecha']) ? $_GET['fecha'] : date('Y-m-d');
 // Variable para modo edición
 $modo_edicion = false;
 $salidas_existentes = [];
+$precios_unitarios_usados = [];
 
 // Verificar si ya existe una salida para esta ruta y fecha
 if ($ruta_id > 0 && !empty($fecha_seleccionada)) {
@@ -43,6 +44,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['registrar_salidas'])) 
         $tipo_mensaje = 'danger';
     } else {
         $productos = $_POST['productos'] ?? [];
+        $precios_unitarios = $_POST['usar_precio_unitario'] ?? [];
         $errores = [];
         $registros_exitosos = 0;
         
@@ -60,15 +62,19 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['registrar_salidas'])) 
             // Insertar nuevas salidas
             foreach ($productos as $producto_id => $cantidad) {
                 if (!empty($cantidad) && $cantidad > 0) {
-                    // Validar cantidad
-                    if (!validarCantidad($cantidad)) {
-                        throw new Exception("Cantidad inválida para producto ID $producto_id");
+                    // Verificar si se marcó precio unitario para este producto
+                    $usa_precio_unitario = isset($precios_unitarios[$producto_id]) ? 1 : 0;
+                    
+                    // Validar cantidad según tipo de precio
+                    if (!validarCantidad($cantidad, $usa_precio_unitario)) {
+                        $tipo_texto = $usa_precio_unitario ? 'precio unitario (solo enteros)' : 'precio por caja (enteros o .5)';
+                        throw new Exception("Cantidad inválida para producto ID $producto_id. Use $tipo_texto");
                     }
                     
                     // Insertar salida
-                    $stmt = $conn->prepare("INSERT INTO salidas (ruta_id, producto_id, cantidad, fecha, usuario_id) VALUES (?, ?, ?, ?, ?)");
+                    $stmt = $conn->prepare("INSERT INTO salidas (ruta_id, producto_id, cantidad, usa_precio_unitario, fecha, usuario_id) VALUES (?, ?, ?, ?, ?, ?)");
                     $usuario_id = $_SESSION['usuario_id'];
-                    $stmt->bind_param("iidsi", $ruta_id, $producto_id, $cantidad, $fecha, $usuario_id);
+                    $stmt->bind_param("iidisi", $ruta_id, $producto_id, $cantidad, $usa_precio_unitario, $fecha, $usuario_id);
                     
                     if ($stmt->execute()) {
                         $registros_exitosos++;
@@ -122,28 +128,18 @@ if ($ruta_id > 0 && !empty($fecha_seleccionada)) {
     }
     $stmt->close();
     
-    // Determinar qué tipo de productos mostrar según la ruta
-    if ($ruta_id == 5) {
-        $tipo_producto = 'Big Cola';
-    } else {
-        $tipo_producto = 'Varios';
-    }
+    // Obtener productos para esta ruta (incluye tipo "Ambos")
+    $productos_ruta = obtenerProductosParaRuta($conn, $ruta_id);
     
-    // Obtener productos según el tipo
-    $stmt = $conn->prepare("SELECT * FROM productos WHERE tipo = ? AND activo = 1 ORDER BY nombre");
-    $stmt->bind_param("s", $tipo_producto);
-    $stmt->execute();
-    $productos_ruta = $stmt->get_result();
-    $stmt->close();
-    
-    // Obtener salidas existentes
-    $stmt = $conn->prepare("SELECT producto_id, SUM(cantidad) as total FROM salidas WHERE ruta_id = ? AND fecha = ? GROUP BY producto_id");
+    // Obtener salidas existentes con información de precio unitario
+    $stmt = $conn->prepare("SELECT producto_id, SUM(cantidad) as total, MAX(usa_precio_unitario) as usa_unitario FROM salidas WHERE ruta_id = ? AND fecha = ? GROUP BY producto_id");
     $stmt->bind_param("is", $ruta_id, $fecha_seleccionada);
     $stmt->execute();
     $result = $stmt->get_result();
     
     while ($row = $result->fetch_assoc()) {
         $salidas_existentes[$row['producto_id']] = $row['total'];
+        $precios_unitarios_usados[$row['producto_id']] = (bool)$row['usa_unitario'];
     }
     $stmt->close();
 }
@@ -161,6 +157,51 @@ $fecha_manana = date('Y-m-d', strtotime('+1 day'));
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="assets/css/custom.css">
+    <style>
+        .precio-unitario-switch {
+            background: #fff3cd;
+            padding: 10px;
+            border-radius: 5px;
+            border-left: 3px solid #f39c12;
+        }
+        
+        .precio-unitario-switch.active {
+            background: #d4edda;
+            border-left-color: #28a745;
+        }
+        
+        .precio-actual {
+            font-weight: 700;
+            color: #27ae60;
+            font-size: 14px;
+        }
+        
+        .precio-actual.unitario {
+            color: #f39c12;
+        }
+        
+        .form-check-input:checked {
+            background-color: #28a745;
+            border-color: #28a745;
+        }
+        
+        .badge-precio-tipo {
+            font-size: 10px;
+            padding: 3px 8px;
+            border-radius: 10px;
+            margin-left: 5px;
+        }
+        
+        .badge-caja {
+            background: #27ae60;
+            color: white;
+        }
+        
+        .badge-unitario {
+            background: #f39c12;
+            color: white;
+        }
+    </style>
 </head>
 <body>
     <!-- Navbar -->
@@ -230,6 +271,7 @@ $fecha_manana = date('Y-m-d', strtotime('+1 day'));
                     <li><strong>SALIDAS:</strong> Solo se pueden registrar para HOY o MAÑANA</li>
                     <li><strong>HOY:</strong> Puede registrar 1 salida, 1 recarga y 1 retorno por ruta</li>
                     <li><strong>MAÑANA:</strong> Solo puede registrar 1 salida por ruta</li>
+                    <li><strong>PRECIOS:</strong> Active "Precio Unitario" si vende unidades individuales</li>
                     <li>Cuando complete salida, recarga y retorno para hoy, no podrá hacer más registros hasta mañana</li>
                 </ul>
             </div>
@@ -306,9 +348,10 @@ $fecha_manana = date('Y-m-d', strtotime('+1 day'));
                                         <thead class="table-light">
                                             <tr>
                                                 <th>Producto</th>
-                                                <th width="150">Precio</th>
-                                                <th width="200">Cantidad</th>
-                                                <th width="150">Subtotal</th>
+                                                <th width="120" class="text-center">Precio</th>
+                                                <th width="150" class="text-center">Tipo Precio</th>
+                                                <th width="180">Cantidad</th>
+                                                <th width="130" class="text-center">Subtotal</th>
                                             </tr>
                                         </thead>
                                         <tbody>
@@ -316,31 +359,78 @@ $fecha_manana = date('Y-m-d', strtotime('+1 day'));
                                             $productos_ruta->data_seek(0);
                                             while ($producto = $productos_ruta->fetch_assoc()): 
                                                 $cantidad_existente = isset($salidas_existentes[$producto['id']]) ? $salidas_existentes[$producto['id']] : 0;
+                                                $usa_unitario_existente = isset($precios_unitarios_usados[$producto['id']]) ? $precios_unitarios_usados[$producto['id']] : false;
+                                                $tiene_precio_unitario = $producto['precio_unitario'] !== null;
                                             ?>
                                                 <tr>
                                                     <td>
                                                         <strong><?php echo $producto['nombre']; ?></strong>
+                                                        <br>
+                                                        <small class="text-muted">
+                                                            Caja: <?php echo formatearDinero($producto['precio_caja']); ?>
+                                                            <?php if ($tiene_precio_unitario): ?>
+                                                                | Unitario: <?php echo formatearDinero($producto['precio_unitario']); ?>
+                                                            <?php endif; ?>
+                                                        </small>
                                                     </td>
-                                                    <td class="text-success fw-bold">
-                                                        <?php echo formatearDinero($producto['precio']); ?>
+                                                    <td class="text-center">
+                                                        <span class="precio-actual" id="precio_display_<?php echo $producto['id']; ?>" 
+                                                              data-precio-caja="<?php echo $producto['precio_caja']; ?>"
+                                                              data-precio-unitario="<?php echo $producto['precio_unitario'] ?? 0; ?>">
+                                                            <?php 
+                                                            $precio_mostrar = $usa_unitario_existente && $tiene_precio_unitario ? $producto['precio_unitario'] : $producto['precio_caja'];
+                                                            echo formatearDinero($precio_mostrar); 
+                                                            ?>
+                                                        </span>
+                                                        <br>
+                                                        <span class="badge badge-precio-tipo <?php echo $usa_unitario_existente ? 'badge-unitario' : 'badge-caja'; ?>" 
+                                                              id="badge_tipo_<?php echo $producto['id']; ?>">
+                                                            <?php echo $usa_unitario_existente ? 'UNITARIO' : 'CAJA'; ?>
+                                                        </span>
+                                                    </td>
+                                                    <td class="text-center">
+                                                        <?php if ($tiene_precio_unitario): ?>
+                                                            <div class="precio-unitario-switch <?php echo $usa_unitario_existente ? 'active' : ''; ?>" 
+                                                                 id="switch_container_<?php echo $producto['id']; ?>">
+                                                                <div class="form-check form-switch">
+                                                                    <input class="form-check-input" 
+                                                                           type="checkbox" 
+                                                                           name="usar_precio_unitario[<?php echo $producto['id']; ?>]"
+                                                                           id="switch_<?php echo $producto['id']; ?>"
+                                                                           data-producto-id="<?php echo $producto['id']; ?>"
+                                                                           onchange="cambiarTipoPrecio(<?php echo $producto['id']; ?>)"
+                                                                           <?php echo $usa_unitario_existente ? 'checked' : ''; ?>>
+                                                                    <label class="form-check-label" for="switch_<?php echo $producto['id']; ?>">
+                                                                        <small><strong>Precio Unitario</strong></small>
+                                                                    </label>
+                                                                </div>
+                                                            </div>
+                                                        <?php else: ?>
+                                                            <small class="text-muted">Solo por caja</small>
+                                                        <?php endif; ?>
                                                     </td>
                                                     <td>
                                                         <input type="number" 
                                                                class="form-control cantidad-input" 
                                                                name="productos[<?php echo $producto['id']; ?>]" 
-                                                               data-precio="<?php echo $producto['precio']; ?>"
+                                                               id="cantidad_<?php echo $producto['id']; ?>"
                                                                data-producto-id="<?php echo $producto['id']; ?>"
                                                                value="<?php echo $cantidad_existente > 0 ? $cantidad_existente : ''; ?>"
-                                                               step="0.5" 
+                                                               step="<?php echo $usa_unitario_existente ? '1' : '0.5'; ?>" 
                                                                min="0"
                                                                placeholder="0"
-                                                               onchange="validarCantidadInput(this); calcularSubtotal(this);"
-                                                               onkeyup="calcularSubtotal(this);">
-                                                        <small class="text-muted">Ejemplo: 1, 2, 0.5, 1.5</small>
+                                                               onchange="validarCantidadInput(this); calcularSubtotal(<?php echo $producto['id']; ?>);"
+                                                               onkeyup="calcularSubtotal(<?php echo $producto['id']; ?>);">
+                                                        <small class="text-muted cantidad-hint" id="hint_<?php echo $producto['id']; ?>">
+                                                            <?php echo $usa_unitario_existente ? 'Solo enteros: 1, 2, 3...' : 'Ej: 1, 2, 0.5, 1.5'; ?>
+                                                        </small>
                                                     </td>
-                                                    <td>
+                                                    <td class="text-center">
                                                         <span class="subtotal fw-bold text-primary" id="subtotal_<?php echo $producto['id']; ?>">
-                                                            <?php echo formatearDinero($cantidad_existente * $producto['precio']); ?>
+                                                            <?php 
+                                                            $precio_calc = $usa_unitario_existente && $tiene_precio_unitario ? $producto['precio_unitario'] : $producto['precio_caja'];
+                                                            echo formatearDinero($cantidad_existente * $precio_calc); 
+                                                            ?>
                                                         </span>
                                                     </td>
                                                 </tr>
@@ -348,15 +438,14 @@ $fecha_manana = date('Y-m-d', strtotime('+1 day'));
                                         </tbody>
                                         <tfoot class="table-light">
                                             <tr>
-                                                <td colspan="3" class="text-end fw-bold">TOTAL ESTIMADO:</td>
-                                                <td>
+                                                <td colspan="4" class="text-end fw-bold">TOTAL ESTIMADO:</td>
+                                                <td class="text-center">
                                                     <span class="fw-bold text-success fs-5" id="total_general">$0.00</span>
                                                 </td>
                                             </tr>
                                         </tfoot>
                                     </table>
                                 </div>
-                                
                                 <div class="text-center mt-4">
                                     <button type="submit" class="btn btn-custom-success btn-lg">
                                         <i class="fas fa-save"></i> <?php echo $modo_edicion ? 'Actualizar Salidas' : 'Registrar Salidas'; ?>
@@ -436,7 +525,52 @@ $fecha_manana = date('Y-m-d', strtotime('+1 day'));
             }
         }
         
+        // Cambiar tipo de precio (caja o unitario)
+        function cambiarTipoPrecio(productoId) {
+            const checkbox = document.getElementById('switch_' + productoId);
+            const precioDisplay = document.getElementById('precio_display_' + productoId);
+            const badgeTipo = document.getElementById('badge_tipo_' + productoId);
+            const cantidadInput = document.getElementById('cantidad_' + productoId);
+            const hint = document.getElementById('hint_' + productoId);
+            const switchContainer = document.getElementById('switch_container_' + productoId);
+            
+            const usaUnitario = checkbox.checked;
+            const precioCaja = parseFloat(precioDisplay.getAttribute('data-precio-caja'));
+            const precioUnitario = parseFloat(precioDisplay.getAttribute('data-precio-unitario'));
+            
+            // Actualizar precio mostrado
+            if (usaUnitario) {
+                precioDisplay.textContent = '$' + precioUnitario.toFixed(2);
+                precioDisplay.classList.add('unitario');
+                badgeTipo.textContent = 'UNITARIO';
+                badgeTipo.classList.remove('badge-caja');
+                badgeTipo.classList.add('badge-unitario');
+                cantidadInput.step = '1';
+                hint.textContent = 'Solo enteros: 1, 2, 3...';
+                switchContainer.classList.add('active');
+            } else {
+                precioDisplay.textContent = '$' + precioCaja.toFixed(2);
+                precioDisplay.classList.remove('unitario');
+                badgeTipo.textContent = 'CAJA';
+                badgeTipo.classList.remove('badge-unitario');
+                badgeTipo.classList.add('badge-caja');
+                cantidadInput.step = '0.5';
+                hint.textContent = 'Ej: 1, 2, 0.5, 1.5';
+                switchContainer.classList.remove('active');
+            }
+            
+            // Limpiar cantidad si cambia el tipo
+            cantidadInput.value = '';
+            
+            // Recalcular subtotal
+            calcularSubtotal(productoId);
+        }
+        
         function validarCantidadInput(input) {
+            const productoId = input.getAttribute('data-producto-id');
+            const checkbox = document.getElementById('switch_' + productoId);
+            const usaUnitario = checkbox ? checkbox.checked : false;
+            
             const valor = parseFloat(input.value);
             
             if (input.value === '' || input.value === '0') {
@@ -449,24 +583,41 @@ $fecha_manana = date('Y-m-d', strtotime('+1 day'));
                 return false;
             }
             
-            // Verificar que solo sea entero o con .5
-            const decimal = valor - Math.floor(valor);
-            
-            if (decimal !== 0 && decimal !== 0.5) {
-                alert('Solo se permiten cantidades enteras (1, 2, 3...) o con .5 (0.5, 1.5, 2.5...)');
-                input.value = '';
-                return false;
+            if (usaUnitario) {
+                // Para precio unitario: solo enteros
+                if (valor !== Math.floor(valor)) {
+                    alert('Para precio unitario solo se permiten cantidades enteras (1, 2, 3...)');
+                    input.value = '';
+                    return false;
+                }
+            } else {
+                // Para precio por caja: enteros o con .5
+                const decimal = valor - Math.floor(valor);
+                
+                if (decimal !== 0 && decimal !== 0.5) {
+                    alert('Solo se permiten cantidades enteras (1, 2, 3...) o con .5 (0.5, 1.5, 2.5...)');
+                    input.value = '';
+                    return false;
+                }
             }
             
             return true;
         }
         
-        function calcularSubtotal(input) {
-            const cantidad = parseFloat(input.value) || 0;
-            const precio = parseFloat(input.getAttribute('data-precio'));
-            const productoId = input.getAttribute('data-producto-id');
+        function calcularSubtotal(productoId) {
+            const input = document.getElementById('cantidad_' + productoId);
+            const precioDisplay = document.getElementById('precio_display_' + productoId);
+            const checkbox = document.getElementById('switch_' + productoId);
             
+            const cantidad = parseFloat(input.value) || 0;
+            const usaUnitario = checkbox ? checkbox.checked : false;
+            
+            const precioCaja = parseFloat(precioDisplay.getAttribute('data-precio-caja'));
+            const precioUnitario = parseFloat(precioDisplay.getAttribute('data-precio-unitario'));
+            
+            const precio = usaUnitario ? precioUnitario : precioCaja;
             const subtotal = cantidad * precio;
+            
             document.getElementById('subtotal_' + productoId).textContent = '$' + subtotal.toFixed(2);
             
             calcularTotal();
@@ -477,8 +628,17 @@ $fecha_manana = date('Y-m-d', strtotime('+1 day'));
             const inputs = document.querySelectorAll('.cantidad-input');
             
             inputs.forEach(input => {
+                const productoId = input.getAttribute('data-producto-id');
                 const cantidad = parseFloat(input.value) || 0;
-                const precio = parseFloat(input.getAttribute('data-precio'));
+                
+                const precioDisplay = document.getElementById('precio_display_' + productoId);
+                const checkbox = document.getElementById('switch_' + productoId);
+                const usaUnitario = checkbox ? checkbox.checked : false;
+                
+                const precioCaja = parseFloat(precioDisplay.getAttribute('data-precio-caja'));
+                const precioUnitario = parseFloat(precioDisplay.getAttribute('data-precio-unitario'));
+                
+                const precio = usaUnitario ? precioUnitario : precioCaja;
                 total += cantidad * precio;
             });
             
