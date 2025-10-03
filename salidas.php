@@ -11,13 +11,8 @@ $tipo_mensaje = '';
 // Obtener ruta seleccionada
 $ruta_id = isset($_GET['ruta']) ? intval($_GET['ruta']) : 0;
 
-// Determinar fecha por defecto
-$fecha_sugerida = '';
-if ($ruta_id > 0) {
-    $fecha_sugerida = obtenerFechaPorDefecto($conn, $ruta_id, 'salida');
-}
-
-$fecha_seleccionada = isset($_GET['fecha']) ? $_GET['fecha'] : $fecha_sugerida;
+// Para salidas: fecha puede ser hoy o mañana
+$fecha_seleccionada = isset($_GET['fecha']) ? $_GET['fecha'] : date('Y-m-d');
 
 // Variable para modo edición
 $modo_edicion = false;
@@ -34,9 +29,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['registrar_salidas'])) 
     $fecha = $_POST['fecha'];
     $es_edicion = isset($_POST['es_edicion']) && $_POST['es_edicion'] == '1';
     
-    // Validar fecha (no permitir ayer o antes)
+    // Validar fecha (solo hoy o mañana)
     if (!validarFechaSalida($fecha)) {
-        $mensaje = 'Error: No se pueden registrar salidas para fechas pasadas (ayer o antes)';
+        $mensaje = 'Error: Las salidas solo se pueden registrar para HOY o MAÑANA';
         $tipo_mensaje = 'danger';
     } elseif (!puedeRegistrarSalida($conn, $ruta_id, $fecha)) {
         // Verificar si es porque ya completó hoy
@@ -153,18 +148,8 @@ if ($ruta_id > 0 && !empty($fecha_seleccionada)) {
     $stmt->close();
 }
 
-// Obtener información de horarios
-$hora_actual = (int)date('H');
-$en_horario = estaEnHorarioSalida();
-$mensaje_horario = '';
-
-if (!$en_horario) {
-    $mensaje_horario = 'Fuera del horario de registro de salidas (5-11 AM para hoy, 3-11 PM para mañana)';
-} elseif ($hora_actual >= 5 && $hora_actual < 11) {
-    $mensaje_horario = 'Horario actual: Salidas para HOY';
-} elseif ($hora_actual >= 15 && $hora_actual <= 23) {
-    $mensaje_horario = 'Horario actual: Salidas para MAÑANA';
-}
+// Calcular fecha máxima (mañana)
+$fecha_manana = date('Y-m-d', strtotime('+1 day'));
 
 ?>
 <!DOCTYPE html>
@@ -238,27 +223,13 @@ if (!$en_horario) {
                 <?php endif; ?>
             </h1>
             
-            <?php if ($mensaje_horario): ?>
-                <div class="alert <?php echo $en_horario ? 'alert-info' : 'alert-warning'; ?> alert-custom">
-                    <i class="fas fa-clock"></i>
-                    <strong><?php echo $mensaje_horario; ?></strong>
-                    <br><small>Hora actual: <?php echo date('h:i A'); ?></small>
-                </div>
-            <?php endif; ?>
-            
             <div class="alert alert-info alert-custom">
                 <i class="fas fa-info-circle"></i>
-                <strong>Reglas de Registro:</strong> 
+                <strong>Importante:</strong> 
                 <ul class="mb-0 mt-2">
+                    <li><strong>SALIDAS:</strong> Solo se pueden registrar para HOY o MAÑANA</li>
                     <li><strong>HOY:</strong> Puede registrar 1 salida, 1 recarga y 1 retorno por ruta</li>
-                    <li><strong>HORARIOS SALIDAS:</strong>
-                        <ul>
-                            <li>5:00 AM - 11:00 AM = Salida para HOY</li>
-                            <li>3:00 PM - 11:00 PM = Salida para MAÑANA</li>
-                        </ul>
-                    </li>
                     <li><strong>MAÑANA:</strong> Solo puede registrar 1 salida por ruta</li>
-                    <li><strong>AYER:</strong> No se permiten registros de fechas pasadas</li>
                     <li>Cuando complete salida, recarga y retorno para hoy, no podrá hacer más registros hasta mañana</li>
                 </ul>
             </div>
@@ -291,14 +262,9 @@ if (!$en_horario) {
                 <div class="col-md-6 mb-3">
                     <label class="form-label fw-bold">Fecha de Salida *</label>
                     <input type="date" class="form-control" id="fecha_salida" value="<?php echo $fecha_seleccionada; ?>" onchange="cambiarFecha()" 
-                           min="<?php echo date('Y-m-d'); ?>">
-                    <small class="text-muted">
-                        <?php if ($ruta_id > 0 && tieneRegistrosHoy($conn, $ruta_id)): ?>
-                            Esta ruta tiene registros hoy. Fecha sugerida: HOY
-                        <?php else: ?>
-                            Fecha sugerida según horario actual
-                        <?php endif; ?>
-                    </small>
+                           min="<?php echo date('Y-m-d'); ?>"
+                           max="<?php echo $fecha_manana; ?>">
+                    <small class="text-muted">Solo se permite HOY o MAÑANA</small>
                 </div>
             </div>
             
@@ -309,12 +275,18 @@ if (!$en_horario) {
                         <h5>No se puede registrar salida</h5>
                         <?php if ($fecha_seleccionada === date('Y-m-d') && rutaCompletaHoy($conn, $ruta_id, $fecha_seleccionada)): ?>
                             <p>Esta ruta ya completó <strong>todos sus registros del día</strong> (salida, recarga y retorno).</p>
-                            <p>No se permiten más registros para hoy. Puede registrar salidas para mañana o fechas futuras.</p>
+                            <p>No se permiten más registros para hoy. Puede registrar salidas para mañana.</p>
                         <?php else: ?>
                             <p>Ya existe una salida registrada para esta ruta en esta fecha.</p>
                         <?php endif; ?>
                     </div>
                 <?php else: ?>
+                    <?php if ($modo_edicion): ?>
+                        <div class="alert alert-warning alert-custom" id="alertEdicion">
+                            <i class="fas fa-edit"></i>
+                            <strong>Modo Edición:</strong> Ya existe una salida registrada para esta ruta en esta fecha. Puede modificar las cantidades y guardar los cambios.
+                        </div>
+                    <?php endif; ?>
                     <!-- Formulario de Productos -->
                     <form method="POST" id="formSalidas">
                         <input type="hidden" name="registrar_salidas" value="1">
@@ -322,18 +294,10 @@ if (!$en_horario) {
                         <input type="hidden" name="fecha" value="<?php echo $fecha_seleccionada; ?>">
                         <input type="hidden" name="es_edicion" value="<?php echo $modo_edicion ? '1' : '0'; ?>">
                         
-                        <?php if ($modo_edicion): ?>
-                            <div class="alert alert-warning">
-                                <i class="fas fa-edit"></i>
-                                <strong>Modo Edición:</strong> Ya existe una salida registrada para esta ruta en esta fecha. Puede modificar las cantidades y guardar los cambios.
-                            </div>
-                        <?php endif; ?>
-                        
                         <div class="card mb-4">
                             <div class="card-header bg-primary text-white">
                                 <h5 class="mb-0">
                                     <i class="fas fa-box"></i> Productos de <?php echo $nombre_ruta; ?>
-                                    <span class="badge bg-light text-dark ms-2">Fecha: <?php echo date('d/m/Y', strtotime($fecha_seleccionada)); ?></span>
                                 </h5>
                             </div>
                             <div class="card-body">
@@ -419,13 +383,42 @@ if (!$en_horario) {
         </div>
     </div>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="assets/js/notifications.js"></script>
     <script>
+        // Confirmación antes de editar
+        <?php if ($modo_edicion && $puede_registrar): ?>
+        window.addEventListener('DOMContentLoaded', function() {
+            const confirmoEdicion = sessionStorage.getItem('confirmoEdicionSalida_<?php echo $ruta_id; ?>_<?php echo $fecha_seleccionada; ?>');
+            
+            if (!confirmoEdicion) {
+                const confirmacion = confirm(
+                    '⚠️ ATENCIÓN: Esta ruta ya tiene una SALIDA registrada para la fecha seleccionada.\n\n' +
+                    '¿Está seguro que desea EDITAR la salida existente?\n\n' +
+                    'Si acepta, podrá modificar las cantidades de los productos.'
+                );
+                
+                if (confirmacion) {
+                    sessionStorage.setItem('confirmoEdicionSalida_<?php echo $ruta_id; ?>_<?php echo $fecha_seleccionada; ?>', 'true');
+                } else {
+                    window.location.href = 'salidas.php';
+                }
+            }
+        });
+        <?php endif; ?>
+        
         function cambiarRuta() {
             const rutaId = document.getElementById('select_ruta').value;
+            const fecha = document.getElementById('fecha_salida').value;
+            
+            // Limpiar confirmación de edición
+            sessionStorage.removeItem('confirmoEdicionSalida_' + rutaId + '_' + fecha);
             
             if (rutaId) {
-                // Al cambiar de ruta, redirigir sin fecha para que se calcule automáticamente
-                window.location.href = 'salidas.php?ruta=' + rutaId;
+                let url = 'salidas.php?ruta=' + rutaId;
+                if (fecha) {
+                    url += '&fecha=' + fecha;
+                }
+                window.location.href = url;
             } else {
                 window.location.href = 'salidas.php';
             }
@@ -434,6 +427,9 @@ if (!$en_horario) {
         function cambiarFecha() {
             const rutaId = document.getElementById('select_ruta').value;
             const fecha = document.getElementById('fecha_salida').value;
+            
+            // Limpiar confirmación de edición
+            sessionStorage.removeItem('confirmoEdicionSalida_' + rutaId + '_' + fecha);
             
             if (rutaId && fecha) {
                 window.location.href = 'salidas.php?ruta=' + rutaId + '&fecha=' + fecha;
@@ -519,6 +515,11 @@ if (!$en_horario) {
                 e.preventDefault();
                 return false;
             }
+            
+            // Limpiar la confirmación después de guardar
+            const rutaId = document.querySelector('[name="ruta_id"]').value;
+            const fecha = document.querySelector('[name="fecha"]').value;
+            sessionStorage.removeItem('confirmoEdicionSalida_' + rutaId + '_' + fecha);
         });
     </script>
 </body>

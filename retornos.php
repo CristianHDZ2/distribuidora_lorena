@@ -10,6 +10,8 @@ $tipo_mensaje = '';
 
 // Obtener ruta seleccionada
 $ruta_id = isset($_GET['ruta']) ? intval($_GET['ruta']) : 0;
+
+// Para retornos: fecha SIEMPRE es hoy
 $fecha_hoy = date('Y-m-d');
 
 // Variable para modo edición
@@ -23,9 +25,6 @@ if ($ruta_id > 0) {
 // Verificar si puede registrar retornos
 $puede_registrar = $ruta_id > 0 && puedeRegistrarRetorno($conn, $ruta_id, $fecha_hoy);
 
-// Verificar si existe salida o recarga (necesario para permitir retorno)
-$existe_salida_o_recarga = $ruta_id > 0 && existeSalidaORecargaHoy($conn, $ruta_id);
-
 // Procesar registro/actualización de retornos
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['registrar_retornos'])) {
     $ruta_id = intval($_POST['ruta_id']);
@@ -36,15 +35,12 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['registrar_retornos']))
     if (!validarFechaHoy($fecha)) {
         $mensaje = 'Error: Solo se pueden registrar retornos para el día de hoy';
         $tipo_mensaje = 'danger';
-    } elseif (!existeSalidaORecargaHoy($conn, $ruta_id)) {
-        $mensaje = 'Error: Debe existir una salida o recarga registrada hoy para poder registrar retornos';
-        $tipo_mensaje = 'danger';
     } elseif (!puedeRegistrarRetorno($conn, $ruta_id, $fecha)) {
         // Verificar si ya completó todos los registros del día
         if (rutaCompletaHoy($conn, $ruta_id, $fecha)) {
             $mensaje = 'Error: Esta ruta ya completó todos sus registros del día (salida, recarga y retorno). No se pueden hacer más registros para hoy.';
         } else {
-            $mensaje = 'Error: Ya existe un retorno registrado para esta ruta hoy';
+            $mensaje = 'Error: No se puede registrar retorno en este momento';
         }
         $tipo_mensaje = 'danger';
     } else {
@@ -142,7 +138,7 @@ $rutas = $conn->query("SELECT * FROM rutas WHERE activo = 1 ORDER BY id");
 $productos_info = [];
 $nombre_ruta = '';
 
-if ($ruta_id > 0 && $puede_registrar && $existe_salida_o_recarga) {
+if ($ruta_id > 0 && $puede_registrar) {
     // Obtener nombre de la ruta
     $stmt = $conn->prepare("SELECT nombre FROM rutas WHERE id = ? AND activo = 1");
     $stmt->bind_param("i", $ruta_id);
@@ -316,11 +312,10 @@ if ($ruta_id > 0 && $puede_registrar && $existe_salida_o_recarga) {
             
             <div class="alert alert-info alert-custom">
                 <i class="fas fa-info-circle"></i>
-                <strong>Reglas de Registro:</strong> 
+                <strong>Importante:</strong> 
                 <ul class="mb-0 mt-2">
-                    <li>Solo se pueden registrar retornos para <strong>HOY</strong> (<?php echo date('d/m/Y'); ?>)</li>
+                    <li><strong>RETORNOS:</strong> Solo se pueden registrar para <strong>HOY</strong> (<?php echo date('d/m/Y'); ?>)</li>
                     <li>Puede registrar 1 retorno por ruta al día</li>
-                    <li><strong>IMPORTANTE:</strong> Debe existir al menos una salida O recarga hoy para poder registrar retornos</li>
                     <li>Puede ajustar precio de UN producto si se vendió a precio diferente</li>
                     <li>Una vez complete salida, recarga y retorno del día, no podrá hacer más registros hasta mañana</li>
                 </ul>
@@ -353,41 +348,31 @@ if ($ruta_id > 0 && $puede_registrar && $existe_salida_o_recarga) {
                 
                 <div class="col-md-6 mb-3">
                     <label class="form-label fw-bold">Fecha</label>
-                    <input type="text" class="form-control" value="<?php echo date('d/m/Y'); ?>" readonly>
+                    <input type="text" class="form-control" value="HOY - <?php echo date('d/m/Y'); ?>" readonly>
                     <small class="text-muted">Los retornos solo se registran para hoy</small>
                 </div>
             </div>
             
             <?php if ($ruta_id > 0): ?>
-                <?php if (!$existe_salida_o_recarga): ?>
-                    <div class="alert alert-warning text-center">
-                        <i class="fas fa-exclamation-triangle fa-3x mb-3"></i>
-                        <h5>No se puede registrar retorno</h5>
-                        <p>Debe existir al menos <strong>una salida o una recarga</strong> registrada hoy para poder registrar retornos.</p>
-                        <p>Por favor, registre primero una salida o recarga para esta ruta.</p>
-                        <div class="mt-3">
-                            <a href="salidas.php?ruta=<?php echo $ruta_id; ?>" class="btn btn-primary me-2">
-                                <i class="fas fa-arrow-up"></i> Registrar Salida
-                            </a>
-                            <a href="recargas.php?ruta=<?php echo $ruta_id; ?>" class="btn btn-success">
-                                <i class="fas fa-sync"></i> Registrar Recarga
-                            </a>
-                        </div>
-                    </div>
-                <?php elseif (!$puede_registrar): ?>
+                <?php if (!$puede_registrar): ?>
                     <div class="alert alert-danger text-center">
                         <i class="fas fa-ban fa-3x mb-3"></i>
                         <h5>No se puede registrar retorno</h5>
                         <?php if (rutaCompletaHoy($conn, $ruta_id, $fecha_hoy)): ?>
                             <p>Esta ruta ya completó <strong>todos sus registros del día</strong> (salida, recarga y retorno).</p>
                             <p>No se permiten más registros para hoy. Puede hacer nuevos registros mañana.</p>
-                        <?php elseif (existeRetorno($conn, $ruta_id, $fecha_hoy)): ?>
-                            <p>Ya existe un retorno registrado para esta ruta hoy.</p>
                         <?php else: ?>
                             <p>No se puede registrar retorno en este momento.</p>
                         <?php endif; ?>
                     </div>
                 <?php elseif (count($productos_info) > 0): ?>
+                    <?php if ($modo_edicion): ?>
+                        <div class="alert alert-warning alert-custom" id="alertEdicion">
+                            <i class="fas fa-edit"></i>
+                            <strong>Modo Edición:</strong> Ya existe un retorno registrado para esta ruta hoy. Puede modificar las cantidades y ajustes, luego guardar los cambios.
+                        </div>
+                    <?php endif; ?>
+                    
                     <!-- Formulario de Productos -->
                     <form method="POST" id="formRetornos">
                         <input type="hidden" name="registrar_retornos" value="1">
@@ -395,18 +380,10 @@ if ($ruta_id > 0 && $puede_registrar && $existe_salida_o_recarga) {
                         <input type="hidden" name="fecha" value="<?php echo $fecha_hoy; ?>">
                         <input type="hidden" name="es_edicion" value="<?php echo $modo_edicion ? '1' : '0'; ?>">
                         
-                        <?php if ($modo_edicion): ?>
-                            <div class="alert alert-warning">
-                                <i class="fas fa-edit"></i>
-                                <strong>Modo Edición:</strong> Ya existe un retorno registrado para esta ruta hoy. Puede modificar las cantidades y ajustes, luego guardar los cambios.
-                            </div>
-                        <?php endif; ?>
-                        
                         <div class="card mb-4">
                             <div class="card-header bg-warning text-dark">
                                 <h5 class="mb-0">
                                     <i class="fas fa-box"></i> Productos de <?php echo $nombre_ruta; ?>
-                                    <span class="badge bg-light text-dark ms-2">Fecha: HOY (<?php echo date('d/m/Y'); ?>)</span>
                                 </h5>
                             </div>
                             <div class="card-body">
@@ -548,12 +525,6 @@ if ($ruta_id > 0 && $puede_registrar && $existe_salida_o_recarga) {
                                     <hr>
                                     <h4>Total General: <span id="total_general_ventas" class="text-success">$0.00</span></h4>
                                 </div>
-                                <div class="alert alert-success mt-3">
-                                    <h5><i class="fas fa-calculator"></i> Resumen de Ventas</h5>
-                                    <div id="resumen_ventas"></div>
-                                    <hr>
-                                    <h4>Total General: <span id="total_general_ventas" class="text-success">$0.00</span></h4>
-                                </div>
                                 
                                 <div class="text-center mt-4">
                                     <button type="submit" class="btn btn-custom-success btn-lg">
@@ -571,14 +542,6 @@ if ($ruta_id > 0 && $puede_registrar && $existe_salida_o_recarga) {
                         <i class="fas fa-info-circle fa-3x mb-3"></i>
                         <h5>No hay productos con salidas o recargas registradas para hoy</h5>
                         <p>Debe registrar salidas o recargas antes de poder registrar retornos</p>
-                        <div class="mt-3">
-                            <a href="salidas.php?ruta=<?php echo $ruta_id; ?>" class="btn btn-primary me-2">
-                                <i class="fas fa-arrow-up"></i> Registrar Salida
-                            </a>
-                            <a href="recargas.php?ruta=<?php echo $ruta_id; ?>" class="btn btn-success">
-                                <i class="fas fa-sync"></i> Registrar Recarga
-                            </a>
-                        </div>
                     </div>
                 <?php endif; ?>
             <?php else: ?>
@@ -590,9 +553,34 @@ if ($ruta_id > 0 && $puede_registrar && $existe_salida_o_recarga) {
         </div>
     </div>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="assets/js/notifications.js"></script>
     <script>
+        // Confirmación antes de editar
+        <?php if ($modo_edicion && $puede_registrar): ?>
+        window.addEventListener('DOMContentLoaded', function() {
+            const confirmoEdicion = sessionStorage.getItem('confirmoEdicionRetorno_<?php echo $ruta_id; ?>');
+            
+            if (!confirmoEdicion) {
+                const confirmacion = confirm(
+                    '⚠️ ATENCIÓN: Esta ruta ya tiene un RETORNO registrado para HOY.\n\n' +
+                    '¿Está seguro que desea EDITAR el retorno existente?\n\n' +
+                    'Si acepta, podrá modificar las cantidades y ajustes de los productos.'
+                );
+                
+                if (confirmacion) {
+                    sessionStorage.setItem('confirmoEdicionRetorno_<?php echo $ruta_id; ?>', 'true');
+                } else {
+                    window.location.href = 'retornos.php';
+                }
+            }
+        });
+        <?php endif; ?>
+        
         function cambiarRuta() {
             const rutaId = document.getElementById('select_ruta').value;
+            
+            // Limpiar confirmación de edición
+            sessionStorage.removeItem('confirmoEdicionRetorno_' + rutaId);
             
             if (rutaId) {
                 window.location.href = 'retornos.php?ruta=' + rutaId;
@@ -739,7 +727,6 @@ if ($ruta_id > 0 && $puede_registrar && $existe_salida_o_recarga) {
             
             calcularResumen();
         }
-        
         function calcularResumen() {
             const inputs = document.querySelectorAll('.retorno-input');
             let resumenHTML = '';
@@ -868,7 +855,11 @@ if ($ruta_id > 0 && $puede_registrar && $existe_salida_o_recarga) {
                 return false;
             }
             
-            return confirm('¿Está seguro de registrar estos retornos? Esta acción finalizará el ciclo del día para esta ruta.');
+            // Limpiar la confirmación después de guardar
+            const rutaId = document.querySelector('[name="ruta_id"]').value;
+            sessionStorage.removeItem('confirmoEdicionRetorno_' + rutaId);
+            
+            return confirm('¿Está seguro de registrar estos retornos? Esta acción finalizará el proceso del día.');
         });
     </script>
 </body>

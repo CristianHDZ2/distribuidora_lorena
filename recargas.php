@@ -10,6 +10,8 @@ $tipo_mensaje = '';
 
 // Obtener ruta seleccionada
 $ruta_id = isset($_GET['ruta']) ? intval($_GET['ruta']) : 0;
+
+// Para recargas: fecha SIEMPRE es hoy
 $fecha_hoy = date('Y-m-d');
 
 // Variable para modo edición
@@ -39,7 +41,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['registrar_recargas']))
         if (rutaCompletaHoy($conn, $ruta_id, $fecha)) {
             $mensaje = 'Error: Esta ruta ya completó todos sus registros del día (salida, recarga y retorno). No se pueden hacer más registros para hoy.';
         } else {
-            $mensaje = 'Error: Ya existe una recarga registrada para esta ruta hoy';
+            $mensaje = 'Error: No se puede registrar recarga en este momento';
         }
         $tipo_mensaje = 'danger';
     } else {
@@ -231,9 +233,9 @@ if ($ruta_id > 0) {
             
             <div class="alert alert-info alert-custom">
                 <i class="fas fa-info-circle"></i>
-                <strong>Reglas de Registro:</strong> 
+                <strong>Importante:</strong> 
                 <ul class="mb-0 mt-2">
-                    <li>Solo se pueden registrar recargas para <strong>HOY</strong> (<?php echo date('d/m/Y'); ?>)</li>
+                    <li><strong>RECARGAS:</strong> Solo se pueden registrar para <strong>HOY</strong> (<?php echo date('d/m/Y'); ?>)</li>
                     <li>Puede registrar 1 recarga por ruta al día</li>
                     <li>Puede haber salida del día y aún así registrar recarga</li>
                     <li>Una vez complete salida, recarga y retorno del día, no podrá hacer más registros hasta mañana</li>
@@ -267,11 +269,10 @@ if ($ruta_id > 0) {
                 
                 <div class="col-md-6 mb-3">
                     <label class="form-label fw-bold">Fecha</label>
-                    <input type="text" class="form-control" value="<?php echo date('d/m/Y'); ?>" readonly>
+                    <input type="text" class="form-control" value="HOY - <?php echo date('d/m/Y'); ?>" readonly>
                     <small class="text-muted">Las recargas solo se registran para hoy</small>
                 </div>
             </div>
-            
             <?php if ($ruta_id > 0): ?>
                 <?php if (!$puede_registrar): ?>
                     <div class="alert alert-danger text-center">
@@ -280,13 +281,18 @@ if ($ruta_id > 0) {
                         <?php if (rutaCompletaHoy($conn, $ruta_id, $fecha_hoy)): ?>
                             <p>Esta ruta ya completó <strong>todos sus registros del día</strong> (salida, recarga y retorno).</p>
                             <p>No se permiten más registros para hoy. Puede hacer nuevos registros mañana.</p>
-                        <?php elseif (existeRecarga($conn, $ruta_id, $fecha_hoy)): ?>
-                            <p>Ya existe una recarga registrada para esta ruta hoy.</p>
                         <?php else: ?>
                             <p>No se puede registrar recarga en este momento.</p>
                         <?php endif; ?>
                     </div>
                 <?php else: ?>
+                    <?php if ($modo_edicion): ?>
+                        <div class="alert alert-warning alert-custom" id="alertEdicion">
+                            <i class="fas fa-edit"></i>
+                            <strong>Modo Edición:</strong> Ya existe una recarga registrada para esta ruta hoy. Puede modificar las cantidades y guardar los cambios.
+                        </div>
+                    <?php endif; ?>
+                    
                     <!-- Formulario de Productos -->
                     <form method="POST" id="formRecargas">
                         <input type="hidden" name="registrar_recargas" value="1">
@@ -294,18 +300,10 @@ if ($ruta_id > 0) {
                         <input type="hidden" name="fecha" value="<?php echo $fecha_hoy; ?>">
                         <input type="hidden" name="es_edicion" value="<?php echo $modo_edicion ? '1' : '0'; ?>">
                         
-                        <?php if ($modo_edicion): ?>
-                            <div class="alert alert-warning">
-                                <i class="fas fa-edit"></i>
-                                <strong>Modo Edición:</strong> Ya existe una recarga registrada para esta ruta hoy. Puede modificar las cantidades y guardar los cambios.
-                            </div>
-                        <?php endif; ?>
-                        
                         <div class="card mb-4">
                             <div class="card-header bg-success text-white">
                                 <h5 class="mb-0">
                                     <i class="fas fa-box"></i> Productos de <?php echo $nombre_ruta; ?>
-                                    <span class="badge bg-light text-dark ms-2">Fecha: HOY (<?php echo date('d/m/Y'); ?>)</span>
                                 </h5>
                             </div>
                             <div class="card-body">
@@ -390,9 +388,34 @@ if ($ruta_id > 0) {
         </div>
     </div>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="assets/js/notifications.js"></script>
     <script>
+        // Confirmación antes de editar
+        <?php if ($modo_edicion && $puede_registrar): ?>
+        window.addEventListener('DOMContentLoaded', function() {
+            const confirmoEdicion = sessionStorage.getItem('confirmoEdicionRecarga_<?php echo $ruta_id; ?>');
+            
+            if (!confirmoEdicion) {
+                const confirmacion = confirm(
+                    '⚠️ ATENCIÓN: Esta ruta ya tiene una RECARGA registrada para HOY.\n\n' +
+                    '¿Está seguro que desea EDITAR la recarga existente?\n\n' +
+                    'Si acepta, podrá modificar las cantidades de los productos.'
+                );
+                
+                if (confirmacion) {
+                    sessionStorage.setItem('confirmoEdicionRecarga_<?php echo $ruta_id; ?>', 'true');
+                } else {
+                    window.location.href = 'recargas.php';
+                }
+            }
+        });
+        <?php endif; ?>
+        
         function cambiarRuta() {
             const rutaId = document.getElementById('select_ruta').value;
+            
+            // Limpiar confirmación de edición
+            sessionStorage.removeItem('confirmoEdicionRecarga_' + rutaId);
             
             if (rutaId) {
                 window.location.href = 'recargas.php?ruta=' + rutaId;
@@ -480,6 +503,10 @@ if ($ruta_id > 0) {
                 e.preventDefault();
                 return false;
             }
+            
+            // Limpiar la confirmación después de guardar
+            const rutaId = document.querySelector('[name="ruta_id"]').value;
+            sessionStorage.removeItem('confirmoEdicionRecarga_' + rutaId);
         });
     </script>
 </body>

@@ -10,8 +10,25 @@ $conn = getConnection();
 $total_rutas = $conn->query("SELECT COUNT(*) as total FROM rutas WHERE activo = 1")->fetch_assoc()['total'];
 $total_productos = $conn->query("SELECT COUNT(*) as total FROM productos WHERE activo = 1")->fetch_assoc()['total'];
 
-// Obtener rutas
+// Obtener rutas con su estado de progreso
+$fecha_hoy = date('Y-m-d');
 $rutas = $conn->query("SELECT * FROM rutas WHERE activo = 1 ORDER BY id");
+
+// Obtener estado de cada ruta
+$rutas_con_estado = [];
+while ($ruta = $rutas->fetch_assoc()) {
+    $ruta_id = $ruta['id'];
+    
+    $estado = obtenerEstadoRuta($conn, $ruta_id, $fecha_hoy);
+    
+    $ruta['estado'] = $estado['estado'];
+    $ruta['tiene_salida'] = $estado['tiene_salida'];
+    $ruta['tiene_recarga'] = $estado['tiene_recarga'];
+    $ruta['tiene_retorno'] = $estado['tiene_retorno'];
+    $ruta['completada'] = $estado['completada'];
+    
+    $rutas_con_estado[] = $ruta;
+}
 
 closeConnection($conn);
 ?>
@@ -115,7 +132,7 @@ closeConnection($conn);
                 <i class="fas fa-map-marked-alt"></i> Rutas Disponibles
             </h3>
             <div class="row">
-                <?php while ($ruta = $rutas->fetch_assoc()): ?>
+                <?php foreach ($rutas_con_estado as $ruta): ?>
                     <div class="col-md-6 mb-3">
                         <div class="card h-100">
                             <div class="card-body">
@@ -123,21 +140,63 @@ closeConnection($conn);
                                     <i class="fas fa-map-pin"></i> <?php echo $ruta['nombre']; ?>
                                 </h5>
                                 <p class="card-text text-muted"><?php echo $ruta['descripcion']; ?></p>
-                                <div class="d-flex gap-2 flex-wrap">
-                                    <a href="salidas.php?ruta=<?php echo $ruta['id']; ?>" class="btn btn-sm btn-outline-primary">
-                                        <i class="fas fa-arrow-up"></i> Registrar Salida
-                                    </a>
-                                    <a href="recargas.php?ruta=<?php echo $ruta['id']; ?>" class="btn btn-sm btn-outline-success">
-                                        <i class="fas fa-sync"></i> Registrar Recarga
-                                    </a>
-                                    <a href="retornos.php?ruta=<?php echo $ruta['id']; ?>" class="btn btn-sm btn-outline-warning">
-                                        <i class="fas fa-arrow-down"></i> Registrar Retorno
-                                    </a>
+                                
+                                <!-- Estado de la ruta -->
+                                <?php if ($ruta['estado'] == 'pendiente'): ?>
+                                    <span class="ruta-status-badge pendiente">
+                                        <i class="fas fa-clock"></i> Pendiente
+                                    </span>
+                                <?php elseif ($ruta['estado'] == 'en-proceso'): ?>
+                                    <span class="ruta-status-badge en-proceso">
+                                        <i class="fas fa-spinner"></i> En Proceso
+                                    </span>
+                                <?php else: ?>
+                                    <span class="ruta-status-badge completada">
+                                        <i class="fas fa-check-circle"></i> Completada Hoy
+                                    </span>
+                                <?php endif; ?>
+                                
+                                <!-- Indicador de progreso -->
+                                <div class="progress-indicator">
+                                    <div class="progress-step <?php echo $ruta['tiene_salida'] ? 'completed' : ($ruta['estado'] == 'pendiente' ? 'active' : ''); ?>" title="Salida">
+                                        <i class="fas fa-arrow-up"></i>
+                                    </div>
+                                    <div class="progress-line <?php echo $ruta['tiene_salida'] ? 'completed' : ''; ?>"></div>
+                                    <div class="progress-step <?php echo $ruta['tiene_recarga'] ? 'completed' : ($ruta['tiene_salida'] && !$ruta['tiene_recarga'] ? 'active' : ''); ?>" title="Recarga">
+                                        <i class="fas fa-sync"></i>
+                                    </div>
+                                    <div class="progress-line <?php echo $ruta['tiene_recarga'] ? 'completed' : ''; ?>"></div>
+                                    <div class="progress-step <?php echo $ruta['tiene_retorno'] ? 'completed' : ($ruta['tiene_recarga'] && !$ruta['tiene_retorno'] ? 'active' : ''); ?>" title="Retorno">
+                                        <i class="fas fa-arrow-down"></i>
+                                    </div>
+                                </div>
+                                
+                                <div class="d-flex gap-2 flex-wrap mt-3">
+                                    <?php if ($ruta['completada']): ?>
+                                        <a href="generar_pdf.php?ruta=<?php echo $ruta['id']; ?>&fecha=<?php echo $fecha_hoy; ?>&generar=1" 
+                                           class="btn btn-sm btn-success" target="_blank">
+                                            <i class="fas fa-file-pdf"></i> Ver Reporte Final
+                                        </a>
+                                    <?php else: ?>
+                                        <a href="salidas.php?ruta=<?php echo $ruta['id']; ?>" class="btn btn-sm btn-outline-primary">
+                                            <i class="fas fa-arrow-up"></i> <?php echo $ruta['tiene_salida'] ? 'Editar' : 'Registrar'; ?> Salida
+                                        </a>
+                                        <?php if ($ruta['tiene_salida']): ?>
+                                            <a href="recargas.php?ruta=<?php echo $ruta['id']; ?>" class="btn btn-sm btn-outline-success">
+                                                <i class="fas fa-sync"></i> <?php echo $ruta['tiene_recarga'] ? 'Editar' : 'Registrar'; ?> Recarga
+                                            </a>
+                                        <?php endif; ?>
+                                        <?php if ($ruta['tiene_salida'] || $ruta['tiene_recarga']): ?>
+                                            <a href="retornos.php?ruta=<?php echo $ruta['id']; ?>" class="btn btn-sm btn-outline-warning">
+                                                <i class="fas fa-arrow-down"></i> <?php echo $ruta['tiene_retorno'] ? 'Editar' : 'Registrar'; ?> Retorno
+                                            </a>
+                                        <?php endif; ?>
+                                    <?php endif; ?>
                                 </div>
                             </div>
                         </div>
                     </div>
-                <?php endwhile; ?>
+                <?php endforeach; ?>
             </div>
         </div>
 
@@ -192,5 +251,6 @@ closeConnection($conn);
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="assets/js/notifications.js"></script>
 </body>
 </html>

@@ -184,6 +184,220 @@ body {
     margin: 0;
 }
 
+/* Botón flotante de notificaciones */
+.notifications-toggle {
+    position: fixed;
+    bottom: 30px;
+    right: 30px;
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #f39c12, #e67e22);
+    border: none;
+    box-shadow: 0 4px 15px rgba(243, 156, 18, 0.4);
+    cursor: pointer;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+}
+
+.notifications-toggle:hover {
+    transform: scale(1.1);
+    box-shadow: 0 6px 20px rgba(243, 156, 18, 0.6);
+}
+
+.notifications-toggle i {
+    font-size: 24px;
+    color: white;
+    animation: pulse 2s infinite;
+}
+
+.notifications-toggle .badge {
+    position: absolute;
+    top: -5px;
+    right: -5px;
+    background: #e74c3c;
+    color: white;
+    border-radius: 50%;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: bold;
+}
+
+/* Panel de notificaciones */
+.notifications-panel {
+    position: fixed;
+    bottom: 100px;
+    right: 30px;
+    width: 400px;
+    max-height: 500px;
+    background: white;
+    border-radius: 15px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+    z-index: 999;
+    overflow: hidden;
+    transform: translateY(20px);
+    opacity: 0;
+    pointer-events: none;
+    transition: all 0.3s ease;
+}
+
+.notifications-panel.show {
+    transform: translateY(0);
+    opacity: 1;
+    pointer-events: all;
+}
+
+.notifications-header {
+    background: linear-gradient(135deg, #f39c12, #e67e22);
+    color: white;
+    padding: 15px 20px;
+    font-weight: 600;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.notifications-content {
+    max-height: 400px;
+    overflow-y: auto;
+    padding: 15px;
+}
+
+.notification-item {
+    padding: 12px;
+    margin-bottom: 10px;
+    border-radius: 8px;
+    border-left: 4px solid;
+    background: #f8f9fa;
+    transition: all 0.3s ease;
+}
+
+.notification-item:hover {
+    transform: translateX(5px);
+}
+
+.notification-item.info {
+    border-left-color: #3498db;
+}
+
+.notification-item.success {
+    border-left-color: #27ae60;
+}
+
+.notification-item.warning {
+    border-left-color: #f39c12;
+}
+
+.notification-item.danger {
+    border-left-color: #e74c3c;
+}
+
+.notification-item i {
+    margin-right: 10px;
+}
+
+.no-notifications {
+    text-align: center;
+    padding: 40px 20px;
+    color: #999;
+}
+
+.no-notifications i {
+    font-size: 48px;
+    margin-bottom: 15px;
+    opacity: 0.5;
+}
+
+/* Badge de estado de ruta */
+.ruta-status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 15px;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 600;
+    margin-top: 10px;
+}
+
+.ruta-status-badge.pendiente {
+    background: #ffeaa7;
+    color: #d63031;
+}
+
+.ruta-status-badge.en-proceso {
+    background: #74b9ff;
+    color: #0984e3;
+}
+
+.ruta-status-badge.completada {
+    background: #55efc4;
+    color: #00b894;
+}
+
+.ruta-status-badge i {
+    font-size: 16px;
+}
+
+/* Indicador de progreso */
+.progress-indicator {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    margin-top: 10px;
+}
+
+.progress-step {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: #e0e0e0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    color: #999;
+    transition: all 0.3s ease;
+}
+
+.progress-step.completed {
+    background: #27ae60;
+    color: white;
+}
+
+.progress-step.active {
+    background: #3498db;
+    color: white;
+    box-shadow: 0 0 10px rgba(52, 152, 219, 0.5);
+}
+
+.progress-line {
+    flex: 1;
+    height: 3px;
+    background: #e0e0e0;
+}
+
+.progress-line.completed {
+    background: #27ae60;
+}
+
+/* Animación del pulso */
+@keyframes pulse {
+    0%, 100% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.1);
+    }
+}
+
 /* Responsive */
 @media (max-width: 768px) {
     body {
@@ -207,6 +421,16 @@ body {
     .btn-custom-success {
         padding: 8px 15px;
         font-size: 14px;
+    }
+    
+    .notifications-panel {
+        width: calc(100vw - 40px);
+        right: 20px;
+    }
+    
+    .notifications-toggle {
+        bottom: 20px;
+        right: 20px;
     }
 }
 
