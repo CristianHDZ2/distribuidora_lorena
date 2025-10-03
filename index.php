@@ -80,7 +80,7 @@ closeConnection($conn);
                         </ul>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="generar_pdf.php" target="_blank">
+                        <a class="nav-link" href="generar_pdf.php">
                             <i class="fas fa-file-pdf"></i> Reportes
                         </a>
                     </li>
@@ -174,7 +174,7 @@ closeConnection($conn);
                                 <div class="d-flex gap-2 flex-wrap mt-3">
                                     <?php if ($ruta['completada']): ?>
                                         <a href="generar_pdf.php?ruta=<?php echo $ruta['id']; ?>&fecha=<?php echo $fecha_hoy; ?>&generar=1" 
-                                           class="btn btn-sm btn-success" target="_blank">
+                                           class="btn btn-sm btn-success">
                                             <i class="fas fa-file-pdf"></i> Ver Reporte Final
                                         </a>
                                     <?php else: ?>
@@ -237,7 +237,7 @@ closeConnection($conn);
                     </a>
                 </div>
                 <div class="col-md-3 col-sm-6 mb-3">
-                    <a href="generar_pdf.php" class="text-decoration-none" target="_blank">
+                    <a href="generar_pdf.php" class="text-decoration-none">
                         <div class="card text-center h-100 border-danger">
                             <div class="card-body">
                                 <i class="fas fa-file-pdf fa-3x text-danger mb-3"></i>

@@ -289,7 +289,7 @@ $rutas = $conn->query("SELECT * FROM rutas WHERE activo = 1 ORDER BY nombre ASC"
                         </ul>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="generar_pdf.php" target="_blank">
+                        <a class="nav-link" href="generar_pdf.php" target="generar_pdf.php">
                             <i class="fas fa-file-pdf"></i> Reportes
                         </a>
                     </li>

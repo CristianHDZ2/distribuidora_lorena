@@ -547,7 +547,7 @@ if ($generar && $ruta_id > 0) {
                 <div class="col-md-8">
                     <div class="card">
                         <div class="card-body p-4">
-                            <form method="GET" action="generar_pdf.php" id="formGenerarPDF" target="_self">
+                            <form method="GET" action="generar_pdf.php" id="formGenerarPDF">
                                 <input type="hidden" name="generar" value="1">
                                 
                                 <div class="mb-4">
@@ -583,6 +583,7 @@ if ($generar && $ruta_id > 0) {
                             </form>
                         </div>
                     </div>
+                    
                     <!-- Información adicional -->
                     <div class="card mt-4">
                         <div class="card-header bg-primary text-white">
@@ -613,7 +614,7 @@ if ($generar && $ruta_id > 0) {
                             
                             <div class="alert alert-info mt-3">
                                 <i class="fas fa-mobile-alt"></i>
-                                <strong>Compatible con dispositivos móviles:</strong> Puede generar reportes desde cualquier dispositivo. El reporte se abrirá en la misma pestaña del navegador.
+                                <strong>Compatible con dispositivos móviles:</strong> Puede generar reportes desde cualquier dispositivo. El reporte se abrirá en la misma ventana del navegador para una mejor experiencia.
                             </div>
                         </div>
                     </div>
@@ -623,6 +624,7 @@ if ($generar && $ruta_id > 0) {
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="assets/js/notifications.js"></script>
     <script>
         document.getElementById('formGenerarPDF').addEventListener('submit', function(e) {
             const ruta = this.querySelector('[name="ruta"]').value;
