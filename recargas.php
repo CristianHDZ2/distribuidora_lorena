@@ -39,7 +39,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['registrar_recargas']))
         if (rutaCompletaHoy($conn, $ruta_id, $fecha)) {
             $mensaje = 'Error: Esta ruta ya completó todos sus registros del día (salida, recarga y retorno). No se pueden hacer más registros para hoy.';
         } else {
-            $mensaje = 'Error: No se puede registrar recarga en este momento';
+            $mensaje = 'Error: Ya existe una recarga registrada para esta ruta hoy';
         }
         $tipo_mensaje = 'danger';
     } else {
@@ -231,7 +231,7 @@ if ($ruta_id > 0) {
             
             <div class="alert alert-info alert-custom">
                 <i class="fas fa-info-circle"></i>
-                <strong>Importante:</strong> 
+                <strong>Reglas de Registro:</strong> 
                 <ul class="mb-0 mt-2">
                     <li>Solo se pueden registrar recargas para <strong>HOY</strong> (<?php echo date('d/m/Y'); ?>)</li>
                     <li>Puede registrar 1 recarga por ruta al día</li>
@@ -280,6 +280,8 @@ if ($ruta_id > 0) {
                         <?php if (rutaCompletaHoy($conn, $ruta_id, $fecha_hoy)): ?>
                             <p>Esta ruta ya completó <strong>todos sus registros del día</strong> (salida, recarga y retorno).</p>
                             <p>No se permiten más registros para hoy. Puede hacer nuevos registros mañana.</p>
+                        <?php elseif (existeRecarga($conn, $ruta_id, $fecha_hoy)): ?>
+                            <p>Ya existe una recarga registrada para esta ruta hoy.</p>
                         <?php else: ?>
                             <p>No se puede registrar recarga en este momento.</p>
                         <?php endif; ?>
@@ -303,6 +305,7 @@ if ($ruta_id > 0) {
                             <div class="card-header bg-success text-white">
                                 <h5 class="mb-0">
                                     <i class="fas fa-box"></i> Productos de <?php echo $nombre_ruta; ?>
+                                    <span class="badge bg-light text-dark ms-2">Fecha: HOY (<?php echo date('d/m/Y'); ?>)</span>
                                 </h5>
                             </div>
                             <div class="card-body">

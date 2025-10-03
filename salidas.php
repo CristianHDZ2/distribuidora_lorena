@@ -10,7 +10,14 @@ $tipo_mensaje = '';
 
 // Obtener ruta seleccionada
 $ruta_id = isset($_GET['ruta']) ? intval($_GET['ruta']) : 0;
-$fecha_seleccionada = isset($_GET['fecha']) ? $_GET['fecha'] : '';
+
+// Determinar fecha por defecto
+$fecha_sugerida = '';
+if ($ruta_id > 0) {
+    $fecha_sugerida = obtenerFechaPorDefecto($conn, $ruta_id, 'salida');
+}
+
+$fecha_seleccionada = isset($_GET['fecha']) ? $_GET['fecha'] : $fecha_sugerida;
 
 // Variable para modo edición
 $modo_edicion = false;
@@ -146,6 +153,19 @@ if ($ruta_id > 0 && !empty($fecha_seleccionada)) {
     $stmt->close();
 }
 
+// Obtener información de horarios
+$hora_actual = (int)date('H');
+$en_horario = estaEnHorarioSalida();
+$mensaje_horario = '';
+
+if (!$en_horario) {
+    $mensaje_horario = 'Fuera del horario de registro de salidas (5-11 AM para hoy, 3-11 PM para mañana)';
+} elseif ($hora_actual >= 5 && $hora_actual < 11) {
+    $mensaje_horario = 'Horario actual: Salidas para HOY';
+} elseif ($hora_actual >= 15 && $hora_actual <= 23) {
+    $mensaje_horario = 'Horario actual: Salidas para MAÑANA';
+}
+
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -218,12 +238,26 @@ if ($ruta_id > 0 && !empty($fecha_seleccionada)) {
                 <?php endif; ?>
             </h1>
             
+            <?php if ($mensaje_horario): ?>
+                <div class="alert <?php echo $en_horario ? 'alert-info' : 'alert-warning'; ?> alert-custom">
+                    <i class="fas fa-clock"></i>
+                    <strong><?php echo $mensaje_horario; ?></strong>
+                    <br><small>Hora actual: <?php echo date('h:i A'); ?></small>
+                </div>
+            <?php endif; ?>
+            
             <div class="alert alert-info alert-custom">
                 <i class="fas fa-info-circle"></i>
-                <strong>Importante:</strong> 
+                <strong>Reglas de Registro:</strong> 
                 <ul class="mb-0 mt-2">
                     <li><strong>HOY:</strong> Puede registrar 1 salida, 1 recarga y 1 retorno por ruta</li>
-                    <li><strong>MAÑANA o FUTURO:</strong> Solo puede registrar 1 salida por ruta</li>
+                    <li><strong>HORARIOS SALIDAS:</strong>
+                        <ul>
+                            <li>5:00 AM - 11:00 AM = Salida para HOY</li>
+                            <li>3:00 PM - 11:00 PM = Salida para MAÑANA</li>
+                        </ul>
+                    </li>
+                    <li><strong>MAÑANA:</strong> Solo puede registrar 1 salida por ruta</li>
                     <li><strong>AYER:</strong> No se permiten registros de fechas pasadas</li>
                     <li>Cuando complete salida, recarga y retorno para hoy, no podrá hacer más registros hasta mañana</li>
                 </ul>
@@ -258,7 +292,13 @@ if ($ruta_id > 0 && !empty($fecha_seleccionada)) {
                     <label class="form-label fw-bold">Fecha de Salida *</label>
                     <input type="date" class="form-control" id="fecha_salida" value="<?php echo $fecha_seleccionada; ?>" onchange="cambiarFecha()" 
                            min="<?php echo date('Y-m-d'); ?>">
-                    <small class="text-muted">Se permiten fechas desde hoy en adelante</small>
+                    <small class="text-muted">
+                        <?php if ($ruta_id > 0 && tieneRegistrosHoy($conn, $ruta_id)): ?>
+                            Esta ruta tiene registros hoy. Fecha sugerida: HOY
+                        <?php else: ?>
+                            Fecha sugerida según horario actual
+                        <?php endif; ?>
+                    </small>
                 </div>
             </div>
             
@@ -293,6 +333,7 @@ if ($ruta_id > 0 && !empty($fecha_seleccionada)) {
                             <div class="card-header bg-primary text-white">
                                 <h5 class="mb-0">
                                     <i class="fas fa-box"></i> Productos de <?php echo $nombre_ruta; ?>
+                                    <span class="badge bg-light text-dark ms-2">Fecha: <?php echo date('d/m/Y', strtotime($fecha_seleccionada)); ?></span>
                                 </h5>
                             </div>
                             <div class="card-body">
@@ -381,14 +422,10 @@ if ($ruta_id > 0 && !empty($fecha_seleccionada)) {
     <script>
         function cambiarRuta() {
             const rutaId = document.getElementById('select_ruta').value;
-            const fecha = document.getElementById('fecha_salida').value;
             
             if (rutaId) {
-                let url = 'salidas.php?ruta=' + rutaId;
-                if (fecha) {
-                    url += '&fecha=' + fecha;
-                }
-                window.location.href = url;
+                // Al cambiar de ruta, redirigir sin fecha para que se calcule automáticamente
+                window.location.href = 'salidas.php?ruta=' + rutaId;
             } else {
                 window.location.href = 'salidas.php';
             }

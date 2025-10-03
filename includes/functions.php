@@ -30,7 +30,33 @@ function validarCantidad($cantidad) {
     return false;
 }
 
-// Validar fecha de salida (hoy o futuro, no ayer)
+// Obtener fecha sugerida para salida según la hora actual
+function obtenerFechaSugeridaSalida() {
+    $hora_actual = (int)date('H');
+    
+    // Entre 5 AM (5) y 11 AM (11) = Salida para HOY
+    if ($hora_actual >= 5 && $hora_actual < 11) {
+        return date('Y-m-d');
+    }
+    
+    // Entre 3 PM (15) y 11 PM (23) = Salida para MAÑANA
+    if ($hora_actual >= 15 && $hora_actual <= 23) {
+        return date('Y-m-d', strtotime('+1 day'));
+    }
+    
+    // Fuera de horario, sugerir mañana por defecto
+    return date('Y-m-d', strtotime('+1 day'));
+}
+
+// Validar si está en horario permitido para salidas
+function estaEnHorarioSalida() {
+    $hora_actual = (int)date('H');
+    
+    // Entre 5 AM y 11 AM O entre 3 PM y 11 PM
+    return ($hora_actual >= 5 && $hora_actual < 11) || ($hora_actual >= 15 && $hora_actual <= 23);
+}
+
+// Validar fecha de salida (hoy o mañana, no ayer)
 function validarFechaSalida($fecha) {
     $hoy = new DateTime();
     $hoy->setTime(0, 0, 0);
@@ -88,6 +114,12 @@ function rutaCompletaHoy($conn, $ruta_id, $fecha) {
            existeRetorno($conn, $ruta_id, $fecha);
 }
 
+// Verificar si existe salida O recarga para hoy (necesario para permitir retorno)
+function existeSalidaORecargaHoy($conn, $ruta_id) {
+    $fecha_hoy = date('Y-m-d');
+    return existeSalida($conn, $ruta_id, $fecha_hoy) || existeRecarga($conn, $ruta_id, $fecha_hoy);
+}
+
 // Verificar si se puede registrar salida para una fecha
 function puedeRegistrarSalida($conn, $ruta_id, $fecha) {
     // No permitir fechas pasadas (ayer o antes)
@@ -96,13 +128,24 @@ function puedeRegistrarSalida($conn, $ruta_id, $fecha) {
     }
     
     $hoy = date('Y-m-d');
+    $manana = date('Y-m-d', strtotime('+1 day'));
     
     // Para HOY: permitir salida si no está completa (salida, recarga y retorno)
     if ($fecha === $hoy) {
-        return !rutaCompletaHoy($conn, $ruta_id, $fecha);
+        // Si ya completó todo (salida, recarga y retorno), no permitir
+        if (rutaCompletaHoy($conn, $ruta_id, $fecha)) {
+            return false;
+        }
+        // Permitir si no existe salida para hoy
+        return !existeSalida($conn, $ruta_id, $fecha);
     }
     
-    // Para MAÑANA o FUTURO: permitir solo si no existe salida
+    // Para MAÑANA: permitir solo si no existe salida
+    if ($fecha === $manana) {
+        return !existeSalida($conn, $ruta_id, $fecha);
+    }
+    
+    // Para fechas futuras (después de mañana): permitir solo si no existe salida
     return !existeSalida($conn, $ruta_id, $fecha);
 }
 
@@ -118,8 +161,8 @@ function puedeRegistrarRecarga($conn, $ruta_id, $fecha) {
         return false;
     }
     
-    // Permitir recarga para hoy (puede existir salida, eso no impide la recarga)
-    return true;
+    // Permitir recarga para hoy si no existe recarga todavía
+    return !existeRecarga($conn, $ruta_id, $fecha);
 }
 
 // Verificar si se puede registrar retorno para hoy
@@ -129,15 +172,19 @@ function puedeRegistrarRetorno($conn, $ruta_id, $fecha) {
         return false;
     }
     
+    // Debe existir salida O recarga para poder registrar retorno
+    if (!existeSalidaORecargaHoy($conn, $ruta_id)) {
+        return false;
+    }
+    
     // No permitir si ya está completa (salida, recarga y retorno)
     if (rutaCompletaHoy($conn, $ruta_id, $fecha)) {
         return false;
     }
     
-    // Permitir retorno para hoy (puede existir salida y/o recarga)
-    return true;
+    // Permitir retorno para hoy si no existe retorno todavía
+    return !existeRetorno($conn, $ruta_id, $fecha);
 }
-
 // Formatear dinero
 function formatearDinero($cantidad) {
     return '$' . number_format($cantidad, 2);
@@ -153,6 +200,7 @@ function obtenerNombreUsuario($conn, $usuario_id) {
     $stmt->close();
     return $row ? $row['nombre'] : 'Usuario';
 }
+
 // Calcular total de ventas
 function calcularVentas($conn, $ruta_id, $fecha) {
     $productos = [];
@@ -169,7 +217,7 @@ function calcularVentas($conn, $ruta_id, $fecha) {
               ORDER BY p.nombre";
     
     $stmt = $conn->prepare($query);
-   $stmt->bind_param("isisis", $ruta_id, $fecha, $ruta_id, $fecha, $ruta_id, $fecha);
+    $stmt->bind_param("isisis", $ruta_id, $fecha, $ruta_id, $fecha, $ruta_id, $fecha);
     $stmt->execute();
     $result = $stmt->get_result();
     
@@ -262,5 +310,31 @@ function limpiarInput($data) {
     $data = stripslashes($data);
     $data = htmlspecialchars($data);
     return $data;
+}
+
+// Verificar si hay algún registro hoy para la ruta
+function tieneRegistrosHoy($conn, $ruta_id) {
+    $fecha_hoy = date('Y-m-d');
+    return existeSalida($conn, $ruta_id, $fecha_hoy) || 
+           existeRecarga($conn, $ruta_id, $fecha_hoy) || 
+           existeRetorno($conn, $ruta_id, $fecha_hoy);
+}
+
+// Obtener fecha por defecto para formularios
+function obtenerFechaPorDefecto($conn, $ruta_id, $tipo_registro) {
+    $fecha_hoy = date('Y-m-d');
+    
+    // Si el tipo es 'salida', usar la lógica de horarios
+    if ($tipo_registro === 'salida') {
+        // Si ya hay registros hoy, sugerir hoy para edición
+        if (tieneRegistrosHoy($conn, $ruta_id)) {
+            return $fecha_hoy;
+        }
+        // Si no hay registros, usar la fecha sugerida por horario
+        return obtenerFechaSugeridaSalida();
+    }
+    
+    // Para recarga y retorno, siempre es hoy
+    return $fecha_hoy;
 }
 ?>

@@ -23,6 +23,9 @@ if ($ruta_id > 0) {
 // Verificar si puede registrar retornos
 $puede_registrar = $ruta_id > 0 && puedeRegistrarRetorno($conn, $ruta_id, $fecha_hoy);
 
+// Verificar si existe salida o recarga (necesario para permitir retorno)
+$existe_salida_o_recarga = $ruta_id > 0 && existeSalidaORecargaHoy($conn, $ruta_id);
+
 // Procesar registro/actualización de retornos
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['registrar_retornos'])) {
     $ruta_id = intval($_POST['ruta_id']);
@@ -33,12 +36,15 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['registrar_retornos']))
     if (!validarFechaHoy($fecha)) {
         $mensaje = 'Error: Solo se pueden registrar retornos para el día de hoy';
         $tipo_mensaje = 'danger';
+    } elseif (!existeSalidaORecargaHoy($conn, $ruta_id)) {
+        $mensaje = 'Error: Debe existir una salida o recarga registrada hoy para poder registrar retornos';
+        $tipo_mensaje = 'danger';
     } elseif (!puedeRegistrarRetorno($conn, $ruta_id, $fecha)) {
         // Verificar si ya completó todos los registros del día
         if (rutaCompletaHoy($conn, $ruta_id, $fecha)) {
             $mensaje = 'Error: Esta ruta ya completó todos sus registros del día (salida, recarga y retorno). No se pueden hacer más registros para hoy.';
         } else {
-            $mensaje = 'Error: No se puede registrar retorno en este momento';
+            $mensaje = 'Error: Ya existe un retorno registrado para esta ruta hoy';
         }
         $tipo_mensaje = 'danger';
     } else {
@@ -136,7 +142,7 @@ $rutas = $conn->query("SELECT * FROM rutas WHERE activo = 1 ORDER BY id");
 $productos_info = [];
 $nombre_ruta = '';
 
-if ($ruta_id > 0 && $puede_registrar) {
+if ($ruta_id > 0 && $puede_registrar && $existe_salida_o_recarga) {
     // Obtener nombre de la ruta
     $stmt = $conn->prepare("SELECT nombre FROM rutas WHERE id = ? AND activo = 1");
     $stmt->bind_param("i", $ruta_id);
@@ -310,10 +316,11 @@ if ($ruta_id > 0 && $puede_registrar) {
             
             <div class="alert alert-info alert-custom">
                 <i class="fas fa-info-circle"></i>
-                <strong>Importante:</strong> 
+                <strong>Reglas de Registro:</strong> 
                 <ul class="mb-0 mt-2">
                     <li>Solo se pueden registrar retornos para <strong>HOY</strong> (<?php echo date('d/m/Y'); ?>)</li>
                     <li>Puede registrar 1 retorno por ruta al día</li>
+                    <li><strong>IMPORTANTE:</strong> Debe existir al menos una salida O recarga hoy para poder registrar retornos</li>
                     <li>Puede ajustar precio de UN producto si se vendió a precio diferente</li>
                     <li>Una vez complete salida, recarga y retorno del día, no podrá hacer más registros hasta mañana</li>
                 </ul>
@@ -352,13 +359,30 @@ if ($ruta_id > 0 && $puede_registrar) {
             </div>
             
             <?php if ($ruta_id > 0): ?>
-                <?php if (!$puede_registrar): ?>
+                <?php if (!$existe_salida_o_recarga): ?>
+                    <div class="alert alert-warning text-center">
+                        <i class="fas fa-exclamation-triangle fa-3x mb-3"></i>
+                        <h5>No se puede registrar retorno</h5>
+                        <p>Debe existir al menos <strong>una salida o una recarga</strong> registrada hoy para poder registrar retornos.</p>
+                        <p>Por favor, registre primero una salida o recarga para esta ruta.</p>
+                        <div class="mt-3">
+                            <a href="salidas.php?ruta=<?php echo $ruta_id; ?>" class="btn btn-primary me-2">
+                                <i class="fas fa-arrow-up"></i> Registrar Salida
+                            </a>
+                            <a href="recargas.php?ruta=<?php echo $ruta_id; ?>" class="btn btn-success">
+                                <i class="fas fa-sync"></i> Registrar Recarga
+                            </a>
+                        </div>
+                    </div>
+                <?php elseif (!$puede_registrar): ?>
                     <div class="alert alert-danger text-center">
                         <i class="fas fa-ban fa-3x mb-3"></i>
                         <h5>No se puede registrar retorno</h5>
                         <?php if (rutaCompletaHoy($conn, $ruta_id, $fecha_hoy)): ?>
                             <p>Esta ruta ya completó <strong>todos sus registros del día</strong> (salida, recarga y retorno).</p>
                             <p>No se permiten más registros para hoy. Puede hacer nuevos registros mañana.</p>
+                        <?php elseif (existeRetorno($conn, $ruta_id, $fecha_hoy)): ?>
+                            <p>Ya existe un retorno registrado para esta ruta hoy.</p>
                         <?php else: ?>
                             <p>No se puede registrar retorno en este momento.</p>
                         <?php endif; ?>
@@ -382,6 +406,7 @@ if ($ruta_id > 0 && $puede_registrar) {
                             <div class="card-header bg-warning text-dark">
                                 <h5 class="mb-0">
                                     <i class="fas fa-box"></i> Productos de <?php echo $nombre_ruta; ?>
+                                    <span class="badge bg-light text-dark ms-2">Fecha: HOY (<?php echo date('d/m/Y'); ?>)</span>
                                 </h5>
                             </div>
                             <div class="card-body">
@@ -523,6 +548,12 @@ if ($ruta_id > 0 && $puede_registrar) {
                                     <hr>
                                     <h4>Total General: <span id="total_general_ventas" class="text-success">$0.00</span></h4>
                                 </div>
+                                <div class="alert alert-success mt-3">
+                                    <h5><i class="fas fa-calculator"></i> Resumen de Ventas</h5>
+                                    <div id="resumen_ventas"></div>
+                                    <hr>
+                                    <h4>Total General: <span id="total_general_ventas" class="text-success">$0.00</span></h4>
+                                </div>
                                 
                                 <div class="text-center mt-4">
                                     <button type="submit" class="btn btn-custom-success btn-lg">
@@ -540,6 +571,14 @@ if ($ruta_id > 0 && $puede_registrar) {
                         <i class="fas fa-info-circle fa-3x mb-3"></i>
                         <h5>No hay productos con salidas o recargas registradas para hoy</h5>
                         <p>Debe registrar salidas o recargas antes de poder registrar retornos</p>
+                        <div class="mt-3">
+                            <a href="salidas.php?ruta=<?php echo $ruta_id; ?>" class="btn btn-primary me-2">
+                                <i class="fas fa-arrow-up"></i> Registrar Salida
+                            </a>
+                            <a href="recargas.php?ruta=<?php echo $ruta_id; ?>" class="btn btn-success">
+                                <i class="fas fa-sync"></i> Registrar Recarga
+                            </a>
+                        </div>
                     </div>
                 <?php endif; ?>
             <?php else: ?>
@@ -829,7 +868,7 @@ if ($ruta_id > 0 && $puede_registrar) {
                 return false;
             }
             
-            return confirm('¿Está seguro de registrar estos retornos? Esta acción no se puede deshacer.');
+            return confirm('¿Está seguro de registrar estos retornos? Esta acción finalizará el ciclo del día para esta ruta.');
         });
     </script>
 </body>

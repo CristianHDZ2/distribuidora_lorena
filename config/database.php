@@ -5,6 +5,9 @@ define('DB_USER', 'root'); // Cambiar según tu configuración
 define('DB_PASS', ''); // Cambiar según tu configuración
 define('DB_NAME', 'distribuidora_lorena');
 
+// Configurar zona horaria para El Salvador
+date_default_timezone_set('America/El_Salvador');
+
 // Crear conexión
 function getConnection() {
     $conn = new mysqli(DB_HOST, DB_USER, DB_PASS, DB_NAME);
