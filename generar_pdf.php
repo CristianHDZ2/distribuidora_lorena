@@ -344,7 +344,7 @@ if ($generar && $ruta_id > 0) {
                 <button class="btn-print" onclick="window.print()">
                     🖨️ Imprimir / Guardar PDF
                 </button>
-                <a href="generar_pdf.php" class="btn-back">
+                <a href="javascript:history.back()" class="btn-back">
                     ← Volver
                 </a>
             </div>
@@ -613,7 +613,7 @@ if ($generar && $ruta_id > 0) {
                             
                             <div class="alert alert-info mt-3">
                                 <i class="fas fa-mobile-alt"></i>
-                                <strong>Compatible con dispositivos móviles:</strong> Puede generar reportes desde cualquier dispositivo.
+                                <strong>Compatible con dispositivos móviles:</strong> Puede generar reportes desde cualquier dispositivo. El reporte se abrirá en la misma pestaña del navegador.
                             </div>
                         </div>
                     </div>
