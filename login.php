@@ -105,5 +105,11 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     </div>
     
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+    <!-- Footer Copyright -->
+    <div style="position: fixed; bottom: 0; width: 100%; text-align: center; padding: 15px; background: rgba(0,0,0,0.5); color: white; font-size: 12px;">
+        <div>Desarrollado por <strong style="color: #667eea;">Cristian Hernández</strong> para Distribuidora LORENA</div>
+        <div style="margin-top: 5px; color: #bdc3c7;"><i class="fas fa-code-branch"></i> Versión 1.0</div>
+    </div>
 </body>
 </html>
