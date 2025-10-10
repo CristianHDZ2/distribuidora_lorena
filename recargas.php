@@ -27,6 +27,8 @@ if ($ruta_id > 0) {
 // Verificar si puede registrar recargas
 $puede_registrar = $ruta_id > 0 && puedeRegistrarRecarga($conn, $ruta_id, $fecha_hoy);
 
+// REEMPLAZAR ESTA SECCIÓN en recargas.php (aproximadamente líneas 20-80)
+
 // Procesar registro/actualización de recargas
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['registrar_recargas'])) {
     $ruta_id = intval($_POST['ruta_id']);
@@ -74,10 +76,17 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['registrar_recargas']))
                         throw new Exception("Cantidad inválida para producto ID $producto_id. Use $tipo_texto");
                     }
                     
-                    // Insertar recarga
-                    $stmt = $conn->prepare("INSERT INTO recargas (ruta_id, producto_id, cantidad, usa_precio_unitario, fecha, usuario_id) VALUES (?, ?, ?, ?, ?, ?)");
+                    // ===== OBTENER EL PRECIO ACTUAL DEL PRODUCTO =====
+                    $precio_usado = obtenerPrecioProducto($conn, $producto_id, $usa_precio_unitario);
+                    
+                    if ($precio_usado <= 0) {
+                        throw new Exception("Error: No se pudo obtener el precio del producto ID $producto_id");
+                    }
+                    
+                    // Insertar recarga CON EL PRECIO HISTÓRICO
+                    $stmt = $conn->prepare("INSERT INTO recargas (ruta_id, producto_id, cantidad, usa_precio_unitario, precio_usado, fecha, usuario_id) VALUES (?, ?, ?, ?, ?, ?, ?)");
                     $usuario_id = $_SESSION['usuario_id'];
-                    $stmt->bind_param("iidisi", $ruta_id, $producto_id, $cantidad, $usa_precio_unitario, $fecha, $usuario_id);
+                    $stmt->bind_param("iididsi", $ruta_id, $producto_id, $cantidad, $usa_precio_unitario, $precio_usado, $fecha, $usuario_id);
                     
                     if ($stmt->execute()) {
                         $registros_exitosos++;

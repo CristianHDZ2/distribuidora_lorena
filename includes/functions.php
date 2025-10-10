@@ -204,12 +204,13 @@ function obtenerNombreUsuario($conn, $usuario_id) {
     $stmt->close();
     return $row ? $row['nombre'] : 'Usuario';
 }
-// Calcular total de ventas
+
+// ===== NUEVA FUNCIÓN: Calcular total de ventas usando precios históricos =====
 function calcularVentas($conn, $ruta_id, $fecha) {
     $productos = [];
     
     // Obtener todos los productos con movimientos en esa fecha y ruta
-    $query = "SELECT DISTINCT p.id, p.nombre, p.precio_caja, p.precio_unitario, p.tipo 
+    $query = "SELECT DISTINCT p.id, p.nombre, p.tipo 
               FROM productos p 
               WHERE p.activo = 1 
               AND (
@@ -225,29 +226,29 @@ function calcularVentas($conn, $ruta_id, $fecha) {
     $result = $stmt->get_result();
     
     while ($producto = $result->fetch_assoc()) {
-        // Obtener salida
-        $salida_data = obtenerCantidadConPrecio($conn, 'salidas', $ruta_id, $producto['id'], $fecha);
+        // Obtener salida CON PRECIO HISTÓRICO
+        $salida_data = obtenerCantidadConPrecioHistorico($conn, 'salidas', $ruta_id, $producto['id'], $fecha);
         $salida = $salida_data['cantidad'];
         $usa_unitario_salida = $salida_data['usa_precio_unitario'];
+        $precio_salida = $salida_data['precio_usado'];
         
-        // Obtener recarga
-        $recarga_data = obtenerCantidadConPrecio($conn, 'recargas', $ruta_id, $producto['id'], $fecha);
+        // Obtener recarga CON PRECIO HISTÓRICO
+        $recarga_data = obtenerCantidadConPrecioHistorico($conn, 'recargas', $ruta_id, $producto['id'], $fecha);
         $recarga = $recarga_data['cantidad'];
         $usa_unitario_recarga = $recarga_data['usa_precio_unitario'];
+        $precio_recarga = $recarga_data['precio_usado'];
         
-        // Obtener retorno
-        $retorno_data = obtenerCantidadConPrecio($conn, 'retornos', $ruta_id, $producto['id'], $fecha);
+        // Obtener retorno CON PRECIO HISTÓRICO
+        $retorno_data = obtenerCantidadConPrecioHistorico($conn, 'retornos', $ruta_id, $producto['id'], $fecha);
         $retorno = $retorno_data['cantidad'];
         $usa_unitario_retorno = $retorno_data['usa_precio_unitario'];
+        $precio_retorno = $retorno_data['precio_usado'];
         
         // Determinar si se usó precio unitario (prioridad: salida > recarga > retorno)
         $usa_precio_unitario = $usa_unitario_salida || $usa_unitario_recarga || $usa_unitario_retorno;
         
-        // Determinar el precio a usar
-        $precio_usado = $producto['precio_caja'];
-        if ($usa_precio_unitario && $producto['precio_unitario'] !== null) {
-            $precio_usado = $producto['precio_unitario'];
-        }
+        // Usar el precio histórico (prioridad: salida > recarga > retorno)
+        $precio_usado = $precio_salida > 0 ? $precio_salida : ($precio_recarga > 0 ? $precio_recarga : $precio_retorno);
         
         // Calcular vendido
         $vendido = ($salida + $recarga) - $retorno;
@@ -280,9 +281,7 @@ function calcularVentas($conn, $ruta_id, $fecha) {
             $productos[] = [
                 'id' => $producto['id'],
                 'nombre' => $producto['nombre'],
-                'precio' => $precio_usado,
-                'precio_caja' => $producto['precio_caja'],
-                'precio_unitario' => $producto['precio_unitario'],
+                'precio' => $precio_usado,  // Precio histórico
                 'usa_precio_unitario' => $usa_precio_unitario,
                 'salida' => $salida,
                 'recarga' => $recarga,
@@ -298,7 +297,27 @@ function calcularVentas($conn, $ruta_id, $fecha) {
     return $productos;
 }
 
-// Obtener cantidad de una tabla específica (MODIFICADA para incluir usa_precio_unitario)
+// ===== NUEVA FUNCIÓN: Obtener cantidad con precio histórico =====
+function obtenerCantidadConPrecioHistorico($conn, $tabla, $ruta_id, $producto_id, $fecha) {
+    $stmt = $conn->prepare("SELECT 
+                              COALESCE(SUM(cantidad), 0) as total, 
+                              MAX(usa_precio_unitario) as usa_unitario,
+                              MAX(precio_usado) as precio_usado
+                            FROM $tabla 
+                            WHERE ruta_id = ? AND producto_id = ? AND fecha = ?");
+    $stmt->bind_param("iis", $ruta_id, $producto_id, $fecha);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $row = $result->fetch_assoc();
+    $stmt->close();
+    
+    return [
+        'cantidad' => floatval($row['total']),
+        'usa_precio_unitario' => (bool)$row['usa_unitario'],
+        'precio_usado' => floatval($row['precio_usado'])
+    ];
+}
+// Obtener cantidad de una tabla específica (VERSIÓN ANTIGUA - mantener para compatibilidad)
 function obtenerCantidad($conn, $tabla, $ruta_id, $producto_id, $fecha) {
     $stmt = $conn->prepare("SELECT COALESCE(SUM(cantidad), 0) as total FROM $tabla WHERE ruta_id = ? AND producto_id = ? AND fecha = ?");
     $stmt->bind_param("iis", $ruta_id, $producto_id, $fecha);
@@ -309,7 +328,7 @@ function obtenerCantidad($conn, $tabla, $ruta_id, $producto_id, $fecha) {
     return floatval($row['total']);
 }
 
-// Obtener cantidad con información de precio unitario
+// Obtener cantidad con información de precio unitario (VERSIÓN ANTIGUA - mantener para compatibilidad)
 function obtenerCantidadConPrecio($conn, $tabla, $ruta_id, $producto_id, $fecha) {
     $stmt = $conn->prepare("SELECT COALESCE(SUM(cantidad), 0) as total, MAX(usa_precio_unitario) as usa_unitario FROM $tabla WHERE ruta_id = ? AND producto_id = ? AND fecha = ?");
     $stmt->bind_param("iis", $ruta_id, $producto_id, $fecha);
@@ -364,5 +383,25 @@ function limpiarInput($data) {
     $data = stripslashes($data);
     $data = htmlspecialchars($data);
     return $data;
+}
+
+// ===== NUEVA FUNCIÓN: Obtener precio actual del producto =====
+function obtenerPrecioProducto($conn, $producto_id, $usa_precio_unitario) {
+    $stmt = $conn->prepare("SELECT precio_caja, precio_unitario FROM productos WHERE id = ?");
+    $stmt->bind_param("i", $producto_id);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $producto = $result->fetch_assoc();
+    $stmt->close();
+    
+    if (!$producto) {
+        return 0;
+    }
+    
+    if ($usa_precio_unitario && $producto['precio_unitario'] !== null) {
+        return floatval($producto['precio_unitario']);
+    }
+    
+    return floatval($producto['precio_caja']);
 }
 ?>

@@ -24,6 +24,8 @@ if ($ruta_id > 0 && !empty($fecha_seleccionada)) {
     $modo_edicion = existeSalida($conn, $ruta_id, $fecha_seleccionada);
 }
 
+// REEMPLAZAR ESTA SECCIÓN en salidas.php (aproximadamente líneas 20-80)
+
 // Procesar registro/actualización de salidas
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['registrar_salidas'])) {
     $ruta_id = intval($_POST['ruta_id']);
@@ -71,10 +73,17 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['registrar_salidas'])) 
                         throw new Exception("Cantidad inválida para producto ID $producto_id. Use $tipo_texto");
                     }
                     
-                    // Insertar salida
-                    $stmt = $conn->prepare("INSERT INTO salidas (ruta_id, producto_id, cantidad, usa_precio_unitario, fecha, usuario_id) VALUES (?, ?, ?, ?, ?, ?)");
+                    // ===== OBTENER EL PRECIO ACTUAL DEL PRODUCTO =====
+                    $precio_usado = obtenerPrecioProducto($conn, $producto_id, $usa_precio_unitario);
+                    
+                    if ($precio_usado <= 0) {
+                        throw new Exception("Error: No se pudo obtener el precio del producto ID $producto_id");
+                    }
+                    
+                    // Insertar salida CON EL PRECIO HISTÓRICO
+                    $stmt = $conn->prepare("INSERT INTO salidas (ruta_id, producto_id, cantidad, usa_precio_unitario, precio_usado, fecha, usuario_id) VALUES (?, ?, ?, ?, ?, ?, ?)");
                     $usuario_id = $_SESSION['usuario_id'];
-                    $stmt->bind_param("iidisi", $ruta_id, $producto_id, $cantidad, $usa_precio_unitario, $fecha, $usuario_id);
+                    $stmt->bind_param("iididsi", $ruta_id, $producto_id, $cantidad, $usa_precio_unitario, $precio_usado, $fecha, $usuario_id);
                     
                     if ($stmt->execute()) {
                         $registros_exitosos++;
