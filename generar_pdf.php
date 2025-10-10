@@ -422,7 +422,7 @@ if ($generar && $ruta_id > 0) {
                                             <strong>⚠️ Ajustes de Precio (<?php echo count($producto['ajustes']); ?>):</strong>
                                             <?php foreach ($producto['ajustes'] as $ajuste): ?>
                                                 <span class="ajuste-item">
-                                                    • <?php echo $ajuste['cantidad']; ?> unid. × <?php echo formatearDinero($ajuste['precio_ajustado']); ?> = <?php echo formatearDinero($ajuste['cantidad'] * $ajuste['precio_ajustado']); ?>
+                                                    • <?php echo $ajuste['cantidad']; ?> paq. × <?php echo formatearDinero($ajuste['precio_ajustado']); ?> = <?php echo formatearDinero($ajuste['cantidad'] * $ajuste['precio_ajustado']); ?>
                                                     <?php if (!empty($ajuste['descripcion'])): ?>
                                                         <span class="ajuste-descripcion">(<?php echo htmlspecialchars($ajuste['descripcion']); ?>)</span>
                                                     <?php endif; ?>
@@ -439,7 +439,7 @@ if ($generar && $ruta_id > 0) {
                                             if ($cantidad_precio_normal > 0):
                                             ?>
                                                 <span class="ajuste-item">
-                                                    • <?php echo $cantidad_precio_normal; ?> unid. × <?php echo formatearDinero($producto['precio']); ?> = <?php echo formatearDinero($cantidad_precio_normal * $producto['precio']); ?> (Precio normal)
+                                                    • <?php echo $cantidad_precio_normal; ?> paq. × <?php echo formatearDinero($producto['precio']); ?> = <?php echo formatearDinero($cantidad_precio_normal * $producto['precio']); ?> (Precio normal)
                                                 </span>
                                             <?php endif; ?>
                                         </div>
