@@ -31,6 +31,12 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['registrar_retornos']))
     $fecha = $_POST['fecha'];
     $es_edicion = isset($_POST['es_edicion']) && $_POST['es_edicion'] == '1';
     
+    // DEBUG: Ver qué datos llegan
+    error_log("===== DEBUG RETORNOS =====");
+    error_log("POST productos: " . print_r($_POST['productos'] ?? [], true));
+    error_log("POST ajustes: " . print_r($_POST['ajustes'] ?? [], true));
+    error_log("POST usar_precio_unitario: " . print_r($_POST['usar_precio_unitario'] ?? [], true));
+    
     // Validar que sea hoy
     if (!validarFechaHoy($fecha)) {
         $mensaje = 'Error: Solo se pueden registrar retornos para el día de hoy';
@@ -86,6 +92,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['registrar_retornos']))
                     
                     if ($stmt->execute()) {
                         $registros_exitosos++;
+                        error_log("✓ Retorno registrado: Producto $producto_id, Cantidad $cantidad, Unitario: $usa_precio_unitario");
                     } else {
                         throw new Exception("Error al registrar retorno del producto ID $producto_id");
                     }
@@ -96,6 +103,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['registrar_retornos']))
                         $cantidad_ajuste = floatval($ajustes[$producto_id]['cantidad'] ?? 0);
                         $precio_ajuste = floatval($ajustes[$producto_id]['precio'] ?? 0);
                         
+                        error_log("Procesando ajuste para producto $producto_id: Cantidad=$cantidad_ajuste, Precio=$precio_ajuste");
+                        
                         if ($cantidad_ajuste > 0 && $precio_ajuste > 0) {
                             // Validar cantidad del ajuste
                             if (!validarCantidad($cantidad_ajuste, $usa_precio_unitario)) {
@@ -105,10 +114,14 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['registrar_retornos']))
                             $stmt = $conn->prepare("INSERT INTO ajustes_precios (ruta_id, producto_id, fecha, cantidad, precio_ajustado, usuario_id) VALUES (?, ?, ?, ?, ?, ?)");
                             $stmt->bind_param("iisddi", $ruta_id, $producto_id, $fecha, $cantidad_ajuste, $precio_ajuste, $usuario_id);
                             
-                            if (!$stmt->execute()) {
-                                throw new Exception("Error al registrar ajuste de precio para producto ID $producto_id");
+                            if ($stmt->execute()) {
+                                error_log("✓ Ajuste de precio registrado: Producto $producto_id, $cantidad_ajuste unidades a $$precio_ajuste");
+                            } else {
+                                throw new Exception("Error al registrar ajuste de precio para producto ID $producto_id: " . $stmt->error);
                             }
                             $stmt->close();
+                        } else {
+                            error_log("⚠ Ajuste omitido para producto $producto_id (datos incompletos o en cero)");
                         }
                     }
                 }
@@ -129,6 +142,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['registrar_retornos']))
             
         } catch (Exception $e) {
             $conn->rollback();
+            error_log("❌ Error en transacción: " . $e->getMessage());
             $mensaje = "Error: " . $e->getMessage();
             $tipo_mensaje = 'danger';
         }
@@ -554,8 +568,7 @@ if ($ruta_id > 0 && $puede_registrar) {
                                                                     <label class="form-label fw-bold">Precio Ajustado ($)</label>
                                                                     <input type="number" 
                                                                            class="form-control ajuste-precio" 
-                                                                           name="ajustes[<?php echo
-                                                                           $producto['id']; ?>][precio]"
+                                                                           name="ajustes[<?php echo $producto['id']; ?>][precio]"
                                                                            id="ajuste_precio_<?php echo $producto['id']; ?>"
                                                                            data-producto-id="<?php echo $producto['id']; ?>"
                                                                            value="<?php echo $producto['ajuste_precio'] > 0 ? $producto['ajuste_precio'] : ''; ?>"
@@ -814,6 +827,7 @@ if ($ruta_id > 0 && $puede_registrar) {
             
             calcularResumen();
         }
+        
         function calcularResumen() {
             const inputs = document.querySelectorAll('.retorno-input');
             let resumenHTML = '';
