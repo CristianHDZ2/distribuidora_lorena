@@ -280,26 +280,46 @@ if ($generar && $ruta_id > 0) {
             
             .ajustes-info {
                 background: #fff3cd;
-                padding: 4px;
+                padding: 4px 6px;
                 margin-top: 3px;
                 border-radius: 3px;
                 font-size: 7px;
                 border-left: 2px solid #ffc107;
+                display: block;
             }
             
             .ajustes-info strong {
                 color: #856404;
+                font-weight: 700;
             }
             
             .nombre-producto {
                 font-weight: 600;
                 color: #2c3e50;
                 font-size: 9px;
+                display: block;
+                margin-bottom: 2px;
             }
             
             .precio-tipo-badge {
+                display: inline-block;
+                margin-top: 2px;
+            }
+            
+            .precio-detalle {
+                font-size: 7px;
+                color: #555;
                 display: block;
                 margin-top: 2px;
+            }
+            
+            .precio-normal {
+                color: #27ae60;
+            }
+            
+            .precio-ajustado {
+                color: #f39c12;
+                font-weight: 700;
             }
             
             /* Ajustes para que quepa todo en una página */
@@ -368,7 +388,6 @@ if ($generar && $ruta_id > 0) {
                     <span><?php echo date('d/m/Y H:i'); ?></span>
                 </div>
             </div>
-            
             <?php if (count($productos_vendidos) > 0): ?>
                 <table>
                     <thead>
@@ -388,13 +407,31 @@ if ($generar && $ruta_id > 0) {
                             <tr>
                                 <td>
                                     <span class="nombre-producto"><?php echo $producto['nombre']; ?></span>
+                                    
                                     <?php if (!empty($producto['ajustes'])): ?>
-                                        <div class="ajustes-info">
-                                            <strong>⚠️ Ajustes:</strong>
-                                            <?php foreach ($producto['ajustes'] as $ajuste): ?>
-                                                <?php echo $ajuste['cantidad']; ?> a <?php echo formatearDinero($ajuste['precio_ajustado']); ?>
-                                            <?php endforeach; ?>
-                                        </div>
+                                        <?php 
+                                        // Calcular cuánto se vendió a precio normal
+                                        $vendido_precio_normal = $producto['vendido'];
+                                        foreach ($producto['ajustes'] as $ajuste) {
+                                            $vendido_precio_normal -= $ajuste['cantidad'];
+                                        }
+                                        ?>
+                                        
+                                        <span class="precio-detalle precio-normal">
+                                            ✓ Precio normal: <?php echo $vendido_precio_normal; ?> × <?php echo formatearDinero($producto['precio']); ?>
+                                        </span>
+                                        
+                                        <?php foreach ($producto['ajustes'] as $ajuste): ?>
+                                            <span class="ajustes-info">
+                                                <strong>⚠️ PRECIO AJUSTADO:</strong>
+                                                <?php echo $ajuste['cantidad']; ?> unidad(es) × <?php echo formatearDinero($ajuste['precio_ajustado']); ?>
+                                                = <?php echo formatearDinero($ajuste['cantidad'] * $ajuste['precio_ajustado']); ?>
+                                            </span>
+                                        <?php endforeach; ?>
+                                    <?php else: ?>
+                                        <span class="precio-detalle precio-normal">
+                                            ✓ Todo a precio normal
+                                        </span>
                                     <?php endif; ?>
                                 </td>
                                 <td class="text-center">
@@ -410,7 +447,12 @@ if ($generar && $ruta_id > 0) {
                                     <strong><?php echo $producto['vendido']; ?></strong>
                                 </td>
                                 <td class="text-right">
-                                    <?php echo formatearDinero($producto['precio']); ?>
+                                    <?php if (!empty($producto['ajustes'])): ?>
+                                        <span style="font-size: 7px; color: #999;">Mixto</span><br>
+                                        <strong style="font-size: 8px;"><?php echo formatearDinero($producto['precio']); ?></strong>
+                                    <?php else: ?>
+                                        <?php echo formatearDinero($producto['precio']); ?>
+                                    <?php endif; ?>
                                 </td>
                                 <td class="text-center">
                                     <?php if ($producto['usa_precio_unitario']): ?>
@@ -423,18 +465,60 @@ if ($generar && $ruta_id > 0) {
                                     <strong style="color: #27ae60; font-size: 10px;">
                                         <?php echo formatearDinero($producto['total_dinero']); ?>
                                     </strong>
+                                    
+                                    <?php if (!empty($producto['ajustes'])): ?>
+                                        <br>
+                                        <span style="font-size: 6px; color: #f39c12;">
+                                            (con ajuste)
+                                        </span>
+                                    <?php endif; ?>
                                 </td>
                             </tr>
                         <?php endforeach; ?>
                     </tbody>
+                    <tfoot>
+                        <tr style="background: #f8f9fa; font-weight: bold;">
+                            <td colspan="7" class="text-right" style="padding: 8px;">
+                                TOTAL GENERAL:
+                            </td>
+                            <td class="text-right" style="padding: 8px;">
+                                <strong style="color: #27ae60; font-size: 12px;">
+                                    <?php echo formatearDinero($total_general); ?>
+                                </strong>
+                            </td>
+                        </tr>
+                    </tfoot>
                 </table>
                 
                 <div class="total-section">
                     <div class="total-row">
-                        <h3>TOTAL LIQUIDACIÓN:</h3>
+                        <h3>💰 TOTAL LIQUIDACIÓN:</h3>
                         <div class="amount"><?php echo formatearDinero($total_general); ?></div>
                     </div>
                 </div>
+                
+                <?php 
+                // Verificar si hay productos con ajustes para mostrar resumen
+                $tiene_ajustes = false;
+                foreach ($productos_vendidos as $producto) {
+                    if (!empty($producto['ajustes'])) {
+                        $tiene_ajustes = true;
+                        break;
+                    }
+                }
+                ?>
+                
+                <?php if ($tiene_ajustes): ?>
+                    <div style="margin-top: 15px; padding: 10px; background: #fff3cd; border-left: 4px solid #f39c12; border-radius: 5px;">
+                        <strong style="color: #856404; font-size: 10px;">
+                            ⚠️ NOTA IMPORTANTE:
+                        </strong>
+                        <p style="margin: 5px 0 0 0; font-size: 8px; color: #856404;">
+                            Este reporte incluye productos vendidos con <strong>precios ajustados</strong> (diferentes al precio estándar).
+                            Los ajustes están detallados en cada producto correspondiente.
+                        </p>
+                    </div>
+                <?php endif; ?>
                 
                 <div class="footer">
                     <p><strong>Distribuidora LORENA</strong> - Sistema de Liquidación</p>
@@ -443,6 +527,11 @@ if ($generar && $ruta_id > 0) {
                         Este documento es un reporte generado automáticamente por el sistema.<br>
                         Para cualquier consulta o aclaración, contacte al administrador.
                     </p>
+                    <?php if ($tiene_ajustes): ?>
+                        <p style="margin-top: 8px; color: #f39c12; font-weight: bold;">
+                            ⚠️ Reporte con ajustes de precios aplicados
+                        </p>
+                    <?php endif; ?>
                 </div>
             <?php else: ?>
                 <div style="text-align: center; padding: 30px; color: #999;">
@@ -466,7 +555,6 @@ if ($generar && $ruta_id > 0) {
     closeConnection($conn);
     exit();
 }
-
 // Si no se ha solicitado generar, mostrar formulario de selección
 ?>
 <!DOCTYPE html>
@@ -597,9 +685,11 @@ if ($generar && $ruta_id > 0) {
                                 <li>Cantidad vendida por producto</li>
                                 <li><strong>Tipo de precio usado:</strong> Badge indicando si fue precio por CAJA o UNITARIO</li>
                                 <li>Precio unitario y total por producto</li>
-                                <li>Ajustes de precios aplicados (si existen)</li>
-                                <li>Total general de la liquidación</li>
+                                <li><strong>⚠️ AJUSTES DE PRECIOS:</strong> Se muestran claramente cuando un producto se vendió a un precio diferente al estándar</li>
+                                <li>Desglose detallado: cuántas unidades a precio normal y cuántas con precio ajustado</li>
+                                <li>Total general de la liquidación (incluye ajustes)</li>
                                 <li>Información del usuario que genera el reporte</li>
+                                <li>Indicador visual cuando hay productos con precios ajustados</li>
                             </ul>
                             
                             <div class="alert alert-warning mt-3">
@@ -610,6 +700,17 @@ if ($generar && $ruta_id > 0) {
                             <div class="alert alert-success mt-3">
                                 <i class="fas fa-check-circle"></i>
                                 <strong>Optimizado:</strong> El reporte está diseñado para caber completamente en una página tamaño carta al imprimir.
+                            </div>
+                            
+                            <div class="alert alert-info mt-3">
+                                <i class="fas fa-dollar-sign"></i>
+                                <strong>Ajustes de Precio:</strong> Cuando un producto tiene precio ajustado, el reporte muestra:
+                                <ul class="mt-2 mb-0">
+                                    <li>Cantidad vendida a precio normal</li>
+                                    <li>Cantidad vendida con precio ajustado</li>
+                                    <li>Cálculo detallado del total</li>
+                                    <li>Indicador visual destacado en amarillo</li>
+                                </ul>
                             </div>
                             
                             <div class="alert alert-info mt-3">
