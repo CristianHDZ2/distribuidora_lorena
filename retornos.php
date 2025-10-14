@@ -129,13 +129,14 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['registrar_retornos']))
             
             if ($registros_exitosos > 0) {
                 $conn->commit();
+                
+                // Redirigir al index con mensaje de éxito
                 if ($es_edicion) {
-                    $mensaje = "Retornos actualizados exitosamente ($registros_exitosos productos)";
+                    header("Location: index.php?mensaje=" . urlencode("Retornos actualizados exitosamente ($registros_exitosos productos)") . "&tipo=success");
                 } else {
-                    $mensaje = "Retornos registrados exitosamente ($registros_exitosos productos)";
+                    header("Location: index.php?mensaje=" . urlencode("Retornos registrados exitosamente ($registros_exitosos productos)") . "&tipo=success");
                 }
-                $tipo_mensaje = 'success';
-                $modo_edicion = true;
+                exit();
             } else {
                 throw new Exception("No se registraron retornos");
             }
@@ -331,6 +332,247 @@ if ($ruta_id > 0 && $puede_registrar) {
             display: inline-block;
             margin-left: 10px;
         }
+        
+        /* ============================================
+           ESTILOS RESPONSIVOS ADICIONALES PARA RETORNOS
+           ============================================ */
+        
+        /* Responsive para tabla principal */
+        @media (max-width: 991px) {
+            .table-bordered th,
+            .table-bordered td {
+                padding: 8px 6px;
+                font-size: 12px;
+            }
+        }
+        
+        @media (max-width: 767px) {
+            .table-bordered th,
+            .table-bordered td {
+                padding: 6px 4px;
+                font-size: 11px;
+            }
+            
+            .table-bordered th {
+                font-size: 10px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .table-bordered {
+                font-size: 10px;
+            }
+            
+            .badge {
+                font-size: 9px;
+                padding: 2px 5px;
+            }
+            
+            .form-control-sm {
+                font-size: 11px;
+                padding: 4px 6px;
+            }
+            
+            .btn-sm {
+                font-size: 10px;
+                padding: 4px 8px;
+            }
+        }
+        
+        /* Ajustes de precio responsivos */
+        @media (max-width: 767px) {
+            .ajuste-precio-row {
+                padding: 10px;
+            }
+            
+            .ajuste-item {
+                padding: 10px;
+            }
+            
+            .btn-eliminar-ajuste {
+                position: relative;
+                top: auto;
+                right: auto;
+                margin-bottom: 10px;
+                display: block;
+                width: 100%;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .ajuste-precio-row {
+                padding: 8px;
+                font-size: 11px;
+            }
+            
+            .ajuste-item .row {
+                margin: 0;
+            }
+            
+            .ajuste-item .col-md-3,
+            .ajuste-item .col-md-6 {
+                padding: 5px;
+                margin-bottom: 10px;
+            }
+            
+            .contador-ajustes {
+                padding: 3px 8px;
+                font-size: 10px;
+            }
+        }
+        
+        /* Navbar responsive */
+        @media (max-width: 991px) {
+            .navbar-nav .nav-link {
+                padding: 10px 15px;
+            }
+        }
+        
+        /* Cards y contenedores */
+        @media (max-width: 767px) {
+            .content-card {
+                padding: 15px;
+            }
+            
+            .card-body {
+                padding: 15px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .content-card {
+                padding: 10px;
+            }
+            
+            .card-body {
+                padding: 10px;
+            }
+            
+            .page-title {
+                font-size: 18px;
+            }
+            
+            .alert {
+                font-size: 12px;
+                padding: 10px;
+            }
+            
+            .alert ul {
+                padding-left: 15px;
+            }
+            
+            .alert li {
+                font-size: 11px;
+            }
+        }
+        
+        /* Botones principales */
+        @media (max-width: 767px) {
+            .btn-lg {
+                font-size: 14px;
+                padding: 10px 20px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .btn-lg {
+                font-size: 13px;
+                padding: 8px 15px;
+                width: 100%;
+                margin-bottom: 8px;
+            }
+        }
+        
+        /* Select y inputs */
+        @media (max-width: 767px) {
+            .form-select,
+            .form-control {
+                font-size: 14px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .form-select,
+            .form-control {
+                font-size: 13px;
+            }
+            
+            .form-label {
+                font-size: 12px;
+            }
+        }
+        
+        /* Resumen de ventas */
+        @media (max-width: 767px) {
+            #resumen_ventas {
+                font-size: 12px;
+            }
+            
+            #total_general_ventas {
+                font-size: 20px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            #resumen_ventas {
+                font-size: 11px;
+            }
+            
+            #resumen_ventas .mb-2 {
+                margin-bottom: 8px !important;
+            }
+            
+            #total_general_ventas {
+                font-size: 18px;
+            }
+        }
+        
+        /* Tabla scroll horizontal en móviles */
+        @media (max-width: 767px) {
+            .table-responsive {
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+                margin: 0 -10px;
+                padding: 0 10px;
+            }
+        }
+        
+        /* Ajustes para iPhone X y superiores (notch) */
+        @supports (padding: max(0px)) {
+            body {
+                padding-left: max(10px, env(safe-area-inset-left));
+                padding-right: max(10px, env(safe-area-inset-right));
+            }
+            
+            .navbar-custom {
+                padding-left: max(15px, env(safe-area-inset-left));
+                padding-right: max(15px, env(safe-area-inset-right));
+            }
+        }
+        
+        /* Input de retorno */
+        @media (max-width: 480px) {
+            .retorno-input {
+                max-width: 70px;
+            }
+        }
+        
+        /* Card header */
+        @media (max-width: 767px) {
+            .card-header h5 {
+                font-size: 14px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .card-header h5 {
+                font-size: 13px;
+            }
+            
+            .card-header {
+                padding: 10px;
+            }
+        }
     </style>
 </head>
 <body>
@@ -371,7 +613,7 @@ if ($ruta_id > 0 && $puede_registrar) {
                         </ul>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="generar_pdf.php" target="generar_pdf.php">
+                        <a class="nav-link" href="generar_pdf.php" target="_blank">
                             <i class="fas fa-file-pdf"></i> Reportes
                         </a>
                     </li>
@@ -587,7 +829,7 @@ if ($ruta_id > 0 && $puede_registrar) {
                                                                     <?php foreach ($producto['ajustes_existentes'] as $index => $ajuste): ?>
                                                                         <div class="ajuste-item" id="ajuste_<?php echo $producto['id']; ?>_<?php echo $index; ?>">
                                                                             <button type="button" class="btn btn-danger btn-sm btn-eliminar-ajuste" onclick="eliminarAjuste(<?php echo $producto['id']; ?>, <?php echo $index; ?>)">
-                                                                                <i class="fas fa-trash"></i>
+                                                                                <i class="fas fa-trash"></i> Eliminar
                                                                             </button>
                                                                             <div class="row g-3">
                                                                                 <div class="col-md-3">
@@ -683,6 +925,32 @@ if ($ruta_id > 0 && $puede_registrar) {
             <?php endif; ?>
         </div>
     </div>
+
+    <!-- Footer Copyright -->
+    <footer class="footer-copyright">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-left">
+                    <div class="footer-brand">
+                        <i class="fas fa-truck"></i>
+                        Distribuidora LORENA
+                    </div>
+                    <div class="footer-info">
+                        Sistema de Gestión de Distribución
+                    </div>
+                </div>
+                <div class="footer-right">
+                    <div class="footer-developer">
+                        Desarrollado por <strong>Cristian Hernández</strong>
+                    </div>
+                    <div class="footer-version">
+                        <i class="fas fa-code-branch"></i> Versión 1.0
+                    </div>
+                </div>
+            </div>
+        </div>
+    </footer>
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="assets/js/notifications.js"></script>
     <script>
@@ -813,7 +1081,7 @@ if ($ruta_id > 0 && $puede_registrar) {
             nuevoAjuste.id = 'ajuste_' + productoId + '_' + index;
             nuevoAjuste.innerHTML = `
                 <button type="button" class="btn btn-danger btn-sm btn-eliminar-ajuste" onclick="eliminarAjuste(${productoId}, ${index})">
-                    <i class="fas fa-trash"></i>
+                    <i class="fas fa-trash"></i> Eliminar
                 </button>
                 <div class="row g-3">
                     <div class="col-md-3">
@@ -1122,7 +1390,176 @@ if ($ruta_id > 0 && $puede_registrar) {
             
             return confirm('¿Está seguro de registrar estos retornos? Esta acción finalizará el proceso del día.');
         });
+        
+        // Cerrar menú navbar en móviles
+        document.addEventListener('DOMContentLoaded', function() {
+            const navbarToggler = document.querySelector('.navbar-toggler');
+            const navbarCollapse = document.querySelector('.navbar-collapse');
+            
+            if (navbarToggler && navbarCollapse) {
+                const navLinks = navbarCollapse.querySelectorAll('.nav-link');
+                navLinks.forEach(link => {
+                    link.addEventListener('click', function() {
+                        if (window.innerWidth < 992) {
+                            const bsCollapse = new bootstrap.Collapse(navbarCollapse, {
+                                toggle: false
+                            });
+                            bsCollapse.hide();
+                        }
+                    });
+                });
+            }
+            
+            // Mejorar experiencia táctil
+            if ('ontouchstart' in window) {
+                document.querySelectorAll('.btn, input, select').forEach(element => {
+                    element.addEventListener('touchstart', function() {
+                        this.style.opacity = '0.7';
+                    });
+                    
+                    element.addEventListener('touchend', function() {
+                        setTimeout(() => {
+                            this.style.opacity = '1';
+                        }, 100);
+                    });
+                });
+            }
+            
+            // Prevenir zoom accidental en iOS
+            let lastTouchEnd = 0;
+            document.addEventListener('touchend', function(event) {
+                const now = (new Date()).getTime();
+                if (now - lastTouchEnd <= 300) {
+                    event.preventDefault();
+                }
+                lastTouchEnd = now;
+            }, false);
+            
+            // Ajustar tamaño de fuente en inputs para iOS
+            if (/iPad|iPhone|iPod/.test(navigator.userAgent)) {
+                const inputs = document.querySelectorAll('input[type="number"], input[type="text"], select');
+                inputs.forEach(input => {
+                    if (window.innerWidth < 768) {
+                        input.style.fontSize = '16px';
+                    }
+                });
+            }
+            
+            // Detectar orientación
+            function handleOrientationChange() {
+                const orientation = window.innerWidth > window.innerHeight ? 'landscape' : 'portrait';
+                document.body.setAttribute('data-orientation', orientation);
+            }
+            
+            handleOrientationChange();
+            window.addEventListener('orientationchange', handleOrientationChange);
+            window.addEventListener('resize', handleOrientationChange);
+            
+            // Añadir clase para dispositivos táctiles
+            if ('ontouchstart' in window || navigator.maxTouchPoints > 0) {
+                document.body.classList.add('touch-device');
+            }
+            
+            // Mejorar scroll en iOS
+            if (/iPad|iPhone|iPod/.test(navigator.userAgent)) {
+                document.querySelectorAll('.table-responsive').forEach(container => {
+                    container.style.webkitOverflowScrolling = 'touch';
+                });
+            }
+            
+            // Optimizar rendimiento en scroll
+            let ticking = false;
+            window.addEventListener('scroll', function() {
+                if (!ticking) {
+                    window.requestAnimationFrame(function() {
+                        ticking = false;
+                    });
+                    ticking = true;
+                }
+            });
+            
+            console.log('Retornos cargados correctamente');
+            console.log('Ruta seleccionada:', <?php echo $ruta_id; ?>);
+        });
     </script>
+    
+    <style>
+        /* Estilos adicionales para experiencia táctil */
+        .touch-device .btn,
+        .touch-device input,
+        .touch-device select {
+            -webkit-tap-highlight-color: rgba(0, 0, 0, 0.1);
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+        
+        /* Landscape mode para móviles */
+        @media (max-width: 767px) and (orientation: landscape) {
+            .dashboard-container {
+                padding-top: 10px;
+            }
+            
+            .content-card {
+                margin-bottom: 15px;
+            }
+        }
+        
+        /* Ajustes para iPhone X y superiores (notch) - Duplicado para asegurar */
+        @supports (padding: max(0px)) {
+            .footer-copyright {
+                padding-bottom: max(20px, env(safe-area-inset-bottom));
+            }
+        }
+        
+        /* Animación de loading */
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .fa-spinner.fa-spin {
+            animation: spin 1s linear infinite;
+        }
+        
+        /* Scroll suave */
+        html {
+            scroll-behavior: smooth;
+        }
+        
+        /* Prevenir rebote en iOS */
+        body {
+            overscroll-behavior-y: none;
+        }
+        
+        /* Focus visible para accesibilidad */
+        input:focus,
+        select:focus,
+        button:focus {
+            outline: 2px solid #f39c12;
+            outline-offset: 2px;
+        }
+        
+        /* Mejoras para botones en móviles */
+        @media (max-width: 480px) {
+            .btn-warning:active,
+            .btn-success:active,
+            .btn-danger:active {
+                transform: scale(0.98);
+            }
+        }
+        
+        /* Mejoras para el resumen */
+        @media (max-width: 480px) {
+            .alert-success h5 {
+                font-size: 14px;
+            }
+            
+            .alert-success h4 {
+                font-size: 16px;
+            }
+        }
+    </style>
 </body>
 </html>
 <?php closeConnection($conn); ?>

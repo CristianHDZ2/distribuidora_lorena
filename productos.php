@@ -138,11 +138,29 @@ $productos = $stmt->get_result();
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="assets/css/custom.css">
     <style>
-        /* Estilos mejorados para la tabla de productos */
+        /* ============================================
+           ESTILOS RESPONSIVOS PARA PRODUCTOS
+           ============================================ */
+        
+        /* Tabla de productos mejorada y responsiva */
         .table-productos {
             box-shadow: 0 2px 8px rgba(0,0,0,0.1);
             border-radius: 10px;
             overflow: hidden;
+        }
+        
+        @media (max-width: 767px) {
+            .table-productos {
+                border-radius: 8px;
+                font-size: 11px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .table-productos {
+                border-radius: 6px;
+                font-size: 10px;
+            }
         }
         
         .table-productos thead {
@@ -160,6 +178,28 @@ $productos = $stmt->get_result();
             vertical-align: middle;
         }
         
+        @media (max-width: 991px) {
+            .table-productos thead th {
+                padding: 15px 10px;
+                font-size: 11px;
+            }
+        }
+        
+        @media (max-width: 767px) {
+            .table-productos thead th {
+                padding: 12px 6px;
+                font-size: 10px;
+                letter-spacing: 0.3px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .table-productos thead th {
+                padding: 10px 4px;
+                font-size: 9px;
+            }
+        }
+        
         .table-productos tbody tr {
             transition: all 0.3s ease;
             border-bottom: 1px solid #e9ecef;
@@ -171,10 +211,37 @@ $productos = $stmt->get_result();
             box-shadow: 0 2px 5px rgba(0,0,0,0.05);
         }
         
+        @media (max-width: 767px) {
+            .table-productos tbody tr:hover {
+                transform: none;
+            }
+        }
+        
         .table-productos tbody td {
             padding: 16px 15px;
             vertical-align: middle;
             font-size: 14px;
+        }
+        
+        @media (max-width: 991px) {
+            .table-productos tbody td {
+                padding: 14px 10px;
+                font-size: 12px;
+            }
+        }
+        
+        @media (max-width: 767px) {
+            .table-productos tbody td {
+                padding: 12px 6px;
+                font-size: 11px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .table-productos tbody td {
+                padding: 10px 4px;
+                font-size: 10px;
+            }
         }
         
         .numero-orden {
@@ -191,10 +258,38 @@ $productos = $stmt->get_result();
             box-shadow: 0 2px 5px rgba(102, 126, 234, 0.3);
         }
         
+        @media (max-width: 767px) {
+            .numero-orden {
+                width: 28px;
+                height: 28px;
+                font-size: 11px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .numero-orden {
+                width: 24px;
+                height: 24px;
+                font-size: 9px;
+            }
+        }
+        
         .producto-nombre {
             font-weight: 600;
             color: #2c3e50;
             font-size: 14px;
+        }
+        
+        @media (max-width: 767px) {
+            .producto-nombre {
+                font-size: 12px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .producto-nombre {
+                font-size: 11px;
+            }
         }
         
         .precio-badge {
@@ -207,6 +302,20 @@ $productos = $stmt->get_result();
             display: inline-block;
             box-shadow: 0 2px 5px rgba(39, 174, 96, 0.3);
             margin: 2px 0;
+        }
+        
+        @media (max-width: 767px) {
+            .precio-badge {
+                padding: 4px 10px;
+                font-size: 11px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .precio-badge {
+                padding: 3px 8px;
+                font-size: 9px;
+            }
         }
         
         .precio-badge.unitario {
@@ -222,6 +331,12 @@ $productos = $stmt->get_result();
             margin-bottom: 2px;
         }
         
+        @media (max-width: 480px) {
+            .precio-label {
+                font-size: 8px;
+            }
+        }
+        
         .tipo-badge {
             padding: 6px 14px;
             border-radius: 20px;
@@ -230,6 +345,20 @@ $productos = $stmt->get_result();
             display: inline-block;
             text-transform: uppercase;
             letter-spacing: 0.5px;
+        }
+        
+        @media (max-width: 767px) {
+            .tipo-badge {
+                padding: 4px 10px;
+                font-size: 10px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .tipo-badge {
+                padding: 3px 8px;
+                font-size: 9px;
+            }
         }
         
         .tipo-big-cola {
@@ -249,12 +378,30 @@ $productos = $stmt->get_result();
             color: white;
             box-shadow: 0 2px 5px rgba(231, 76, 60, 0.3);
         }
+        
         .fecha-texto {
             color: #7f8c8d;
             font-size: 13px;
             font-weight: 500;
         }
         
+        @media (max-width: 767px) {
+            .fecha-texto {
+                font-size: 11px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .fecha-texto {
+                font-size: 10px;
+            }
+            
+            .fecha-texto i {
+                display: none;
+            }
+        }
+        
+        /* Botones de acción responsivos */
         .btn-action {
             padding: 8px 12px;
             border-radius: 6px;
@@ -265,9 +412,40 @@ $productos = $stmt->get_result();
             margin: 0 3px;
         }
         
+        @media (max-width: 991px) {
+            .btn-action {
+                padding: 7px 10px;
+                font-size: 11px;
+                margin: 0 2px;
+            }
+        }
+        
+        @media (max-width: 767px) {
+            .btn-action {
+                padding: 6px 8px;
+                font-size: 10px;
+                margin: 2px 0;
+                display: block;
+                width: 100%;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .btn-action {
+                padding: 6px 6px;
+                font-size: 9px;
+            }
+        }
+        
         .btn-action:hover {
             transform: translateY(-2px);
             box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+        
+        @media (max-width: 767px) {
+            .btn-action:hover {
+                transform: none;
+            }
         }
         
         .btn-editar {
@@ -284,6 +462,13 @@ $productos = $stmt->get_result();
             white-space: nowrap;
         }
         
+        @media (max-width: 767px) {
+            .acciones-cell {
+                white-space: normal;
+            }
+        }
+        
+        /* Filtros container responsivo */
         .filtros-container {
             background: white;
             padding: 20px;
@@ -292,6 +477,23 @@ $productos = $stmt->get_result();
             margin-bottom: 25px;
         }
         
+        @media (max-width: 767px) {
+            .filtros-container {
+                padding: 15px;
+                margin-bottom: 20px;
+                border-radius: 8px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .filtros-container {
+                padding: 12px;
+                margin-bottom: 15px;
+                border-radius: 6px;
+            }
+        }
+        
+        /* Total de productos */
         .total-productos {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
@@ -301,15 +503,55 @@ $productos = $stmt->get_result();
             box-shadow: 0 4px 10px rgba(102, 126, 234, 0.3);
         }
         
+        @media (max-width: 767px) {
+            .total-productos {
+                padding: 12px 15px;
+                margin-bottom: 15px;
+                border-radius: 8px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .total-productos {
+                padding: 10px 12px;
+                margin-bottom: 12px;
+                border-radius: 6px;
+            }
+        }
+        
         .total-productos h5 {
             margin: 0;
             font-weight: 700;
             font-size: 16px;
         }
         
+        @media (max-width: 767px) {
+            .total-productos h5 {
+                font-size: 14px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .total-productos h5 {
+                font-size: 13px;
+            }
+        }
+        
         .total-productos .numero {
             font-size: 28px;
             font-weight: 800;
+        }
+        
+        @media (max-width: 767px) {
+            .total-productos .numero {
+                font-size: 24px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .total-productos .numero {
+                font-size: 20px;
+            }
         }
         
         .precio-unitario-container {
@@ -320,8 +562,58 @@ $productos = $stmt->get_result();
             margin-top: 15px;
         }
         
+        @media (max-width: 767px) {
+            .precio-unitario-container {
+                padding: 12px;
+                margin-top: 12px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .precio-unitario-container {
+                padding: 10px;
+                margin-top: 10px;
+                border-radius: 6px;
+            }
+        }
+        
         .precio-unitario-container label {
             margin-bottom: 0;
+            font-size: 14px;
+        }
+        
+        @media (max-width: 767px) {
+            .precio-unitario-container label {
+                font-size: 13px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .precio-unitario-container label {
+                font-size: 12px;
+            }
+        }
+        
+        /* Ocultar columnas en móviles */
+        @media (max-width: 480px) {
+            .table-productos .hide-mobile {
+                display: none;
+            }
+        }
+        
+        /* Búsqueda y filtros responsivos */
+        @media (max-width: 767px) {
+            .filtros-container .row .col-md-3,
+            .filtros-container .row .col-md-6 {
+                margin-bottom: 10px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .input-group .btn {
+                padding: 6px 12px;
+                font-size: 12px;
+            }
         }
     </style>
 </head>
@@ -391,38 +683,40 @@ $productos = $stmt->get_result();
                     <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
                 </div>
             <?php endif; ?>
-            <!-- Filtros y botón agregar -->
+            <!-- Filtros y Búsqueda -->
             <div class="filtros-container">
-                <div class="row align-items-end">
-                    <div class="col-md-3 mb-2">
-                        <button class="btn btn-custom-primary w-100" data-bs-toggle="modal" data-bs-target="#modalAgregar">
-                            <i class="fas fa-plus"></i> Agregar Producto
-                        </button>
-                    </div>
-                    <div class="col-md-3 mb-2">
-                        <label class="form-label fw-bold mb-1"><i class="fas fa-filter"></i> Filtrar por Tipo</label>
-                        <select class="form-select" id="filtroTipo" onchange="aplicarFiltros()">
-                            <option value="todos" <?php echo $filtro_tipo == 'todos' ? 'selected' : ''; ?>>Todos los tipos</option>
-                            <option value="Big Cola" <?php echo $filtro_tipo == 'Big Cola' ? 'selected' : ''; ?>>Big Cola</option>
-                            <option value="Varios" <?php echo $filtro_tipo == 'Varios' ? 'selected' : ''; ?>>Varios</option>
-                            <option value="Ambos" <?php echo $filtro_tipo == 'Ambos' ? 'selected' : ''; ?>>Ambos</option>
-                        </select>
-                    </div>
-                    <div class="col-md-6 mb-2">
-                        <label class="form-label fw-bold mb-1"><i class="fas fa-search"></i> Buscar Producto</label>
-                        <div class="input-group">
-                            <input type="text" class="form-control" id="busqueda" placeholder="Buscar por nombre..." value="<?php echo htmlspecialchars($busqueda); ?>">
-                            <button class="btn btn-outline-secondary" onclick="aplicarFiltros()">
-                                <i class="fas fa-search"></i>
-                            </button>
-                            <?php if (!empty($busqueda)): ?>
-                                <button class="btn btn-outline-danger" onclick="limpiarBusqueda()">
-                                    <i class="fas fa-times"></i>
+                <form method="GET" action="productos.php" class="mb-0">
+                    <div class="row g-3 align-items-end">
+                        <div class="col-lg-3 col-md-4 col-sm-6">
+                            <label class="form-label fw-bold">Filtrar por Tipo</label>
+                            <select name="tipo_filtro" class="form-select" onchange="this.form.submit()">
+                                <option value="todos" <?php echo $filtro_tipo == 'todos' ? 'selected' : ''; ?>>Todos</option>
+                                <option value="Big Cola" <?php echo $filtro_tipo == 'Big Cola' ? 'selected' : ''; ?>>Big Cola</option>
+                                <option value="Varios" <?php echo $filtro_tipo == 'Varios' ? 'selected' : ''; ?>>Varios</option>
+                                <option value="Ambos" <?php echo $filtro_tipo == 'Ambos' ? 'selected' : ''; ?>>Ambos</option>
+                            </select>
+                        </div>
+                        <div class="col-lg-6 col-md-8 col-sm-12">
+                            <label class="form-label fw-bold">Buscar Producto</label>
+                            <div class="input-group">
+                                <input type="text" class="form-control" name="busqueda" value="<?php echo htmlspecialchars($busqueda); ?>" placeholder="Buscar por nombre...">
+                                <button class="btn btn-outline-primary" type="submit">
+                                    <i class="fas fa-search"></i> Buscar
                                 </button>
-                            <?php endif; ?>
+                                <?php if (!empty($busqueda) || $filtro_tipo != 'todos'): ?>
+                                    <a href="productos.php" class="btn btn-outline-secondary">
+                                        <i class="fas fa-times"></i> Limpiar
+                                    </a>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+                        <div class="col-lg-3 col-md-12 col-sm-12">
+                            <button type="button" class="btn btn-custom-primary w-100" data-bs-toggle="modal" data-bs-target="#modalAgregar">
+                                <i class="fas fa-plus"></i> Agregar Producto
+                            </button>
                         </div>
                     </div>
-                </div>
+                </form>
             </div>
             
             <!-- Total de productos -->
@@ -441,17 +735,18 @@ $productos = $stmt->get_result();
                     <thead>
                         <tr>
                             <th width="60" class="text-center">#</th>
-                            <th>Nombre del Producto</th>
-                            <th width="140" class="text-center">Precios</th>
-                            <th width="140" class="text-center">Tipo</th>
-                            <th width="140" class="text-center">Fecha Creación</th>
+                            <th>Producto</th>
+                            <th width="150" class="text-center">Precios</th>
+                            <th width="120" class="text-center">Tipo</th>
+                            <th width="140" class="text-center hide-mobile">Fecha Creación</th>
                             <th width="180" class="text-center">Acciones</th>
                         </tr>
                     </thead>
                     <tbody>
                         <?php if ($productos->num_rows > 0): ?>
                             <?php 
-                            $contador = 1; // Contador para numeración ordenada
+                            $contador = 1;
+                            $productos->data_seek(0);
                             while ($producto = $productos->fetch_assoc()): 
                             ?>
                                 <tr>
@@ -459,38 +754,38 @@ $productos = $stmt->get_result();
                                         <span class="numero-orden"><?php echo $contador; ?></span>
                                     </td>
                                     <td>
-                                        <span class="producto-nombre"><?php echo $producto['nombre']; ?></span>
+                                        <span class="producto-nombre">
+                                            <i class="fas fa-box text-primary"></i> <?php echo $producto['nombre']; ?>
+                                        </span>
                                     </td>
                                     <td class="text-center">
                                         <div>
-                                            <span class="precio-label">Caja</span>
-                                            <span class="precio-badge"><?php echo formatearDinero($producto['precio_caja']); ?></span>
+                                            <span class="precio-label text-muted">Caja</span>
+                                            <span class="precio-badge">$<?php echo number_format($producto['precio_caja'], 2); ?></span>
                                         </div>
-                                        <?php if ($producto['precio_unitario'] !== null): ?>
-                                            <div style="margin-top: 5px;">
-                                                <span class="precio-label">Unitario</span>
-                                                <span class="precio-badge unitario"><?php echo formatearDinero($producto['precio_unitario']); ?></span>
+                                        <?php if (!empty($producto['precio_unitario']) && $producto['precio_unitario'] > 0): ?>
+                                            <div class="mt-1">
+                                                <span class="precio-label text-muted">Unitario</span>
+                                                <span class="precio-badge unitario">$<?php echo number_format($producto['precio_unitario'], 2); ?></span>
                                             </div>
                                         <?php endif; ?>
                                     </td>
                                     <td class="text-center">
-                                        <span class="tipo-badge <?php 
-                                            echo $producto['tipo'] == 'Big Cola' ? 'tipo-big-cola' : 
-                                                ($producto['tipo'] == 'Ambos' ? 'tipo-ambos' : 'tipo-varios'); 
-                                        ?>">
-                                            <?php 
-                                            if ($producto['tipo'] == 'Big Cola') {
-                                                echo '<i class="fas fa-bottle-water"></i> ';
-                                            } elseif ($producto['tipo'] == 'Ambos') {
-                                                echo '<i class="fas fa-globe"></i> ';
-                                            } else {
-                                                echo '<i class="fas fa-boxes"></i> ';
-                                            }
-                                            ?>
+                                        <?php 
+                                        $tipo_clase = '';
+                                        if ($producto['tipo'] == 'Big Cola') {
+                                            $tipo_clase = 'tipo-big-cola';
+                                        } elseif ($producto['tipo'] == 'Varios') {
+                                            $tipo_clase = 'tipo-varios';
+                                        } else {
+                                            $tipo_clase = 'tipo-ambos';
+                                        }
+                                        ?>
+                                        <span class="tipo-badge <?php echo $tipo_clase; ?>">
                                             <?php echo $producto['tipo']; ?>
                                         </span>
                                     </td>
-                                    <td class="text-center">
+                                    <td class="text-center hide-mobile">
                                         <span class="fecha-texto">
                                             <i class="far fa-calendar-alt"></i>
                                             <?php echo date('d/m/Y', strtotime($producto['fecha_creacion'])); ?>
@@ -523,7 +818,14 @@ $productos = $stmt->get_result();
                                 <td colspan="6" class="text-center text-muted py-5">
                                     <i class="fas fa-inbox fa-3x mb-3 d-block"></i>
                                     <h5>No hay productos registrados</h5>
-                                    <p>Comienza agregando productos usando el botón de arriba</p>
+                                    <?php if (!empty($busqueda) || $filtro_tipo != 'todos'): ?>
+                                        <p>No se encontraron productos con los filtros aplicados</p>
+                                        <a href="productos.php" class="btn btn-outline-primary">
+                                            <i class="fas fa-redo"></i> Ver todos los productos
+                                        </a>
+                                    <?php else: ?>
+                                        <p>Comienza agregando productos usando el botón de arriba</p>
+                                    <?php endif; ?>
                                 </td>
                             </tr>
                         <?php endif; ?>
@@ -547,33 +849,45 @@ $productos = $stmt->get_result();
                         
                         <div class="mb-3">
                             <label class="form-label fw-bold">Nombre del Producto *</label>
-                            <input type="text" class="form-control" name="nombre" required placeholder="Ej: Coca-Cola 2.5L">
+                            <input type="text" class="form-control" name="nombre" required placeholder="Ej: BIG COLA 3 LITROS">
+                            <small class="text-muted">El nombre del producto es obligatorio</small>
                         </div>
                         
-                        <div class="mb-3">
-                            <label class="form-label fw-bold">Precio por Caja ($) *</label>
-                            <input type="number" class="form-control" name="precio_caja" step="0.01" min="0.01" required placeholder="0.00">
-                            <small class="text-muted">Precio cuando se vende por caja/paquete</small>
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">Precio por Caja *</label>
+                                <div class="input-group">
+                                    <span class="input-group-text">$</span>
+                                    <input type="number" class="form-control" name="precio_caja" step="0.01" min="0" required placeholder="0.00">
+                                </div>
+                                <small class="text-muted">Precio obligatorio</small>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">Tipo de Producto *</label>
+                                <select class="form-select" name="tipo" required>
+                                    <option value="">Seleccione...</option>
+                                    <option value="Big Cola">Big Cola</option>
+                                    <option value="Varios">Varios</option>
+                                    <option value="Ambos">Ambos</option>
+                                </select>
+                            </div>
                         </div>
                         
                         <div class="precio-unitario-container">
-                            <label class="form-label fw-bold">
-                                <i class="fas fa-info-circle"></i> Precio Unitario ($) - Opcional
-                            </label>
-                            <input type="number" class="form-control" name="precio_unitario" step="0.01" min="0.01" placeholder="Dejar vacío si no aplica">
-                            <small class="text-muted d-block mt-2">
-                                <i class="fas fa-lightbulb"></i> Solo si el producto se vende también por unidades individuales
-                            </small>
-                        </div>
-                        
-                        <div class="mb-3 mt-3">
-                            <label class="form-label fw-bold">Tipo de Producto *</label>
-                            <select class="form-select" name="tipo" required>
-                                <option value="">Seleccione un tipo</option>
-                                <option value="Big Cola">Big Cola (Solo Ruta 5)</option>
-                                <option value="Varios">Varios (Rutas 1-4)</option>
-                                <option value="Ambos">Ambos (Todas las Rutas)</option>
-                            </select>
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="checkbox" id="agregar_precio_unitario" onchange="togglePrecioUnitarioAgregar()">
+                                <label class="form-check-label fw-bold" for="agregar_precio_unitario">
+                                    <i class="fas fa-shopping-cart"></i> ¿Tiene precio unitario?
+                                </label>
+                            </div>
+                            <div id="precio_unitario_agregar_container" style="display: none;">
+                                <label class="form-label fw-bold">Precio Unitario</label>
+                                <div class="input-group">
+                                    <span class="input-group-text">$</span>
+                                    <input type="number" class="form-control" name="precio_unitario" id="precio_unitario_agregar" step="0.01" min="0" placeholder="0.00">
+                                </div>
+                                <small class="text-muted">Opcional - Precio por unidad individual</small>
+                            </div>
                         </div>
                     </div>
                     <div class="modal-footer">
@@ -588,6 +902,7 @@ $productos = $stmt->get_result();
             </div>
         </div>
     </div>
+
     <!-- Modal Editar Producto -->
     <div class="modal fade" id="modalEditar" tabindex="-1">
         <div class="modal-dialog">
@@ -606,30 +921,40 @@ $productos = $stmt->get_result();
                             <input type="text" class="form-control" name="nombre" id="edit_nombre" required>
                         </div>
                         
-                        <div class="mb-3">
-                            <label class="form-label fw-bold">Precio por Caja ($) *</label>
-                            <input type="number" class="form-control" name="precio_caja" id="edit_precio_caja" step="0.01" min="0.01" required>
-                            <small class="text-muted">Precio cuando se vende por caja/paquete</small>
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">Precio por Caja *</label>
+                                <div class="input-group">
+                                    <span class="input-group-text">$</span>
+                                    <input type="number" class="form-control" name="precio_caja" id="edit_precio_caja" step="0.01" min="0" required>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">Tipo de Producto *</label>
+                                <select class="form-select" name="tipo" id="edit_tipo" required>
+                                    <option value="">Seleccione...</option>
+                                    <option value="Big Cola">Big Cola</option>
+                                    <option value="Varios">Varios</option>
+                                    <option value="Ambos">Ambos</option>
+                                </select>
+                            </div>
                         </div>
                         
                         <div class="precio-unitario-container">
-                            <label class="form-label fw-bold">
-                                <i class="fas fa-info-circle"></i> Precio Unitario ($) - Opcional
-                            </label>
-                            <input type="number" class="form-control" name="precio_unitario" id="edit_precio_unitario" step="0.01" min="0.01" placeholder="Dejar vacío si no aplica">
-                            <small class="text-muted d-block mt-2">
-                                <i class="fas fa-lightbulb"></i> Solo si el producto se vende también por unidades individuales
-                            </small>
-                        </div>
-                        
-                        <div class="mb-3 mt-3">
-                            <label class="form-label fw-bold">Tipo de Producto *</label>
-                            <select class="form-select" name="tipo" id="edit_tipo" required>
-                                <option value="">Seleccione un tipo</option>
-                                <option value="Big Cola">Big Cola (Solo Ruta 5)</option>
-                                <option value="Varios">Varios (Rutas 1-4)</option>
-                                <option value="Ambos">Ambos (Todas las Rutas)</option>
-                            </select>
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="checkbox" id="editar_precio_unitario" onchange="togglePrecioUnitarioEditar()">
+                                <label class="form-check-label fw-bold" for="editar_precio_unitario">
+                                    <i class="fas fa-shopping-cart"></i> ¿Tiene precio unitario?
+                                </label>
+                            </div>
+                            <div id="precio_unitario_editar_container" style="display: none;">
+                                <label class="form-label fw-bold">Precio Unitario</label>
+                                <div class="input-group">
+                                    <span class="input-group-text">$</span>
+                                    <input type="number" class="form-control" name="precio_unitario" id="edit_precio_unitario" step="0.01" min="0">
+                                </div>
+                                <small class="text-muted">Opcional - Precio por unidad individual</small>
+                            </div>
                         </div>
                     </div>
                     <div class="modal-footer">
@@ -674,48 +999,207 @@ $productos = $stmt->get_result();
         </div>
     </div>
 
+    <!-- Footer Copyright -->
+    <footer class="footer-copyright">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-left">
+                    <div class="footer-brand">
+                        <i class="fas fa-truck"></i>
+                        Distribuidora LORENA
+                    </div>
+                    <div class="footer-info">
+                        Sistema de Gestión de Distribución
+                    </div>
+                </div>
+                <div class="footer-right">
+                    <div class="footer-developer">
+                        Desarrollado por <strong>Cristian Hernández</strong>
+                    </div>
+                    <div class="footer-version">
+                        <i class="fas fa-code-branch"></i> Versión 1.0
+                    </div>
+                </div>
+            </div>
+        </div>
+    </footer>
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="assets/js/notifications.js"></script>
     <script>
         // Variable global para el modal de edición
         let modalEditarInstance = null;
         
-        // Inicializar modal cuando el DOM esté listo
+        // Inicializar cuando el DOM esté listo
         document.addEventListener('DOMContentLoaded', function() {
             const modalEditarElement = document.getElementById('modalEditar');
             if (modalEditarElement) {
                 modalEditarInstance = new bootstrap.Modal(modalEditarElement);
                 
-                // Limpiar formulario cuando se cierre el modal
                 modalEditarElement.addEventListener('hidden.bs.modal', function () {
                     document.getElementById('formEditar').reset();
+                    document.getElementById('editar_precio_unitario').checked = false;
+                    document.getElementById('precio_unitario_editar_container').style.display = 'none';
                 });
             }
+            
+            // Cerrar menú navbar en móviles
+            const navbarToggler = document.querySelector('.navbar-toggler');
+            const navbarCollapse = document.querySelector('.navbar-collapse');
+            
+            if (navbarToggler && navbarCollapse) {
+                const navLinks = navbarCollapse.querySelectorAll('.nav-link');
+                navLinks.forEach(link => {
+                    link.addEventListener('click', function() {
+                        if (window.innerWidth < 992) {
+                            const bsCollapse = new bootstrap.Collapse(navbarCollapse, {
+                                toggle: false
+                            });
+                            bsCollapse.hide();
+                        }
+                    });
+                });
+            }
+            
+            // Mejorar experiencia táctil
+            if ('ontouchstart' in window) {
+                document.querySelectorAll('.btn, .table-productos tbody tr').forEach(element => {
+                    element.addEventListener('touchstart', function() {
+                        this.style.opacity = '0.7';
+                    });
+                    
+                    element.addEventListener('touchend', function() {
+                        setTimeout(() => {
+                            this.style.opacity = '1';
+                        }, 100);
+                    });
+                });
+            }
+            
+            // Prevenir zoom accidental en iOS
+            let lastTouchEnd = 0;
+            document.addEventListener('touchend', function(event) {
+                const now = (new Date()).getTime();
+                if (now - lastTouchEnd <= 300) {
+                    event.preventDefault();
+                }
+                lastTouchEnd = now;
+            }, false);
+            
+            // Ajustar tamaño de fuente en inputs para iOS
+            if (/iPad|iPhone|iPod/.test(navigator.userAgent)) {
+                const inputs = document.querySelectorAll('input[type="text"], input[type="number"], select');
+                inputs.forEach(input => {
+                    if (window.innerWidth < 768) {
+                        input.style.fontSize = '16px';
+                    }
+                });
+            }
+            
+            // Animación de entrada para filas
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        entry.target.style.opacity = '0';
+                        entry.target.style.transform = 'translateY(20px)';
+                        
+                        setTimeout(() => {
+                            entry.target.style.transition = 'all 0.5s ease';
+                            entry.target.style.opacity = '1';
+                            entry.target.style.transform = 'translateY(0)';
+                        }, 100);
+                        
+                        observer.unobserve(entry.target);
+                    }
+                });
+            }, {
+                threshold: 0.1
+            });
+            
+            document.querySelectorAll('.table-productos tbody tr').forEach(row => {
+                observer.observe(row);
+            });
+            
+            // Detectar orientación
+            function handleOrientationChange() {
+                const orientation = window.innerWidth > window.innerHeight ? 'landscape' : 'portrait';
+                document.body.setAttribute('data-orientation', orientation);
+            }
+            
+            handleOrientationChange();
+            window.addEventListener('orientationchange', handleOrientationChange);
+            window.addEventListener('resize', handleOrientationChange);
+            
+            // Añadir clase para dispositivos táctiles
+            if ('ontouchstart' in window || navigator.maxTouchPoints > 0) {
+                document.body.classList.add('touch-device');
+            }
+            
+            console.log('Productos cargados correctamente');
+            console.log('Total de productos:', <?php echo $productos->num_rows; ?>);
         });
         
-        // Función mejorada para editar producto - usando data attributes
+        // Función para toggle precio unitario en agregar
+        function togglePrecioUnitarioAgregar() {
+            const checkbox = document.getElementById('agregar_precio_unitario');
+            const container = document.getElementById('precio_unitario_agregar_container');
+            const input = document.getElementById('precio_unitario_agregar');
+            
+            if (checkbox.checked) {
+                container.style.display = 'block';
+                input.required = false;
+            } else {
+                container.style.display = 'none';
+                input.value = '';
+                input.required = false;
+            }
+        }
+        
+        // Función para toggle precio unitario en editar
+        function togglePrecioUnitarioEditar() {
+            const checkbox = document.getElementById('editar_precio_unitario');
+            const container = document.getElementById('precio_unitario_editar_container');
+            const input = document.getElementById('edit_precio_unitario');
+            
+            if (checkbox.checked) {
+                container.style.display = 'block';
+                input.required = false;
+            } else {
+                container.style.display = 'none';
+                input.value = '';
+                input.required = false;
+            }
+        }
+        
+        // Función para editar producto
         function editarProducto(button) {
-            // Obtener datos del botón
             const id = button.getAttribute('data-id');
             const nombre = button.getAttribute('data-nombre');
-            const precio_caja = button.getAttribute('data-precio-caja');
-            const precio_unitario = button.getAttribute('data-precio-unitario');
+            const precioCaja = button.getAttribute('data-precio-caja');
+            const precioUnitario = button.getAttribute('data-precio-unitario');
             const tipo = button.getAttribute('data-tipo');
             
-            console.log('Editando producto:', {id, nombre, precio_caja, precio_unitario, tipo}); // Para debug
+            console.log('Editando producto:', {id, nombre, precioCaja, precioUnitario, tipo});
             
-            // Llenar los campos del formulario
             document.getElementById('edit_id').value = id;
             document.getElementById('edit_nombre').value = nombre;
-            document.getElementById('edit_precio_caja').value = precio_caja;
-            document.getElementById('edit_precio_unitario').value = precio_unitario;
+            document.getElementById('edit_precio_caja').value = precioCaja;
             document.getElementById('edit_tipo').value = tipo;
             
-            // Mostrar el modal
+            // Manejar precio unitario
+            if (precioUnitario && precioUnitario !== '' && precioUnitario > 0) {
+                document.getElementById('editar_precio_unitario').checked = true;
+                document.getElementById('precio_unitario_editar_container').style.display = 'block';
+                document.getElementById('edit_precio_unitario').value = precioUnitario;
+            } else {
+                document.getElementById('editar_precio_unitario').checked = false;
+                document.getElementById('precio_unitario_editar_container').style.display = 'none';
+                document.getElementById('edit_precio_unitario').value = '';
+            }
+            
             if (modalEditarInstance) {
                 modalEditarInstance.show();
             } else {
-                // Fallback si no se inicializó correctamente
                 const modal = new bootstrap.Modal(document.getElementById('modalEditar'));
                 modal.show();
             }
@@ -729,38 +1213,7 @@ $productos = $stmt->get_result();
             modal.show();
         }
         
-        function aplicarFiltros() {
-            const tipo = document.getElementById('filtroTipo').value;
-            const busqueda = document.getElementById('busqueda').value;
-            
-            let url = 'productos.php?';
-            
-            if (tipo !== 'todos') {
-                url += 'tipo_filtro=' + encodeURIComponent(tipo) + '&';
-            }
-            if (busqueda) {
-                url += 'busqueda=' + encodeURIComponent(busqueda);
-            }
-            
-            // Remover el último & si existe
-            url = url.replace(/&$/, '');
-            
-            window.location.href = url;
-        }
-        
-        function limpiarBusqueda() {
-            document.getElementById('busqueda').value = '';
-            aplicarFiltros();
-        }
-        
-        // Enter para buscar
-        document.getElementById('busqueda').addEventListener('keypress', function(e) {
-            if (e.key === 'Enter') {
-                aplicarFiltros();
-            }
-        });
-        
-        // Auto-ocultar alerta después de 5 segundos
+        // Auto-ocultar alerta
         window.addEventListener('DOMContentLoaded', function() {
             const alerta = document.getElementById('mensajeAlerta');
             if (alerta) {
@@ -771,15 +1224,132 @@ $productos = $stmt->get_result();
             }
         });
         
-        // Limpiar formularios cuando se cierren los modales
+        // Limpiar formularios al cerrar modales
         document.getElementById('modalAgregar').addEventListener('hidden.bs.modal', function () {
             document.getElementById('formAgregar').reset();
+            document.getElementById('agregar_precio_unitario').checked = false;
+            document.getElementById('precio_unitario_agregar_container').style.display = 'none';
         });
         
         document.getElementById('modalEliminar').addEventListener('hidden.bs.modal', function () {
             document.getElementById('formEliminar').reset();
         });
+        
+        // Validación de formularios con loading
+        document.getElementById('formAgregar').addEventListener('submit', function(e) {
+            const nombre = this.querySelector('[name="nombre"]').value.trim();
+            const precioCaja = parseFloat(this.querySelector('[name="precio_caja"]').value);
+            const tipo = this.querySelector('[name="tipo"]').value;
+            
+            if (nombre === '' || precioCaja <= 0 || tipo === '') {
+                e.preventDefault();
+                alert('Por favor complete todos los campos obligatorios correctamente');
+                return false;
+            }
+            
+            const submitBtn = this.querySelector('button[type="submit"]');
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando...';
+        });
+        
+        document.getElementById('formEditar').addEventListener('submit', function(e) {
+            const nombre = this.querySelector('[name="nombre"]').value.trim();
+            const precioCaja = parseFloat(this.querySelector('[name="precio_caja"]').value);
+            const tipo = this.querySelector('[name="tipo"]').value;
+            
+            if (nombre === '' || precioCaja <= 0 || tipo === '') {
+                e.preventDefault();
+                alert('Por favor complete todos los campos obligatorios correctamente');
+                return false;
+            }
+            
+            const submitBtn = this.querySelector('button[type="submit"]');
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Actualizando...';
+        });
+        
+        document.getElementById('formEliminar').addEventListener('submit', function(e) {
+            const submitBtn = this.querySelector('button[type="submit"]');
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Eliminando...';
+        });
+        
+        // Mejorar scroll en iOS
+        if (/iPad|iPhone|iPod/.test(navigator.userAgent)) {
+            document.querySelectorAll('.table-responsive').forEach(container => {
+                container.style.webkitOverflowScrolling = 'touch';
+            });
+        }
     </script>
+
+    <style>
+        /* Estilos adicionales para experiencia táctil */
+        .touch-device .btn,
+        .touch-device .table-productos tbody tr {
+            -webkit-tap-highlight-color: rgba(0, 0, 0, 0.1);
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+        
+        /* Landscape mode para móviles */
+        @media (max-width: 767px) and (orientation: landscape) {
+            .dashboard-container {
+                padding-top: 10px;
+            }
+            
+            .content-card {
+                margin-bottom: 15px;
+            }
+            
+            .filtros-container {
+                padding: 12px;
+                margin-bottom: 15px;
+            }
+        }
+        
+        /* Ajustes para iPhone X y superiores (notch) */
+        @supports (padding: max(0px)) {
+            body {
+                padding-left: max(10px, env(safe-area-inset-left));
+                padding-right: max(10px, env(safe-area-inset-right));
+            }
+            
+            .navbar-custom {
+                padding-left: max(15px, env(safe-area-inset-left));
+                padding-right: max(15px, env(safe-area-inset-right));
+            }
+        }
+        
+        /* Animación de loading */
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .fa-spinner.fa-spin {
+            animation: spin 1s linear infinite;
+        }
+        
+        /* Scroll suave */
+        html {
+            scroll-behavior: smooth;
+        }
+        
+        /* Prevenir rebote en iOS */
+        body {
+            overscroll-behavior-y: none;
+        }
+        
+        /* Mejorar legibilidad en móviles */
+        @media (max-width: 480px) {
+            .producto-nombre,
+            .precio-badge,
+            .tipo-badge {
+                line-height: 1.4;
+            }
+        }
+    </style>
 </body>
 </html>
 <?php 
