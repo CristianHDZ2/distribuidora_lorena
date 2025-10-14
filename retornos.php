@@ -10,59 +10,35 @@ $tipo_mensaje = '';
 
 // Obtener ruta seleccionada
 $ruta_id = isset($_GET['ruta']) ? intval($_GET['ruta']) : 0;
-
-// Para retornos: fecha SIEMPRE es hoy
 $fecha_hoy = date('Y-m-d');
 
-// Variable para modo edición
-$modo_edicion = false;
+// Variables de control
+$puede_registrar = puedeRegistrarRetorno($conn, $ruta_id, $fecha_hoy);
+$modo_edicion = existeRetorno($conn, $ruta_id, $fecha_hoy);
 
-// Verificar si ya existe un retorno para esta ruta hoy
-if ($ruta_id > 0) {
-    $modo_edicion = existeRetorno($conn, $ruta_id, $fecha_hoy);
-}
-
-// Verificar si puede registrar retornos
-$puede_registrar = $ruta_id > 0 && puedeRegistrarRetorno($conn, $ruta_id, $fecha_hoy);
-
-// ============================================
-// PROCESAR REGISTRO/ACTUALIZACIÓN DE RETORNOS
-// Ahora soporta MÚLTIPLES ajustes de precio
-// ============================================
-if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['registrar_retornos'])) {
+// Procesar formulario
+if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $ruta_id = intval($_POST['ruta_id']);
     $fecha = $_POST['fecha'];
-    $es_edicion = isset($_POST['es_edicion']) && $_POST['es_edicion'] == '1';
+    $productos = $_POST['productos'] ?? [];
+    $precios_unitarios = $_POST['precio_unitario'] ?? [];
+    $ajustes_multiples = $_POST['ajustes'] ?? [];
     
-    // Validar que sea hoy
-    if (!validarFechaHoy($fecha)) {
-        $mensaje = 'Error: Solo se pueden registrar retornos para el día de hoy';
-        $tipo_mensaje = 'danger';
-    } elseif (!puedeRegistrarRetorno($conn, $ruta_id, $fecha)) {
-        // Verificar si ya completó todos los registros del día
-        if (rutaCompletaHoy($conn, $ruta_id, $fecha)) {
-            $mensaje = 'Error: Esta ruta ya completó todos sus registros del día (salida, recarga y retorno). No se pueden hacer más registros para hoy.';
-        } else {
-            $mensaje = 'Error: No se puede registrar retorno en este momento';
-        }
+    $usuario_id = $_SESSION['usuario_id'];
+    
+    // Verificar si se puede registrar
+    if (!puedeRegistrarRetorno($conn, $ruta_id, $fecha)) {
+        $mensaje = 'No se pueden registrar retornos en este momento. La ruta ya está completa o no es válido para hoy.';
         $tipo_mensaje = 'danger';
     } else {
-        $productos = $_POST['productos'] ?? [];
-        $precios_unitarios = $_POST['usar_precio_unitario'] ?? [];
-        
-        // ============================================
-        // NUEVO: Capturar MÚLTIPLES ajustes por producto
-        // ============================================
-        $ajustes_multiples = $_POST['ajustes'] ?? [];
-        
-        $errores = [];
-        $registros_exitosos = 0;
-        
-        // Iniciar transacción
+        // CAMBIO: No validar que haya productos, puede ser retorno vacío (vendieron todo)
         $conn->begin_transaction();
         
         try {
-            // Si es edición, eliminar retornos y ajustes anteriores
+            $registros_exitosos = 0;
+            $es_edicion = existeRetorno($conn, $ruta_id, $fecha);
+            
+            // Si es edición, eliminar retornos y ajustes existentes
             if ($es_edicion) {
                 $stmt = $conn->prepare("DELETE FROM retornos WHERE ruta_id = ? AND fecha = ?");
                 $stmt->bind_param("is", $ruta_id, $fecha);
@@ -75,7 +51,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['registrar_retornos']))
                 $stmt->close();
             }
             
-            // Insertar nuevos retornos
+            // Insertar nuevos retornos (puede no haber ninguno)
             foreach ($productos as $producto_id => $cantidad) {
                 if (!empty($cantidad) && $cantidad > 0) {
                     // Verificar si se marcó precio unitario para este producto
@@ -89,7 +65,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['registrar_retornos']))
                     
                     // Insertar retorno
                     $stmt = $conn->prepare("INSERT INTO retornos (ruta_id, producto_id, cantidad, usa_precio_unitario, fecha, usuario_id) VALUES (?, ?, ?, ?, ?, ?)");
-                    $usuario_id = $_SESSION['usuario_id'];
                     $stmt->bind_param("iidisi", $ruta_id, $producto_id, $cantidad, $usa_precio_unitario, $fecha, $usuario_id);
                     
                     if ($stmt->execute()) {
@@ -127,19 +102,22 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['registrar_retornos']))
                 }
             }
             
+            // CAMBIO: Permitir commit incluso sin productos (retorno vacío = vendieron todo)
+            $conn->commit();
+            
+            // Redirigir al index con mensaje de éxito
             if ($registros_exitosos > 0) {
-                $conn->commit();
-                
-                // Redirigir al index con mensaje de éxito
                 if ($es_edicion) {
                     header("Location: index.php?mensaje=" . urlencode("Retornos actualizados exitosamente ($registros_exitosos productos)") . "&tipo=success");
                 } else {
                     header("Location: index.php?mensaje=" . urlencode("Retornos registrados exitosamente ($registros_exitosos productos)") . "&tipo=success");
                 }
-                exit();
             } else {
-                throw new Exception("No se registraron retornos");
+                // Sin retornos = vendieron todo
+                $mensaje_sin_retorno = $es_edicion ? "Retornos actualizados: Sin retornos (vendieron todo)" : "Retornos registrados: Sin retornos (vendieron todo)";
+                header("Location: index.php?mensaje=" . urlencode($mensaje_sin_retorno) . "&tipo=success");
             }
+            exit();
             
         } catch (Exception $e) {
             $conn->rollback();
@@ -260,12 +238,31 @@ if ($ruta_id > 0 && $puede_registrar) {
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="assets/css/custom.css">
     <style>
+        /* ============================================
+           ESTILOS ESPECÍFICOS PARA RETORNOS
+           ============================================ */
+        
         .ajuste-precio-row {
             background-color: #fff3cd;
             padding: 15px;
             margin-top: 10px;
             border-radius: 5px;
             border-left: 3px solid #ffc107;
+        }
+        
+        @media (max-width: 767px) {
+            .ajuste-precio-row {
+                padding: 12px;
+                margin-top: 8px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .ajuste-precio-row {
+                padding: 10px;
+                margin-top: 6px;
+                font-size: 12px;
+            }
         }
         
         .ajuste-item {
@@ -275,6 +272,20 @@ if ($ruta_id > 0 && $puede_registrar) {
             border-radius: 8px;
             border: 2px solid #dee2e6;
             position: relative;
+        }
+        
+        @media (max-width: 767px) {
+            .ajuste-item {
+                padding: 12px;
+                margin-bottom: 8px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .ajuste-item {
+                padding: 10px;
+                margin-bottom: 6px;
+            }
         }
         
         .ajuste-item.nuevo {
@@ -290,11 +301,29 @@ if ($ruta_id > 0 && $puede_registrar) {
             font-size: 12px;
         }
         
+        @media (max-width: 767px) {
+            .btn-eliminar-ajuste {
+                position: relative;
+                top: auto;
+                right: auto;
+                display: block;
+                width: 100%;
+                margin-top: 10px;
+            }
+        }
+        
         .badge-precio-tipo {
             font-size: 10px;
             padding: 3px 8px;
             border-radius: 10px;
             margin-left: 5px;
+        }
+        
+        @media (max-width: 480px) {
+            .badge-precio-tipo {
+                font-size: 9px;
+                padding: 2px 6px;
+            }
         }
         
         .badge-caja {
@@ -316,10 +345,23 @@ if ($ruta_id > 0 && $puede_registrar) {
             background: #cfe2ff;
             border: 1px solid #9ec5fe;
             border-radius: 5px;
-            padding: 5px 8px;
-            margin-top: 5px;
-            font-size: 10px;
-            text-align: center;
+            padding: 10px;
+            margin-bottom: 10px;
+            font-size: 13px;
+        }
+        
+        @media (max-width: 767px) {
+            .info-heredado {
+                padding: 8px;
+                font-size: 12px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .info-heredado {
+                padding: 6px;
+                font-size: 11px;
+            }
         }
         
         .contador-ajustes {
@@ -333,28 +375,36 @@ if ($ruta_id > 0 && $puede_registrar) {
             margin-left: 10px;
         }
         
+        @media (max-width: 480px) {
+            .contador-ajustes {
+                padding: 3px 8px;
+                font-size: 10px;
+                margin-left: 5px;
+            }
+        }
+        
         /* ============================================
-           ESTILOS RESPONSIVOS ADICIONALES PARA RETORNOS
+           RESPONSIVIDAD MEJORADA PARA RETORNOS
            ============================================ */
         
-        /* Responsive para tabla principal */
+        /* Tabla responsive */
         @media (max-width: 991px) {
             .table-bordered th,
             .table-bordered td {
-                padding: 8px 6px;
-                font-size: 12px;
+                padding: 10px 8px;
+                font-size: 13px;
             }
         }
         
         @media (max-width: 767px) {
             .table-bordered th,
             .table-bordered td {
-                padding: 6px 4px;
-                font-size: 11px;
+                padding: 8px 6px;
+                font-size: 12px;
             }
             
             .table-bordered th {
-                font-size: 10px;
+                font-size: 11px;
             }
         }
         
@@ -363,9 +413,15 @@ if ($ruta_id > 0 && $puede_registrar) {
                 font-size: 10px;
             }
             
+            .table-bordered th,
+            .table-bordered td {
+                padding: 6px 4px;
+                font-size: 10px;
+            }
+            
             .badge {
-                font-size: 9px;
-                padding: 2px 5px;
+                font-size: 8px;
+                padding: 2px 4px;
             }
             
             .form-control-sm {
@@ -379,94 +435,109 @@ if ($ruta_id > 0 && $puede_registrar) {
             }
         }
         
-        /* Ajustes de precio responsivos */
+        /* Input de retorno */
+        .retorno-input {
+            max-width: 100px;
+            text-align: center;
+        }
+        
         @media (max-width: 767px) {
-            .ajuste-precio-row {
-                padding: 10px;
-            }
-            
-            .ajuste-item {
-                padding: 10px;
-            }
-            
-            .btn-eliminar-ajuste {
-                position: relative;
-                top: auto;
-                right: auto;
-                margin-bottom: 10px;
-                display: block;
-                width: 100%;
+            .retorno-input {
+                max-width: 80px;
             }
         }
         
         @media (max-width: 480px) {
-            .ajuste-precio-row {
-                padding: 8px;
+            .retorno-input {
+                max-width: 70px;
                 font-size: 11px;
             }
-            
-            .ajuste-item .row {
-                margin: 0;
-            }
-            
-            .ajuste-item .col-md-3,
-            .ajuste-item .col-md-6 {
-                padding: 5px;
-                margin-bottom: 10px;
-            }
-            
-            .contador-ajustes {
-                padding: 3px 8px;
-                font-size: 10px;
-            }
         }
         
-        /* Navbar responsive */
-        @media (max-width: 991px) {
-            .navbar-nav .nav-link {
-                padding: 10px 15px;
-            }
-        }
-        
-        /* Cards y contenedores */
+        /* Ajustes de inputs en móviles */
         @media (max-width: 767px) {
-            .content-card {
-                padding: 15px;
+            .form-select,
+            .form-control {
+                font-size: 14px;
             }
             
-            .card-body {
-                padding: 15px;
+            .form-label {
+                font-size: 13px;
             }
         }
         
         @media (max-width: 480px) {
-            .content-card {
-                padding: 10px;
+            .form-select,
+            .form-control {
+                font-size: 13px;
             }
             
-            .card-body {
-                padding: 10px;
-            }
-            
-            .page-title {
-                font-size: 18px;
-            }
-            
-            .alert {
+            .form-label {
                 font-size: 12px;
-                padding: 10px;
-            }
-            
-            .alert ul {
-                padding-left: 15px;
-            }
-            
-            .alert li {
-                font-size: 11px;
             }
         }
         
-        /* Botones principales */
+        /* Resumen de ventas responsive */
+        @media (max-width: 767px) {
+            #resumen_ventas {
+                font-size: 13px;
+            }
+            
+            #total_general_ventas {
+                font-size: 22px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            #resumen_ventas {
+                font-size: 12px;
+            }
+            
+            #resumen_ventas .mb-2 {
+                margin-bottom: 8px !important;
+            }
+            
+            #total_general_ventas {
+                font-size: 20px;
+            }
+        }
+        
+        /* Tabla scroll horizontal en móviles */
+        @media (max-width: 767px) {
+            .table-responsive {
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+                margin: 0 -10px;
+                padding: 0 10px;
+            }
+        }
+        
+        /* Card responsivo */
+        @media (max-width: 767px) {
+            .card-body {
+                padding: 15px;
+            }
+            
+            .card-header h5 {
+                font-size: 15px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .card-body {
+                padding: 12px;
+            }
+            
+            .card-header h5 {
+                font-size: 14px;
+            }
+            
+            .card-header {
+                padding: 10px;
+            }
+        }
+        
+        /* Botones principales responsive */
         @media (max-width: 767px) {
             .btn-lg {
                 font-size: 14px;
@@ -483,60 +554,6 @@ if ($ruta_id > 0 && $puede_registrar) {
             }
         }
         
-        /* Select y inputs */
-        @media (max-width: 767px) {
-            .form-select,
-            .form-control {
-                font-size: 14px;
-            }
-        }
-        
-        @media (max-width: 480px) {
-            .form-select,
-            .form-control {
-                font-size: 13px;
-            }
-            
-            .form-label {
-                font-size: 12px;
-            }
-        }
-        
-        /* Resumen de ventas */
-        @media (max-width: 767px) {
-            #resumen_ventas {
-                font-size: 12px;
-            }
-            
-            #total_general_ventas {
-                font-size: 20px;
-            }
-        }
-        
-        @media (max-width: 480px) {
-            #resumen_ventas {
-                font-size: 11px;
-            }
-            
-            #resumen_ventas .mb-2 {
-                margin-bottom: 8px !important;
-            }
-            
-            #total_general_ventas {
-                font-size: 18px;
-            }
-        }
-        
-        /* Tabla scroll horizontal en móviles */
-        @media (max-width: 767px) {
-            .table-responsive {
-                overflow-x: auto;
-                -webkit-overflow-scrolling: touch;
-                margin: 0 -10px;
-                padding: 0 10px;
-            }
-        }
-        
         /* Ajustes para iPhone X y superiores (notch) */
         @supports (padding: max(0px)) {
             body {
@@ -548,29 +565,82 @@ if ($ruta_id > 0 && $puede_registrar) {
                 padding-left: max(15px, env(safe-area-inset-left));
                 padding-right: max(15px, env(safe-area-inset-right));
             }
-        }
-        
-        /* Input de retorno */
-        @media (max-width: 480px) {
-            .retorno-input {
-                max-width: 70px;
+            
+            .footer-copyright {
+                padding-bottom: max(20px, env(safe-area-inset-bottom));
             }
         }
         
-        /* Card header */
-        @media (max-width: 767px) {
-            .card-header h5 {
-                font-size: 14px;
-            }
-        }
-        
-        @media (max-width: 480px) {
-            .card-header h5 {
-                font-size: 13px;
+        /* Landscape mode para móviles */
+        @media (max-width: 767px) and (orientation: landscape) {
+            .dashboard-container {
+                padding-top: 10px;
             }
             
-            .card-header {
-                padding: 10px;
+            .content-card {
+                margin-bottom: 15px;
+            }
+            
+            .table-responsive {
+                max-height: 300px;
+                overflow-y: auto;
+            }
+        }
+        
+        /* Animación de loading */
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .fa-spinner.fa-spin {
+            animation: spin 1s linear infinite;
+        }
+        
+        /* Scroll suave */
+        html {
+            scroll-behavior: smooth;
+        }
+        
+        /* Prevenir rebote en iOS */
+        body {
+            overscroll-behavior-y: none;
+        }
+        
+        /* Focus visible para accesibilidad */
+        input:focus,
+        select:focus,
+        button:focus {
+            outline: 2px solid #f39c12;
+            outline-offset: 2px;
+        }
+        
+        /* Touch feedback en móviles */
+        .touch-device .btn,
+        .touch-device input,
+        .touch-device select {
+            -webkit-tap-highlight-color: rgba(0, 0, 0, 0.1);
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+        
+        @media (max-width: 480px) {
+            .btn-warning:active,
+            .btn-success:active,
+            .btn-danger:active {
+                transform: scale(0.98);
+            }
+        }
+        
+        /* Mejoras para el resumen */
+        @media (max-width: 480px) {
+            .alert-success h5 {
+                font-size: 14px;
+            }
+            
+            .alert-success h4 {
+                font-size: 16px;
             }
         }
     </style>
@@ -582,7 +652,7 @@ if ($ruta_id > 0 && $puede_registrar) {
             <a class="navbar-brand" href="index.php">
                 <i class="fas fa-truck"></i> Distribuidora LORENA
             </a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
                 <span class="navbar-toggler-icon"></span>
             </button>
             <div class="collapse navbar-collapse" id="navbarNav">
@@ -603,10 +673,10 @@ if ($ruta_id > 0 && $puede_registrar) {
                         </a>
                     </li>
                     <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle active" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown">
+                        <a class="nav-link dropdown-toggle active" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                             <i class="fas fa-clipboard-list"></i> Operaciones
                         </a>
-                        <ul class="dropdown-menu">
+                        <ul class="dropdown-menu" aria-labelledby="navbarDropdown">
                             <li><a class="dropdown-item" href="salidas.php"><i class="fas fa-arrow-up"></i> Salidas</a></li>
                             <li><a class="dropdown-item" href="recargas.php"><i class="fas fa-sync"></i> Recargas</a></li>
                             <li><a class="dropdown-item active" href="retornos.php"><i class="fas fa-arrow-down"></i> Retornos</a></li>
@@ -644,6 +714,7 @@ if ($ruta_id > 0 && $puede_registrar) {
                     <li>Puede registrar 1 retorno por ruta al día</li>
                     <li><strong>NUEVO:</strong> Puede agregar <strong>MÚLTIPLES ajustes de precio</strong> por producto</li>
                     <li><strong>PRECIO AUTOMÁTICO:</strong> Se mantiene el tipo de precio usado en salida/recarga</li>
+                    <li>Si vendieron todo, puede enviar sin retornos</li>
                     <li>Una vez complete salida, recarga y retorno del día, no podrá hacer más registros hasta mañana</li>
                 </ul>
             </div>
@@ -672,92 +743,44 @@ if ($ruta_id > 0 && $puede_registrar) {
                         <?php endwhile; ?>
                     </select>
                 </div>
-                
-                <div class="col-md-6 mb-3">
-                    <label class="form-label fw-bold">Fecha</label>
-                    <input type="text" class="form-control" value="HOY - <?php echo date('d/m/Y'); ?>" readonly>
-                    <small class="text-muted">Los retornos solo se registran para hoy</small>
-                </div>
             </div>
             
-            <?php if ($ruta_id > 0): ?>
-                <?php if (!$puede_registrar): ?>
-                    <div class="alert alert-danger text-center">
-                        <i class="fas fa-ban fa-3x mb-3"></i>
-                        <h5>No se puede registrar retorno</h5>
-                        <?php if (rutaCompletaHoy($conn, $ruta_id, $fecha_hoy)): ?>
-                            <p>Esta ruta ya completó <strong>todos sus registros del día</strong> (salida, recarga y retorno).</p>
-                            <p>No se permiten más registros para hoy. Puede hacer nuevos registros mañana.</p>
-                        <?php else: ?>
-                            <p>No se puede registrar retorno en este momento.</p>
-                        <?php endif; ?>
-                    </div>
-                <?php elseif (count($productos_info) > 0): ?>
-                    <?php if ($modo_edicion): ?>
-                        <div class="alert alert-warning alert-custom" id="alertEdicion">
-                            <i class="fas fa-edit"></i>
-                            <strong>Modo Edición:</strong> Ya existe un retorno registrado para esta ruta hoy. Puede modificar las cantidades y ajustes, luego guardar los cambios.
-                        </div>
-                    <?php endif; ?>
-                    
-                    <!-- Formulario de Productos -->
+            <?php if ($ruta_id > 0 && $puede_registrar): ?>
+                <?php if (count($productos_info) > 0): ?>
                     <form method="POST" id="formRetornos">
-                        <input type="hidden" name="registrar_retornos" value="1">
                         <input type="hidden" name="ruta_id" value="<?php echo $ruta_id; ?>">
                         <input type="hidden" name="fecha" value="<?php echo $fecha_hoy; ?>">
-                        <input type="hidden" name="es_edicion" value="<?php echo $modo_edicion ? '1' : '0'; ?>">
                         
-                        <!-- Campos ocultos para mantener el tipo de precio heredado -->
-                        <?php foreach ($productos_info as $producto): ?>
-                            <?php if ($producto['usa_precio_unitario']): ?>
-                                <input type="hidden" name="usar_precio_unitario[<?php echo $producto['id']; ?>]" value="1">
-                            <?php endif; ?>
-                        <?php endforeach; ?>
-                        
-                        <div class="card mb-4">
-                            <div class="card-header bg-warning text-dark">
-                                <h5 class="mb-0">
-                                    <i class="fas fa-box"></i> Productos de <?php echo $nombre_ruta; ?>
+                        <div class="card shadow-sm">
+                            <div class="card-header bg-warning">
+                                <h5 class="mb-0 text-white">
+                                    <i class="fas fa-undo-alt"></i> Productos con Salidas/Recargas de Hoy
                                 </h5>
                             </div>
                             <div class="card-body">
                                 <div class="table-responsive">
-                                    <table class="table table-bordered">
-                                        <thead class="table-light">
+                                    <table class="table table-bordered table-hover mb-0">
+                                        <thead class="table-warning">
                                             <tr>
                                                 <th>Producto</th>
-                                                <th width="80">Salida</th>
-                                                <th width="80">Recarga</th>
-                                                <th width="100">Disponible</th>
-                                                <th width="120">Retorno</th>
-                                                <th width="100">Vendido</th>
-                                                <th width="120">Total $</th>
-                                                <th width="100">Ajustes</th>
+                                                <th class="text-center">Salida</th>
+                                                <th class="text-center">Recarga</th>
+                                                <th class="text-center">Disponible</th>
+                                                <th class="text-center">Retorno</th>
+                                                <th class="text-center">Vendido</th>
+                                                <th class="text-center">Precio</th>
+                                                <th class="text-center">Ajustes</th>
                                             </tr>
                                         </thead>
                                         <tbody>
                                             <?php foreach ($productos_info as $producto): ?>
-                                                <tr id="row_<?php echo $producto['id']; ?>">
+                                                <tr>
                                                     <td>
                                                         <strong><?php echo $producto['nombre']; ?></strong>
-                                                        <br>
-                                                        <small class="text-muted">
-                                                            <?php if ($producto['usa_precio_unitario']): ?>
-                                                                Precio Unitario: <?php echo formatearDinero($producto['precio']); ?>
-                                                                <span class="badge badge-heredado">HEREDADO</span>
-                                                            <?php else: ?>
-                                                                Precio Caja: <?php echo formatearDinero($producto['precio']); ?>
-                                                                <span class="badge badge-caja">CAJA</span>
-                                                            <?php endif; ?>
-                                                        </small>
-                                                        <?php if ($producto['retorno'] > 0): ?>
-                                                            <br><small class="text-danger"><i class="fas fa-check"></i> Retorno: <?php echo $producto['retorno']; ?></small>
-                                                        <?php endif; ?>
-                                                        <?php if (!empty($producto['ajustes_existentes'])): ?>
-                                                            <br><small class="text-warning">
-                                                                <i class="fas fa-dollar-sign"></i> 
-                                                                <?php echo count($producto['ajustes_existentes']); ?> ajuste(s) registrado(s)
-                                                            </small>
+                                                        <?php if ($producto['usa_precio_unitario']): ?>
+                                                            <span class="badge badge-precio-tipo badge-unitario">Precio Unitario</span>
+                                                        <?php else: ?>
+                                                            <span class="badge badge-precio-tipo badge-caja">Precio por Caja</span>
                                                         <?php endif; ?>
                                                     </td>
                                                     <td class="text-center">
@@ -786,103 +809,127 @@ if ($ruta_id > 0 && $puede_registrar) {
                                                                min="0"
                                                                max="<?php echo $producto['disponible']; ?>"
                                                                placeholder="0"
+                                                               onfocus="if(this.value=='0') this.value=''"
                                                                onchange="validarRetorno(this); calcularVendido(<?php echo $producto['id']; ?>);">
                                                         <small class="text-muted">
-                                                            <?php echo $producto['usa_precio_unitario'] ? 'Solo enteros: 1, 2, 3...' : 'Ej: 1, 2, 0.5, 1.5'; ?>
+                                                            <?php echo $producto['usa_precio_unitario'] ? 'Solo enteros' : 'Enteros o .5'; ?>
                                                         </small>
+                                                        <!-- Hidden para mantener el tipo de precio -->
+                                                        <?php if ($producto['usa_precio_unitario']): ?>
+                                                            <input type="hidden" name="precio_unitario[<?php echo $producto['id']; ?>]" value="1">
+                                                        <?php endif; ?>
                                                     </td>
                                                     <td class="text-center">
-                                                        <strong class="text-primary" id="vendido_<?php echo $producto['id']; ?>">
+                                                        <span class="badge bg-dark" id="vendido_<?php echo $producto['id']; ?>">
                                                             <?php echo $producto['vendido']; ?>
+                                                        </span>
+                                                    </td>
+                                                    <td class="text-center">
+                                                        <strong id="precio_display_<?php echo $producto['id']; ?>">
+                                                            $<?php echo number_format($producto['precio'], 2); ?>
                                                         </strong>
                                                     </td>
                                                     <td class="text-center">
-                                                        <strong class="text-success" id="total_vendido_<?php echo $producto['id']; ?>">
-                                                            <?php echo formatearDinero($producto['total_vendido']); ?>
-                                                        </strong>
-                                                    </td>
-                                                    <td class="text-center">
-                                                        <button type="button" class="btn btn-sm btn-warning" onclick="mostrarAjustes(<?php echo $producto['id']; ?>)" title="Gestionar ajustes de precio">
-                                                            <i class="fas fa-dollar-sign"></i>
-                                                            <span class="contador-ajustes" id="contador_ajustes_<?php echo $producto['id']; ?>">
-                                                                <?php echo count($producto['ajustes_existentes']); ?>
+                                                        <button type="button" 
+                                                                class="btn btn-sm btn-warning" 
+                                                                onclick="mostrarAjustes(<?php echo $producto['id']; ?>)">
+                                                            <i class="fas fa-tag"></i> Ajustar Precio
+                                                            <span class="contador-ajustes" id="contador_ajustes_<?php echo $producto['id']; ?>" style="display: none;">
+                                                                0
                                                             </span>
                                                         </button>
                                                     </td>
                                                 </tr>
+                                                <!-- Fila oculta para ajustes de precio -->
                                                 <tr id="ajustes_<?php echo $producto['id']; ?>" style="display: none;">
                                                     <td colspan="8">
                                                         <div class="ajuste-precio-row">
-                                                            <h6 class="text-warning mb-3">
-                                                                <i class="fas fa-exclamation-triangle"></i> Ajustes de Precio para <?php echo $producto['nombre']; ?>
-                                                            </h6>
-                                                            <div class="row mb-3">
-                                                                <div class="col-md-6">
-                                                                    <p class="mb-1"><strong>Vendido:</strong> <span id="vendido_display_<?php echo $producto['id']; ?>"><?php echo $producto['vendido']; ?></span> unidades</p>
-                                                                    <p class="mb-1"><strong>Precio normal:</strong> <?php echo formatearDinero($producto['precio']); ?></p>
-                                                                </div>
+                                                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                                                <h6 class="mb-0">
+                                                                    <i class="fas fa-tags"></i> Ajustes de Precio para <?php echo $producto['nombre']; ?>
+                                                                    <span class="badge bg-info ms-2">
+                                                                        Vendido: <span id="vendido_display_<?php echo $producto['id']; ?>"><?php echo $producto['vendido']; ?></span>
+                                                                    </span>
+                                                                </h6>
+                                                                <button type="button" 
+                                                                        class="btn btn-sm btn-secondary" 
+                                                                        onclick="ocultarAjustes(<?php echo $producto['id']; ?>)">
+                                                                    <i class="fas fa-times"></i> Cerrar
+                                                                </button>
                                                             </div>
                                                             
-                                                            <!-- Contenedor de ajustes -->
-                                                            <div id="ajustes_container_<?php echo $producto['id']; ?>">
-                                                                <?php if (!empty($producto['ajustes_existentes'])): ?>
-                                                                    <?php foreach ($producto['ajustes_existentes'] as $index => $ajuste): ?>
-                                                                        <div class="ajuste-item" id="ajuste_<?php echo $producto['id']; ?>_<?php echo $index; ?>">
-                                                                            <button type="button" class="btn btn-danger btn-sm btn-eliminar-ajuste" onclick="eliminarAjuste(<?php echo $producto['id']; ?>, <?php echo $index; ?>)">
-                                                                                <i class="fas fa-trash"></i> Eliminar
-                                                                            </button>
-                                                                            <div class="row g-3">
-                                                                                <div class="col-md-3">
-                                                                                    <label class="form-label fw-bold">Cantidad</label>
-                                                                                    <input type="number" 
-                                                                                           class="form-control ajuste-cantidad" 
-                                                                                           name="ajustes[<?php echo $producto['id']; ?>][<?php echo $index; ?>][cantidad]"
-                                                                                           value="<?php echo $ajuste['cantidad']; ?>"
-                                                                                           step="<?php echo $producto['usa_precio_unitario'] ? '1' : '0.5'; ?>" 
-                                                                                           min="<?php echo $producto['usa_precio_unitario'] ? '1' : '0.5'; ?>"
-                                                                                           onchange="validarCantidadAjuste(this, <?php echo $producto['id']; ?>); calcularTotalConAjustes(<?php echo $producto['id']; ?>)">
-                                                                                </div>
-                                                                                <div class="col-md-3">
-                                                                                    <label class="form-label fw-bold">Precio ($)</label>
-                                                                                    <input type="number" 
-                                                                                           class="form-control ajuste-precio" 
-                                                                                           name="ajustes[<?php echo $producto['id']; ?>][<?php echo $index; ?>][precio]"
-                                                                                           value="<?php echo $ajuste['precio_ajustado']; ?>"
-                                                                                           step="0.01" 
-                                                                                           min="0.01"
-                                                                                           onchange="calcularTotalConAjustes(<?php echo $producto['id']; ?>)">
-                                                                                </div>
-                                                                                <div class="col-md-6">
-                                                                                    <label class="form-label fw-bold">Descripción (Opcional)</label>
-                                                                                    <input type="text" 
-                                                                                           class="form-control" 
-                                                                                           name="ajustes[<?php echo $producto['id']; ?>][<?php echo $index; ?>][descripcion]"
-                                                                                           value="<?php echo htmlspecialchars($ajuste['descripcion'] ?? ''); ?>"
-                                                                                           placeholder="Ej: Cliente especial">
-                                                                                </div>
-                                                                            </div>
-                                                                        </div>
-                                                                    <?php endforeach; ?>
+                                                            <div class="info-heredado">
+                                                                <i class="fas fa-info-circle"></i> 
+                                                                <strong>Precio heredado:</strong> Se usa 
+                                                                <?php if ($producto['usa_precio_unitario']): ?>
+                                                                    <strong>Precio Unitario</strong> ($<?php echo number_format($producto['precio'], 2); ?>) según salida/recarga
+                                                                <?php else: ?>
+                                                                    <strong>Precio por Caja</strong> ($<?php echo number_format($producto['precio'], 2); ?>) según salida/recarga
                                                                 <?php endif; ?>
                                                             </div>
                                                             
-                                                            <div class="text-center mt-3">
-                                                                <button type="button" class="btn btn-success" onclick="agregarNuevoAjuste(<?php echo $producto['id']; ?>, <?php echo $producto['usa_precio_unitario'] ? 1 : 0; ?>)">
-                                                                    <i class="fas fa-plus"></i> Agregar Otro Ajuste
-                                                                </button>
+                                                            <div id="ajustes_container_<?php echo $producto['id']; ?>">
+                                                                <?php 
+                                                                // Mostrar ajustes existentes
+                                                                if (!empty($producto['ajustes_existentes'])) {
+                                                                    foreach ($producto['ajustes_existentes'] as $idx => $ajuste):
+                                                                ?>
+                                                                    <div class="ajuste-item" id="ajuste_<?php echo $producto['id']; ?>_<?php echo $idx; ?>">
+                                                                        <button type="button" 
+                                                                                class="btn btn-sm btn-danger btn-eliminar-ajuste" 
+                                                                                onclick="eliminarAjuste(<?php echo $producto['id']; ?>, <?php echo $idx; ?>)">
+                                                                            <i class="fas fa-trash"></i> Eliminar
+                                                                        </button>
+                                                                        <div class="row">
+                                                                            <div class="col-md-3">
+                                                                                <label class="form-label fw-bold">Cantidad</label>
+                                                                                <input type="number" 
+                                                                                       class="form-control ajuste-cantidad" 
+                                                                                       name="ajustes[<?php echo $producto['id']; ?>][<?php echo $idx; ?>][cantidad]"
+                                                                                       value="<?php echo $ajuste['cantidad']; ?>"
+                                                                                       step="<?php echo $producto['usa_precio_unitario'] ? '1' : '0.5'; ?>" 
+                                                                                       min="<?php echo $producto['usa_precio_unitario'] ? '1' : '0.5'; ?>"
+                                                                                       placeholder="<?php echo $producto['usa_precio_unitario'] ? '1' : '0.5'; ?>"
+                                                                                       onchange="validarCantidadAjuste(this, <?php echo $producto['id']; ?>); calcularTotalConAjustes(<?php echo $producto['id']; ?>)">
+                                                                            </div>
+                                                                            <div class="col-md-3">
+                                                                                <label class="form-label fw-bold">Precio ($)</label>
+                                                                                <input type="number" 
+                                                                                       class="form-control ajuste-precio" 
+                                                                                       name="ajustes[<?php echo $producto['id']; ?>][<?php echo $idx; ?>][precio]"
+                                                                                       value="<?php echo $ajuste['precio_ajustado']; ?>"
+                                                                                       step="0.01" 
+                                                                                       min="0.01"
+                                                                                       placeholder="Ej: 9.00"
+                                                                                       onchange="calcularTotalConAjustes(<?php echo $producto['id']; ?>)">
+                                                                            </div>
+                                                                            <div class="col-md-6">
+                                                                                <label class="form-label fw-bold">Descripción (Opcional)</label>
+                                                                                <input type="text" 
+                                                                                       class="form-control" 
+                                                                                       name="ajustes[<?php echo $producto['id']; ?>][<?php echo $idx; ?>][descripcion]"
+                                                                                       value="<?php echo htmlspecialchars($ajuste['descripcion']); ?>"
+                                                                                       placeholder="Ej: Cliente especial, Promoción">
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                                <?php 
+                                                                    endforeach;
+                                                                }
+                                                                ?>
                                                             </div>
                                                             
-                                                            <div class="mt-3 p-2 bg-white rounded">
-                                                                <strong>Total calculado con ajustes:</strong> 
-                                                                <span class="text-success fs-5 ms-2" id="total_ajustado_<?php echo $producto['id']; ?>">
-                                                                    <?php echo formatearDinero($producto['total_vendido']); ?>
+                                                            <button type="button" 
+                                                                    class="btn btn-sm btn-success mt-2" 
+                                                                    onclick="agregarNuevoAjuste(<?php echo $producto['id']; ?>, <?php echo $producto['usa_precio_unitario'] ? 'true' : 'false'; ?>)">
+                                                                <i class="fas fa-plus"></i> Agregar Otro Ajuste
+                                                            </button>
+                                                            
+                                                            <div class="mt-3 p-3 bg-light rounded">
+                                                                <strong>Total con Ajustes:</strong> 
+                                                                <span class="text-success fs-5" id="total_ajustes_<?php echo $producto['id']; ?>">
+                                                                    $<?php echo number_format($producto['total_vendido'], 2); ?>
                                                                 </span>
-                                                            </div>
-                                                            
-                                                            <div class="text-center mt-3">
-                                                                <button type="button" class="btn btn-primary" onclick="ocultarAjustes(<?php echo $producto['id']; ?>)">
-                                                                    <i class="fas fa-check"></i> Cerrar Ajustes
-                                                                </button>
                                                             </div>
                                                         </div>
                                                     </td>
@@ -892,16 +939,23 @@ if ($ruta_id > 0 && $puede_registrar) {
                                     </table>
                                 </div>
                                 
-                                <div class="alert alert-success mt-3">
-                                    <h5><i class="fas fa-calculator"></i> Resumen de Ventas</h5>
-                                    <div id="resumen_ventas"></div>
+                                <!-- Resumen de ventas -->
+                                <div class="alert alert-success mt-4">
+                                    <h5><i class="fas fa-calculator"></i> Resumen Total de Ventas</h5>
+                                    <div id="resumen_ventas">
+                                        <p class="mb-0">Calculando...</p>
+                                    </div>
                                     <hr>
-                                    <h4>Total General: <span id="total_general_ventas" class="text-success">$0.00</span></h4>
+                                    <h4 class="mb-0">
+                                        <strong>TOTAL GENERAL:</strong> 
+                                        <span class="text-success" id="total_general_ventas">$0.00</span>
+                                    </h4>
                                 </div>
                                 
-                                <div class="text-center mt-4">
-                                    <button type="submit" class="btn btn-custom-success btn-lg">
-                                        <i class="fas fa-save"></i> <?php echo $modo_edicion ? 'Actualizar Retornos' : 'Registrar Retornos y Finalizar'; ?>
+                                <div class="d-flex justify-content-end gap-3 mt-4">
+                                    <button type="submit" class="btn btn-success btn-lg">
+                                        <i class="fas fa-save"></i> 
+                                        <?php echo $modo_edicion ? 'Actualizar Retornos' : 'Registrar Retornos y Finalizar'; ?>
                                     </button>
                                     <a href="retornos.php" class="btn btn-secondary btn-lg">
                                         <i class="fas fa-times"></i> Cancelar
@@ -917,6 +971,16 @@ if ($ruta_id > 0 && $puede_registrar) {
                         <p>Debe registrar salidas o recargas antes de poder registrar retornos</p>
                     </div>
                 <?php endif; ?>
+            <?php elseif ($ruta_id > 0 && !$puede_registrar): ?>
+                <div class="alert alert-info text-center">
+                    <i class="fas fa-check-circle fa-3x mb-3"></i>
+                    <h5>Ruta completada</h5>
+                    <p>Los retornos para esta ruta ya fueron registrados hoy</p>
+                    <a href="generar_pdf.php?ruta=<?php echo $ruta_id; ?>&fecha=<?php echo $fecha_hoy; ?>&generar=1" 
+                       class="btn btn-success btn-lg mt-3" target="_blank">
+                        <i class="fas fa-file-pdf"></i> Ver Reporte Final
+                    </a>
+                </div>
             <?php else: ?>
                 <div class="alert alert-warning text-center">
                     <i class="fas fa-route fa-3x mb-3"></i>
@@ -954,40 +1018,10 @@ if ($ruta_id > 0 && $puede_registrar) {
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="assets/js/notifications.js"></script>
     <script>
-        // Contador global para nuevos ajustes
-        let contadorAjustes = {};
-        
-        // Inicializar contadores al cargar la página
-        <?php foreach ($productos_info as $producto): ?>
-            contadorAjustes[<?php echo $producto['id']; ?>] = <?php echo count($producto['ajustes_existentes']); ?>;
-        <?php endforeach; ?>
-        
-        // Confirmación antes de editar
-        <?php if ($modo_edicion && $puede_registrar): ?>
-        window.addEventListener('DOMContentLoaded', function() {
-            const confirmoEdicion = sessionStorage.getItem('confirmoEdicionRetorno_<?php echo $ruta_id; ?>');
-            
-            if (!confirmoEdicion) {
-                const confirmacion = confirm(
-                    '⚠️ ATENCIÓN: Esta ruta ya tiene un RETORNO registrado para HOY.\n\n' +
-                    '¿Está seguro que desea EDITAR el retorno existente?\n\n' +
-                    'Si acepta, podrá modificar las cantidades y ajustes de los productos.'
-                );
-                
-                if (confirmacion) {
-                    sessionStorage.setItem('confirmoEdicionRetorno_<?php echo $ruta_id; ?>', 'true');
-                } else {
-                    window.location.href = 'retornos.php';
-                }
-            }
-        });
-        <?php endif; ?>
-        
+        // Cambiar ruta
         function cambiarRuta() {
-            const rutaId = document.getElementById('select_ruta').value;
-            
-            // Limpiar confirmación de edición
-            sessionStorage.removeItem('confirmoEdicionRetorno_' + rutaId);
+            const select = document.getElementById('select_ruta');
+            const rutaId = select.value;
             
             if (rutaId) {
                 window.location.href = 'retornos.php?ruta=' + rutaId;
@@ -996,6 +1030,82 @@ if ($ruta_id > 0 && $puede_registrar) {
             }
         }
         
+        // Formatear dinero
+        function formatearDinero(valor) {
+            return '$' + parseFloat(valor).toFixed(2);
+        }
+        
+        // ============================================
+        // CONTADOR GLOBAL DE AJUSTES POR PRODUCTO
+        // ============================================
+        const contadorAjustes = {};
+        
+        // Inicializar contadores
+        document.addEventListener('DOMContentLoaded', function() {
+            <?php foreach ($productos_info as $producto): ?>
+                contadorAjustes[<?php echo $producto['id']; ?>] = <?php echo count($producto['ajustes_existentes']); ?>;
+                actualizarContadorAjustes(<?php echo $producto['id']; ?>);
+            <?php endforeach; ?>
+            
+            // Calcular resumen inicial
+            calcularResumen();
+            
+            // Cerrar menú navbar en móviles
+            const navbarToggler = document.querySelector('.navbar-toggler');
+            const navbarCollapse = document.querySelector('.navbar-collapse');
+            
+            if (navbarToggler && navbarCollapse) {
+                const navLinks = navbarCollapse.querySelectorAll('.nav-link, .dropdown-item');
+                navLinks.forEach(link => {
+                    link.addEventListener('click', function() {
+                        if (window.innerWidth < 992) {
+                            const bsCollapse = new bootstrap.Collapse(navbarCollapse, {
+                                toggle: false
+                            });
+                            bsCollapse.hide();
+                        }
+                    });
+                });
+            }
+            
+            // Manejar cambios de orientación
+            function handleOrientationChange() {
+                const orientation = window.innerWidth > window.innerHeight ? 'landscape' : 'portrait';
+                document.body.setAttribute('data-orientation', orientation);
+            }
+            
+            handleOrientationChange();
+            window.addEventListener('orientationchange', handleOrientationChange);
+            window.addEventListener('resize', handleOrientationChange);
+            
+            // Añadir clase para dispositivos táctiles
+            if ('ontouchstart' in window || navigator.maxTouchPoints > 0) {
+                document.body.classList.add('touch-device');
+            }
+            
+            // Mejorar scroll en iOS
+            if (/iPad|iPhone|iPod/.test(navigator.userAgent)) {
+                document.querySelectorAll('.table-responsive').forEach(container => {
+                    container.style.webkitOverflowScrolling = 'touch';
+                });
+            }
+            
+            // Optimizar rendimiento en scroll
+            let ticking = false;
+            window.addEventListener('scroll', function() {
+                if (!ticking) {
+                    window.requestAnimationFrame(function() {
+                        ticking = false;
+                    });
+                    ticking = true;
+                }
+            });
+            
+            console.log('Retornos cargados correctamente');
+            console.log('Ruta seleccionada:', <?php echo $ruta_id; ?>);
+        });
+        
+        // Validar retorno
         function validarRetorno(input) {
             const valor = parseFloat(input.value);
             const max = parseFloat(input.getAttribute('max'));
@@ -1006,7 +1116,7 @@ if ($ruta_id > 0 && $puede_registrar) {
             }
             
             if (isNaN(valor) || valor < 0) {
-                alert('Por favor ingrese una cantidad válida');
+                alert('Ingrese una cantidad válida (0 o mayor)');
                 input.value = '';
                 return false;
             }
@@ -1038,6 +1148,7 @@ if ($ruta_id > 0 && $puede_registrar) {
             return true;
         }
         
+        // Calcular vendido
         function calcularVendido(productoId) {
             const input = document.getElementById('retorno_' + productoId);
             const salida = parseFloat(input.getAttribute('data-salida'));
@@ -1055,11 +1166,13 @@ if ($ruta_id > 0 && $puede_registrar) {
             calcularResumen();
         }
         
+        // Mostrar ajustes
         function mostrarAjustes(productoId) {
             document.getElementById('ajustes_' + productoId).style.display = 'table-row';
             calcularVendido(productoId);
         }
         
+        // Ocultar ajustes
         function ocultarAjustes(productoId) {
             document.getElementById('ajustes_' + productoId).style.display = 'none';
             calcularResumen();
@@ -1075,15 +1188,18 @@ if ($ruta_id > 0 && $puede_registrar) {
             
             const step = usaUnitario ? '1' : '0.5';
             const min = usaUnitario ? '1' : '0.5';
+            const placeholder = usaUnitario ? '1' : '0.5';
             
             const nuevoAjuste = document.createElement('div');
             nuevoAjuste.className = 'ajuste-item nuevo';
             nuevoAjuste.id = 'ajuste_' + productoId + '_' + index;
             nuevoAjuste.innerHTML = `
-                <button type="button" class="btn btn-danger btn-sm btn-eliminar-ajuste" onclick="eliminarAjuste(${productoId}, ${index})">
+                <button type="button" 
+                        class="btn btn-sm btn-danger btn-eliminar-ajuste" 
+                        onclick="eliminarAjuste(${productoId}, ${index})">
                     <i class="fas fa-trash"></i> Eliminar
                 </button>
-                <div class="row g-3">
+                <div class="row">
                     <div class="col-md-3">
                         <label class="form-label fw-bold">Cantidad</label>
                         <input type="number" 
@@ -1091,7 +1207,7 @@ if ($ruta_id > 0 && $puede_registrar) {
                                name="ajustes[${productoId}][${index}][cantidad]"
                                step="${step}" 
                                min="${min}"
-                               placeholder="Ej: ${usaUnitario ? '2' : '1.5'}"
+                               placeholder="${placeholder}"
                                onchange="validarCantidadAjuste(this, ${productoId}); calcularTotalConAjustes(${productoId})">
                     </div>
                     <div class="col-md-3">
@@ -1140,10 +1256,16 @@ if ($ruta_id > 0 && $puede_registrar) {
         function actualizarContadorAjustes(productoId) {
             const contador = document.getElementById('contador_ajustes_' + productoId);
             if (contador) {
-                contador.textContent = contadorAjustes[productoId];
+                if (contadorAjustes[productoId] > 0) {
+                    contador.style.display = 'inline-block';
+                    contador.textContent = contadorAjustes[productoId];
+                } else {
+                    contador.style.display = 'none';
+                }
             }
         }
         
+        // Validar cantidad de ajuste
         function validarCantidadAjuste(input, productoId) {
             const valor = parseFloat(input.value);
             const usaUnitario = input.step === '1';
@@ -1176,7 +1298,7 @@ if ($ruta_id > 0 && $puede_registrar) {
             }
             
             // Verificar que no supere el vendido
-            const retornoInput = document.getElementById('retorno_' + productoId);
+            const retornoInput = document.getElementById('retorno_' +productoId);
             const salida = parseFloat(retornoInput.getAttribute('data-salida'));
             const recarga = parseFloat(retornoInput.getAttribute('data-recarga'));
             const retorno = parseFloat(retornoInput.value) || 0;
@@ -1201,9 +1323,7 @@ if ($ruta_id > 0 && $puede_registrar) {
             return true;
         }
         
-        // ============================================
-        // FUNCIÓN ACTUALIZADA: Calcular total con MÚLTIPLES ajustes
-        // ============================================
+        // Calcular total con ajustes
         function calcularTotalConAjustes(productoId) {
             const retornoInput = document.getElementById('retorno_' + productoId);
             const precio = parseFloat(retornoInput.getAttribute('data-precio'));
@@ -1215,11 +1335,10 @@ if ($ruta_id > 0 && $puede_registrar) {
             let totalVenta = 0;
             let cantidadConAjustes = 0;
             
-            // Obtener TODOS los ajustes del producto
+            // Obtener TODOS los ajustes
             const ajustesCantidad = document.querySelectorAll(`input[name^="ajustes[${productoId}]"][name$="[cantidad]"]`);
             const ajustesPrecio = document.querySelectorAll(`input[name^="ajustes[${productoId}]"][name$="[precio]"]`);
             
-            // Calcular total de ajustes
             ajustesCantidad.forEach((inputCantidad, index) => {
                 const cantidad = parseFloat(inputCantidad.value) || 0;
                 const precioAjustado = parseFloat(ajustesPrecio[index].value) || 0;
@@ -1230,18 +1349,22 @@ if ($ruta_id > 0 && $puede_registrar) {
                 }
             });
             
-            // Calcular cantidad con precio normal
+            // Cantidad con precio normal
             const cantidadPrecioNormal = vendido - cantidadConAjustes;
             if (cantidadPrecioNormal > 0) {
                 totalVenta += cantidadPrecioNormal * precio;
             }
             
-            document.getElementById('total_ajustado_' + productoId).textContent = formatearDinero(totalVenta);
-            document.getElementById('total_vendido_' + productoId).textContent = formatearDinero(totalVenta);
+            // Actualizar display
+            const totalElement = document.getElementById('total_ajustes_' + productoId);
+            if (totalElement) {
+                totalElement.textContent = formatearDinero(totalVenta);
+            }
             
             calcularResumen();
         }
         
+        // Calcular resumen
         function calcularResumen() {
             const inputs = document.querySelectorAll('.retorno-input');
             let resumenHTML = '';
@@ -1284,54 +1407,41 @@ if ($ruta_id > 0 && $puede_registrar) {
                     }
                     
                     if (ajustesTexto.length > 0) {
-                        detalleAjustes = ` <small class="text-warning">(Ajustes: ${ajustesTexto.join(', ')})</small>`;
+                        detalleAjustes = ` <small class="text-muted">(${ajustesTexto.join(', ')} con ajuste)</small>`;
                     }
                     
-                    totalGeneral += totalVenta;
-                    
                     // Obtener nombre del producto
-                    const row = document.getElementById('row_' + productoId);
-                    const nombreProducto = row.querySelector('strong').textContent;
+                    const nombreProducto = input.closest('tr').querySelector('strong').textContent;
                     
                     resumenHTML += `
                         <div class="mb-2">
-                            <strong>${nombreProducto}:</strong> ${vendido} unidad(es) = ${formatearDinero(totalVenta)}${detalleAjustes}
+                            <strong>${nombreProducto}:</strong> 
+                            ${vendido} vendidos × ${formatearDinero(precio)} = ${formatearDinero(totalVenta)}
+                            ${detalleAjustes}
                         </div>
                     `;
+                    
+                    totalGeneral += totalVenta;
                 }
             });
             
-            if (resumenHTML) {
-                document.getElementById('resumen_ventas').innerHTML = resumenHTML;
-                document.getElementById('total_general_ventas').textContent = formatearDinero(totalGeneral);
-            } else {
-                document.getElementById('resumen_ventas').innerHTML = '<p class="text-muted">No hay productos vendidos aún</p>';
-                document.getElementById('total_general_ventas').textContent = '$0.00';
+            if (resumenHTML === '') {
+                resumenHTML = '<p class="mb-0 text-muted">No hay productos vendidos</p>';
             }
+            
+            document.getElementById('resumen_ventas').innerHTML = resumenHTML;
+            document.getElementById('total_general_ventas').textContent = formatearDinero(totalGeneral);
         }
         
-        function formatearDinero(cantidad) {
-            return '$' + cantidad.toFixed(2);
-        }
-        
-        // Calcular resumen al cargar la página
-        window.addEventListener('load', function() {
-            // Calcular vendido y totales para cada producto
-            const inputs = document.querySelectorAll('.retorno-input');
-            inputs.forEach(input => {
-                const productoId = input.getAttribute('data-producto-id');
-                calcularVendido(productoId);
-            });
-        });
-        
-        // Validar formulario antes de enviar
+        // Validación del formulario - CAMBIO: PERMITIR SIN RETORNOS
         document.getElementById('formRetornos')?.addEventListener('submit', function(e) {
             const inputs = document.querySelectorAll('.retorno-input');
             let hayRetornos = false;
             let todosValidos = true;
             
             inputs.forEach(input => {
-                if (input.value && parseFloat(input.value) > 0) {
+                const valor = parseFloat(input.value) || 0;
+                if (valor > 0) {
                     hayRetornos = true;
                     if (!validarRetorno(input)) {
                         todosValidos = false;
@@ -1339,10 +1449,13 @@ if ($ruta_id > 0 && $puede_registrar) {
                 }
             });
             
+            // CAMBIO: Permitir guardar sin retornos (puede que vendieron todo)
             if (!hayRetornos) {
-                e.preventDefault();
-                alert('Debe ingresar al menos un retorno');
-                return false;
+                const confirmar = confirm('No ha ingresado ningún retorno (vendieron todo). ¿Desea continuar sin retornos?');
+                if (!confirmar) {
+                    e.preventDefault();
+                    return false;
+                }
             }
             
             if (!todosValidos) {
@@ -1384,182 +1497,14 @@ if ($ruta_id > 0 && $puede_registrar) {
                 return false;
             }
             
-            // Limpiar la confirmación después de guardar
-            const rutaId = document.querySelector('[name="ruta_id"]').value;
-            sessionStorage.removeItem('confirmoEdicionRetorno_' + rutaId);
-            
-            return confirm('¿Está seguro de registrar estos retornos? Esta acción finalizará el proceso del día.');
-        });
-        
-        // Cerrar menú navbar en móviles
-        document.addEventListener('DOMContentLoaded', function() {
-            const navbarToggler = document.querySelector('.navbar-toggler');
-            const navbarCollapse = document.querySelector('.navbar-collapse');
-            
-            if (navbarToggler && navbarCollapse) {
-                const navLinks = navbarCollapse.querySelectorAll('.nav-link');
-                navLinks.forEach(link => {
-                    link.addEventListener('click', function() {
-                        if (window.innerWidth < 992) {
-                            const bsCollapse = new bootstrap.Collapse(navbarCollapse, {
-                                toggle: false
-                            });
-                            bsCollapse.hide();
-                        }
-                    });
-                });
+            // Si hay retornos, confirmar el registro
+            if (hayRetornos) {
+                return confirm('¿Está seguro de registrar estos retornos? Esta acción finalizará el proceso del día.');
             }
             
-            // Mejorar experiencia táctil
-            if ('ontouchstart' in window) {
-                document.querySelectorAll('.btn, input, select').forEach(element => {
-                    element.addEventListener('touchstart', function() {
-                        this.style.opacity = '0.7';
-                    });
-                    
-                    element.addEventListener('touchend', function() {
-                        setTimeout(() => {
-                            this.style.opacity = '1';
-                        }, 100);
-                    });
-                });
-            }
-            
-            // Prevenir zoom accidental en iOS
-            let lastTouchEnd = 0;
-            document.addEventListener('touchend', function(event) {
-                const now = (new Date()).getTime();
-                if (now - lastTouchEnd <= 300) {
-                    event.preventDefault();
-                }
-                lastTouchEnd = now;
-            }, false);
-            
-            // Ajustar tamaño de fuente en inputs para iOS
-            if (/iPad|iPhone|iPod/.test(navigator.userAgent)) {
-                const inputs = document.querySelectorAll('input[type="number"], input[type="text"], select');
-                inputs.forEach(input => {
-                    if (window.innerWidth < 768) {
-                        input.style.fontSize = '16px';
-                    }
-                });
-            }
-            
-            // Detectar orientación
-            function handleOrientationChange() {
-                const orientation = window.innerWidth > window.innerHeight ? 'landscape' : 'portrait';
-                document.body.setAttribute('data-orientation', orientation);
-            }
-            
-            handleOrientationChange();
-            window.addEventListener('orientationchange', handleOrientationChange);
-            window.addEventListener('resize', handleOrientationChange);
-            
-            // Añadir clase para dispositivos táctiles
-            if ('ontouchstart' in window || navigator.maxTouchPoints > 0) {
-                document.body.classList.add('touch-device');
-            }
-            
-            // Mejorar scroll en iOS
-            if (/iPad|iPhone|iPod/.test(navigator.userAgent)) {
-                document.querySelectorAll('.table-responsive').forEach(container => {
-                    container.style.webkitOverflowScrolling = 'touch';
-                });
-            }
-            
-            // Optimizar rendimiento en scroll
-            let ticking = false;
-            window.addEventListener('scroll', function() {
-                if (!ticking) {
-                    window.requestAnimationFrame(function() {
-                        ticking = false;
-                    });
-                    ticking = true;
-                }
-            });
-            
-            console.log('Retornos cargados correctamente');
-            console.log('Ruta seleccionada:', <?php echo $ruta_id; ?>);
+            return true;
         });
     </script>
-    
-    <style>
-        /* Estilos adicionales para experiencia táctil */
-        .touch-device .btn,
-        .touch-device input,
-        .touch-device select {
-            -webkit-tap-highlight-color: rgba(0, 0, 0, 0.1);
-            -webkit-touch-callout: none;
-            -webkit-user-select: none;
-            user-select: none;
-        }
-        
-        /* Landscape mode para móviles */
-        @media (max-width: 767px) and (orientation: landscape) {
-            .dashboard-container {
-                padding-top: 10px;
-            }
-            
-            .content-card {
-                margin-bottom: 15px;
-            }
-        }
-        
-        /* Ajustes para iPhone X y superiores (notch) - Duplicado para asegurar */
-        @supports (padding: max(0px)) {
-            .footer-copyright {
-                padding-bottom: max(20px, env(safe-area-inset-bottom));
-            }
-        }
-        
-        /* Animación de loading */
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-        
-        .fa-spinner.fa-spin {
-            animation: spin 1s linear infinite;
-        }
-        
-        /* Scroll suave */
-        html {
-            scroll-behavior: smooth;
-        }
-        
-        /* Prevenir rebote en iOS */
-        body {
-            overscroll-behavior-y: none;
-        }
-        
-        /* Focus visible para accesibilidad */
-        input:focus,
-        select:focus,
-        button:focus {
-            outline: 2px solid #f39c12;
-            outline-offset: 2px;
-        }
-        
-        /* Mejoras para botones en móviles */
-        @media (max-width: 480px) {
-            .btn-warning:active,
-            .btn-success:active,
-            .btn-danger:active {
-                transform: scale(0.98);
-            }
-        }
-        
-        /* Mejoras para el resumen */
-        @media (max-width: 480px) {
-            .alert-success h5 {
-                font-size: 14px;
-            }
-            
-            .alert-success h4 {
-                font-size: 16px;
-            }
-        }
-    </style>
 </body>
 </html>
 <?php closeConnection($conn); ?>

@@ -104,45 +104,114 @@ if ($ruta_id > 0) {
     $stmt->close();
 }
 
-// Obtener información de la ruta seleccionada
-$ruta_info = null;
+// NUEVO: Obtener las salidas existentes para determinar el estado del checkbox
+$salidas_existentes = [];
 if ($ruta_id > 0) {
-    $stmt = $conn->prepare("SELECT * FROM rutas WHERE id = ? AND activo = 1");
-    $stmt->bind_param("i", $ruta_id);
+    $stmt = $conn->prepare("SELECT producto_id, cantidad, usa_precio_unitario FROM salidas WHERE ruta_id = ? AND fecha = ?");
+    $stmt->bind_param("is", $ruta_id, $fecha_hoy);
     $stmt->execute();
-    $ruta_info = $stmt->get_result()->fetch_assoc();
+    $result = $stmt->get_result();
+    
+    while ($row = $result->fetch_assoc()) {
+        $salidas_existentes[$row['producto_id']] = [
+            'cantidad' => $row['cantidad'],
+            'usa_precio_unitario' => $row['usa_precio_unitario']
+        ];
+    }
     $stmt->close();
 }
 
+// Obtener información de la ruta seleccionada
+$ruta_info = null;
+if ($ruta_id > 0) {
+    $stmt = $conn->prepare("SELECT * FROM rutas WHERE id = ?");
+    $stmt->bind_param("i", $ruta_id);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $ruta_info = $result->fetch_assoc();
+    $stmt->close();
+}
+
+// Obtener mensajes de la URL
+if (isset($_GET['mensaje'])) {
+    $mensaje = $_GET['mensaje'];
+    $tipo_mensaje = $_GET['tipo'] ?? 'info';
+}
 ?>
 <!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Registrar Recargas - Distribuidora LORENA</title>
+    <title>Recargas - Distribuidora LORENA</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="assets/css/custom.css">
     <style>
-        /* ============================================
-           ESTILOS RESPONSIVOS PARA RECARGAS
-           ============================================ */
+        /* Estilos específicos para recargas */
+        .page-title {
+            color: var(--primary-color);
+            font-weight: 700;
+            margin-bottom: 25px;
+            font-size: 28px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
         
-        /* Selector de ruta responsivo */
+        @media (max-width: 767px) {
+            .page-title {
+                font-size: 22px;
+                margin-bottom: 20px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .page-title {
+                font-size: 18px;
+                margin-bottom: 15px;
+            }
+        }
+        
+        .page-title i {
+            color: #27ae60;
+            font-size: 32px;
+        }
+        
+        @media (max-width: 767px) {
+            .page-title i {
+                font-size: 26px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .page-title i {
+                font-size: 22px;
+            }
+        }
+        
+        /* Selector de ruta */
         .selector-ruta-card {
             background: linear-gradient(135deg, #27ae60 0%, #229954 100%);
             color: white;
+            border-radius: 15px;
             padding: 25px;
-            border-radius: 12px;
             margin-bottom: 25px;
-            box-shadow: 0 5px 15px rgba(39, 174, 96, 0.3);
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.15);
+        }
+        
+        @media (max-width: 991px) {
+            .selector-ruta-card {
+                padding: 20px;
+                margin-bottom: 20px;
+                border-radius: 12px;
+            }
         }
         
         @media (max-width: 767px) {
             .selector-ruta-card {
-                padding: 20px;
-                margin-bottom: 20px;
+                padding: 18px;
+                margin-bottom: 18px;
                 border-radius: 10px;
             }
         }
@@ -155,127 +224,145 @@ if ($ruta_id > 0) {
             }
         }
         
-        .selector-ruta-card h5 {
-            font-size: 18px;
-            font-weight: 700;
+        .selector-ruta-card h4 {
             margin-bottom: 15px;
+            font-weight: 600;
+            font-size: 18px;
         }
         
         @media (max-width: 767px) {
-            .selector-ruta-card h5 {
+            .selector-ruta-card h4 {
                 font-size: 16px;
                 margin-bottom: 12px;
             }
         }
         
         @media (max-width: 480px) {
-            .selector-ruta-card h5 {
+            .selector-ruta-card h4 {
                 font-size: 14px;
                 margin-bottom: 10px;
             }
         }
         
         .selector-ruta-card select {
-            font-size: 15px;
-            padding: 10px 15px;
-        }
-        
-        @media (max-width: 767px) {
-            .selector-ruta-card select {
-                font-size: 14px;
-                padding: 9px 12px;
-            }
-        }
-        
-        @media (max-width: 480px) {
-            .selector-ruta-card select {
-                font-size: 13px;
-                padding: 8px 10px;
-            }
-        }
-        
-        /* Info ruta seleccionada */
-        .ruta-seleccionada-info {
-            background: rgba(255, 255, 255, 0.15);
-            padding: 15px;
+            background: white;
+            border: none;
             border-radius: 8px;
-            margin-top: 15px;
-            backdrop-filter: blur(10px);
+            padding: 12px;
+            font-size: 15px;
+            font-weight: 500;
         }
         
         @media (max-width: 767px) {
-            .ruta-seleccionada-info {
-                padding: 12px;
-                margin-top: 12px;
-            }
-        }
-        
-        @media (max-width: 480px) {
-            .ruta-seleccionada-info {
+            .selector-ruta-card select {
                 padding: 10px;
-                margin-top: 10px;
+                font-size: 14px;
                 border-radius: 6px;
             }
         }
         
-        .ruta-seleccionada-info h6 {
-            font-size: 15px;
-            margin-bottom: 8px;
+        @media (max-width: 480px) {
+            .selector-ruta-card select {
+                padding: 8px;
+                font-size: 13px;
+            }
+        }
+        
+        /* Secciones de productos */
+        .seccion-productos {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+        }
+        
+        @media (max-width: 991px) {
+            .seccion-productos {
+                padding: 18px;
+                margin-bottom: 18px;
+                border-radius: 10px;
+            }
         }
         
         @media (max-width: 767px) {
-            .ruta-seleccionada-info h6 {
-                font-size: 14px;
-                margin-bottom: 6px;
+            .seccion-productos {
+                padding: 15px;
+                margin-bottom: 15px;
+                border-radius: 8px;
             }
         }
         
         @media (max-width: 480px) {
-            .ruta-seleccionada-info h6 {
-                font-size: 13px;
-                margin-bottom: 5px;
+            .seccion-productos {
+                padding: 12px;
+                margin-bottom: 12px;
+                border-radius: 6px;
             }
         }
         
-        /* Tabla de productos responsiva */
+        .seccion-productos h4 {
+            color: var(--primary-color);
+            font-weight: 600;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #e9ecef;
+            font-size: 18px;
+        }
+        
+        @media (max-width: 767px) {
+            .seccion-productos h4 {
+                font-size: 16px;
+                margin-bottom: 12px;
+                padding-bottom: 8px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .seccion-productos h4 {
+                font-size: 14px;
+                margin-bottom: 10px;
+                padding-bottom: 6px;
+            }
+        }
+        
+        /* Tabla de productos */
         .tabla-productos-recarga {
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-            border-radius: 10px;
-            overflow: hidden;
+            font-size: 14px;
+        }
+        
+        @media (max-width: 991px) {
+            .tabla-productos-recarga {
+                font-size: 13px;
+            }
         }
         
         @media (max-width: 767px) {
             .tabla-productos-recarga {
-                border-radius: 8px;
                 font-size: 12px;
             }
         }
         
         @media (max-width: 480px) {
             .tabla-productos-recarga {
-                border-radius: 6px;
                 font-size: 11px;
             }
         }
         
-        .tabla-productos-recarga thead {
-            background: linear-gradient(135deg, #27ae60, #229954);
-        }
-        
         .tabla-productos-recarga thead th {
+            background: linear-gradient(135deg, #27ae60 0%, #229954 100%);
             color: white;
             font-weight: 600;
             text-transform: uppercase;
-            font-size: 13px;
-            letter-spacing: 0.5px;
-            padding: 15px 12px;
+            font-size: 12px;
+            padding: 12px;
             border: none;
-            vertical-align: middle;
+            letter-spacing: 0.5px;
         }
         
         @media (max-width: 991px) {
             .tabla-productos-recarga thead th {
-                padding: 12px 10px;
+                padding: 10px 8px;
                 font-size: 11px;
             }
         }
@@ -371,14 +458,19 @@ if ($ruta_id > 0) {
         .input-cantidad:focus {
             border-color: #27ae60;
             outline: none;
-            box-shadow: 0 0 0 0.2rem rgba(39, 174, 96, 0.25);
+            box-shadow: 0 0 0 3px rgba(39, 174, 96, 0.1);
         }
         
-        /* Checkbox precio unitario */
+        /* Checkbox de precio unitario */
         .precio-unitario-check {
             width: 20px;
             height: 20px;
             cursor: pointer;
+        }
+        
+        .precio-unitario-check:disabled {
+            cursor: not-allowed;
+            opacity: 0.6;
         }
         
         @media (max-width: 767px) {
@@ -395,208 +487,35 @@ if ($ruta_id > 0) {
             }
         }
         
-        /* Badge de tipo producto */
+        /* Badges de tipo */
         .tipo-badge-small {
-            padding: 4px 10px;
-            border-radius: 15px;
+            font-size: 10px;
+            padding: 3px 8px;
+            border-radius: 4px;
             font-weight: 600;
-            font-size: 11px;
-            display: inline-block;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-        
-        @media (max-width: 767px) {
-            .tipo-badge-small {
-                padding: 3px 8px;
-                font-size: 9px;
-            }
         }
         
         @media (max-width: 480px) {
             .tipo-badge-small {
+                font-size: 9px;
                 padding: 2px 6px;
-                font-size: 8px;
             }
         }
         
         .tipo-big-cola {
-            background: linear-gradient(135deg, #3498db, #2980b9);
-            color: white;
+            background: #e3f2fd;
+            color: #1976d2;
         }
         
         .tipo-varios {
-            background: linear-gradient(135deg, #9b59b6, #8e44ad);
-            color: white;
+            background: #f3e5f5;
+            color: #7b1fa2;
         }
         
-        /* Sección de productos */
-        .seccion-productos {
-            background: white;
-            padding: 20px;
-            border-radius: 10px;
-            margin-bottom: 20px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-        }
-        
-        @media (max-width: 767px) {
-            .seccion-productos {
-                padding: 15px;
-                margin-bottom: 15px;
-                border-radius: 8px;
-            }
-        }
-        
-        @media (max-width: 480px) {
-            .seccion-productos {
-                padding: 12px;
-                margin-bottom: 12px;
-                border-radius: 6px;
-            }
-        }
-        
-        .seccion-productos h4 {
-            font-size: 18px;
-            font-weight: 700;
-            margin-bottom: 15px;
-            padding-bottom: 10px;
-            border-bottom: 3px solid #27ae60;
-        }
-        
-        @media (max-width: 767px) {
-            .seccion-productos h4 {
-                font-size: 16px;
-                margin-bottom: 12px;
-                padding-bottom: 8px;
-                border-bottom: 2px solid #27ae60;
-            }
-        }
-        
-        @media (max-width: 480px) {
-            .seccion-productos h4 {
-                font-size: 14px;
-                margin-bottom: 10px;
-                padding-bottom: 6px;
-            }
-        }
-        
-        .seccion-productos h4 i {
-            margin-right: 8px;
-        }
-        
-        @media (max-width: 480px) {
-            .seccion-productos h4 i {
-                margin-right: 5px;
-                font-size: 12px;
-            }
-        }
-        
-        /* Botones de acción */
-        .botones-accion {
-            position: sticky;
-            bottom: 0;
-            background: white;
-            padding: 20px;
-            border-radius: 10px;
-            box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
-            margin-top: 20px;
-            z-index: 100;
-        }
-        
-        @media (max-width: 767px) {
-            .botones-accion {
-                padding: 15px;
-                margin-top: 15px;
-                border-radius: 8px;
-            }
-        }
-        
-        @media (max-width: 480px) {
-            .botones-accion {
-                padding: 12px;
-                margin-top: 12px;
-                border-radius: 6px;
-                position: relative;
-            }
-        }
-        
-        .btn-guardar-recarga,
-        .btn-cancelar-recarga {
-            padding: 12px 30px;
-            font-size: 16px;
-            font-weight: 700;
-            border-radius: 8px;
-            transition: all 0.3s ease;
-        }
-        
-        @media (max-width: 991px) {
-            .btn-guardar-recarga,
-            .btn-cancelar-recarga {
-                padding: 10px 25px;
-                font-size: 15px;
-            }
-        }
-        
-        @media (max-width: 767px) {
-            .btn-guardar-recarga,
-            .btn-cancelar-recarga {
-                padding: 9px 20px;
-                font-size: 14px;
-            }
-        }
-        
-        @media (max-width: 480px) {
-            .btn-guardar-recarga,
-            .btn-cancelar-recarga {
-                padding: 10px 15px;
-                font-size: 14px;
-                width: 100%;
-                margin-bottom: 8px;
-            }
-        }
-        
-        .btn-guardar-recarga {
-            background: linear-gradient(135deg, #27ae60, #229954);
-            border: none;
-            color: white;
-        }
-        
-        .btn-guardar-recarga:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(39, 174, 96, 0.4);
-            color: white;
-        }
-        
-        .btn-cancelar-recarga {
-            background: linear-gradient(135deg, #e74c3c, #c0392b);
-            border: none;
-            color: white;
-        }
-        
-        .btn-cancelar-recarga:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(231, 76, 60, 0.4);
-            color: white;
-        }
-        
-        @media (max-width: 767px) {
-            .btn-guardar-recarga:hover,
-            .btn-cancelar-recarga:hover {
-                transform: none;
-            }
-        }
-        
-        /* Ocultar columnas en móviles */
-        @media (max-width: 480px) {
-            .tabla-productos-recarga .hide-mobile {
-                display: none;
-            }
-        }
-        
-        /* Producto nombre */
+        /* Nombre de producto */
         .producto-nombre-recarga {
             font-weight: 600;
-            color: #2c3e50;
+            color: var(--primary-color);
             font-size: 14px;
         }
         
@@ -612,13 +531,101 @@ if ($ruta_id > 0) {
             }
         }
         
+        /* Botones de acción */
+        .botones-accion {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 2px solid #e9ecef;
+        }
+        
+        @media (max-width: 767px) {
+            .botones-accion {
+                margin-top: 20px;
+                padding-top: 15px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .botones-accion {
+                margin-top: 15px;
+                padding-top: 12px;
+            }
+        }
+        
+        .btn-guardar-recarga {
+            background: linear-gradient(135deg, #27ae60 0%, #229954 100%);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 15px;
+            transition: all 0.3s ease;
+        }
+        
+        @media (max-width: 767px) {
+            .btn-guardar-recarga {
+                padding: 10px 25px;
+                font-size: 14px;
+                border-radius: 6px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .btn-guardar-recarga {
+                padding: 8px 20px;
+                font-size: 13px;
+                width: 100%;
+                margin-bottom: 10px;
+            }
+        }
+        
+        .btn-guardar-recarga:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(39, 174, 96, 0.4);
+            color: white;
+        }
+        
+        .btn-cancelar-recarga {
+            background: #6c757d;
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 15px;
+            transition: all 0.3s ease;
+            text-decoration: none;
+        }
+        
+        @media (max-width: 767px) {
+            .btn-cancelar-recarga {
+                padding: 10px 25px;
+                font-size: 14px;
+                border-radius: 6px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .btn-cancelar-recarga {
+                padding: 8px 20px;
+                font-size: 13px;
+                width: 100%;
+            }
+        }
+        
+        .btn-cancelar-recarga:hover {
+            background: #5a6268;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(108, 117, 125, 0.4);
+            color: white;
+        }
+        
         /* Estado sin ruta seleccionada */
         .sin-ruta-seleccionada {
             text-align: center;
             padding: 60px 20px;
-            background: white;
-            border-radius: 10px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            color: #95a5a6;
         }
         
         @media (max-width: 767px) {
@@ -630,14 +637,13 @@ if ($ruta_id > 0) {
         @media (max-width: 480px) {
             .sin-ruta-seleccionada {
                 padding: 30px 10px;
-                border-radius: 8px;
             }
         }
         
         .sin-ruta-seleccionada i {
             font-size: 60px;
-            color: #bdc3c7;
             margin-bottom: 20px;
+            opacity: 0.5;
         }
         
         @media (max-width: 767px) {
@@ -711,11 +717,6 @@ if ($ruta_id > 0) {
             cursor: not-allowed;
             opacity: 0.6;
         }
-        
-        .precio-unitario-check:disabled {
-            cursor: not-allowed;
-            opacity: 0.6;
-        }
     </style>
 </head>
 <body>
@@ -725,7 +726,7 @@ if ($ruta_id > 0) {
             <a class="navbar-brand" href="index.php">
                 <i class="fas fa-truck"></i> Distribuidora LORENA
             </a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
                 <span class="navbar-toggler-icon"></span>
             </button>
             <div class="collapse navbar-collapse" id="navbarNav">
@@ -746,10 +747,10 @@ if ($ruta_id > 0) {
                         </a>
                     </li>
                     <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle active" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown">
+                        <a class="nav-link dropdown-toggle active" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                             <i class="fas fa-clipboard-list"></i> Operaciones
                         </a>
-                        <ul class="dropdown-menu">
+                        <ul class="dropdown-menu" aria-labelledby="navbarDropdown">
                             <li><a class="dropdown-item" href="salidas.php"><i class="fas fa-arrow-up"></i> Salidas</a></li>
                             <li><a class="dropdown-item active" href="recargas.php"><i class="fas fa-sync"></i> Recargas</a></li>
                             <li><a class="dropdown-item" href="retornos.php"><i class="fas fa-arrow-down"></i> Retornos</a></li>
@@ -780,15 +781,20 @@ if ($ruta_id > 0) {
             <?php if ($mensaje): ?>
                 <div class="alert alert-<?php echo $tipo_mensaje; ?> alert-custom alert-dismissible fade show" id="mensajeAlerta">
                     <i class="fas fa-<?php echo $tipo_mensaje == 'success' ? 'check-circle' : 'exclamation-circle'; ?>"></i>
-                    <?php echo htmlspecialchars($mensaje); ?>
+                    <?php echo $mensaje; ?>
                     <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
                 </div>
             <?php endif; ?>
             
+            <div class="alert alert-info alert-custom">
+                <i class="fas fa-info-circle"></i>
+                <strong>Importante:</strong> Las recargas solo se pueden registrar para <strong>HOY</strong> (<?php echo date('d/m/Y'); ?>). Los productos con precio unitario mantendrán el estado de la salida y no podrán modificarse.
+            </div>
+            
             <!-- Selector de Ruta -->
             <div class="selector-ruta-card">
-                <h5><i class="fas fa-map-marked-alt"></i> Seleccione la Ruta</h5>
-                <select class="form-select form-select-lg" id="selectorRuta" onchange="seleccionarRuta()">
+                <h4><i class="fas fa-route"></i> Seleccione la Ruta</h4>
+                <select class="form-select" id="selectorRuta" onchange="seleccionarRuta()">
                     <option value="">-- Seleccione una ruta --</option>
                     <?php 
                     $rutas->data_seek(0);
@@ -799,21 +805,10 @@ if ($ruta_id > 0) {
                         </option>
                     <?php endwhile; ?>
                 </select>
-                
-                <?php if ($ruta_info): ?>
-                    <div class="ruta-seleccionada-info">
-                        <h6><i class="fas fa-check-circle"></i> Ruta Seleccionada: <strong><?php echo $ruta_info['nombre']; ?></strong></h6>
-                        <?php if (!empty($ruta_info['descripcion'])): ?>
-                            <p class="mb-0"><i class="fas fa-info-circle"></i> <?php echo $ruta_info['descripcion']; ?></p>
-                        <?php endif; ?>
-                        <p class="mb-0"><i class="far fa-calendar-alt"></i> Fecha: <strong><?php echo date('d/m/Y', strtotime($fecha_hoy)); ?></strong></p>
-                    </div>
-                <?php endif; ?>
             </div>
-
-            <?php if ($ruta_id > 0 && $ruta_info): ?>
-                <!-- Formulario de Recargas -->
-                <form method="POST" action="recargas.php" id="formRecargas">
+            
+            <?php if ($ruta_id > 0): ?>
+                <form method="POST" id="formRecargas">
                     <input type="hidden" name="ruta_id" value="<?php echo $ruta_id; ?>">
                     <input type="hidden" name="fecha" value="<?php echo $fecha_hoy; ?>">
                     
@@ -840,9 +835,29 @@ if ($ruta_id > 0) {
                                         $recarga_existente = $recargas_existentes[$producto['id']] ?? null;
                                         $cantidad = $recarga_existente['cantidad'] ?? 0;
                                         
+                                        // NUEVO: Verificar si hay salida para este producto
+                                        $salida_existente = $salidas_existentes[$producto['id']] ??null;
+                                        
                                         // SI EL PRODUCTO TIENE PRECIO UNITARIO, está marcado por defecto
                                         $tiene_precio_unitario = !empty($producto['precio_unitario']) && $producto['precio_unitario'] > 0;
-                                        $usa_precio_unitario = $recarga_existente ? $recarga_existente['usa_precio_unitario'] : ($tiene_precio_unitario ? 1 : 0);
+                                        
+                                        // LÓGICA NUEVA: Si hay salida, usar el estado de la salida y deshabilitar el checkbox
+                                        // Si no hay salida pero hay recarga, usar el estado de la recarga
+                                        // Si no hay ni salida ni recarga, usar el valor por defecto del producto
+                                        $usa_precio_unitario = 0;
+                                        $checkbox_disabled = false;
+                                        
+                                        if ($salida_existente) {
+                                            // Si existe salida, usar su estado y deshabilitar
+                                            $usa_precio_unitario = $salida_existente['usa_precio_unitario'];
+                                            $checkbox_disabled = true;
+                                        } elseif ($recarga_existente) {
+                                            // Si existe recarga pero no salida, usar estado de recarga
+                                            $usa_precio_unitario = $recarga_existente['usa_precio_unitario'];
+                                        } else {
+                                            // Si no existe ni salida ni recarga, usar valor por defecto
+                                            $usa_precio_unitario = $tiene_precio_unitario ? 1 : 0;
+                                        }
                                     ?>
                                         <tr>
                                             <td class="text-start">
@@ -858,9 +873,10 @@ if ($ruta_id > 0) {
                                                        name="productos[<?php echo $producto['id']; ?>][cantidad]" 
                                                        min="0" 
                                                        step="0.5"
-                                                       value="<?php echo $cantidad; ?>"
+                                                       value="<?php echo $cantidad > 0 ? $cantidad : ''; ?>"
                                                        placeholder="0"
                                                        data-producto-id="<?php echo $producto['id']; ?>"
+                                                       onfocus="if(this.value=='0') this.value=''"
                                                        onchange="validarCantidades(<?php echo $producto['id']; ?>)">
                                             </td>
                                             <td class="text-center hide-mobile">
@@ -872,26 +888,25 @@ if ($ruta_id > 0) {
                                             </td>
                                             <td class="text-center">
                                                 <?php if ($tiene_precio_unitario): ?>
-                                                    <!-- SI tiene precio unitario, checkbox MARCADO y opción para cambiar a cajas -->
-                                                    <div class="precio-unitario-label">
-                                                        <input type="checkbox" 
-                                                               class="precio-unitario-check form-check-input" 
-                                                               name="productos[<?php echo $producto['id']; ?>][precio_unitario]" 
+                                                    <div class="form-check form-switch d-flex justify-content-center align-items-center">
+                                                        <input class="form-check-input precio-unitario-check" 
+                                                               type="checkbox" 
+                                                               name="productos[<?php echo $producto['id']; ?>][precio_unitario]"
                                                                value="1"
-                                                               id="precio_unit_<?php echo $producto['id']; ?>"
-                                                               <?php echo $usa_precio_unitario ? 'checked' : ''; ?>>
-                                                        <label for="precio_unit_<?php echo $producto['id']; ?>" style="cursor: pointer; margin: 0;">
-                                                            <i class="fas fa-coins text-warning" title="Desmarcar para vender por cajas"></i>
+                                                               <?php echo $usa_precio_unitario ? 'checked' : ''; ?>
+                                                               <?php echo $checkbox_disabled ? 'disabled' : ''; ?>
+                                                               id="precio_unitario_<?php echo $producto['id']; ?>">
+                                                        <label class="form-check-label ms-2" for="precio_unitario_<?php echo $producto['id']; ?>" style="font-size: 11px;">
+                                                            <i class="fas fa-<?php echo $checkbox_disabled ? 'lock' : 'check-circle'; ?> text-<?php echo $checkbox_disabled ? 'warning' : 'success'; ?>"></i>
                                                         </label>
+                                                        <?php if ($checkbox_disabled): ?>
+                                                            <!-- Campo oculto para enviar el valor cuando está disabled -->
+                                                            <input type="hidden" name="productos[<?php echo $producto['id']; ?>][precio_unitario]" value="<?php echo $usa_precio_unitario; ?>">
+                                                        <?php endif; ?>
                                                     </div>
                                                 <?php else: ?>
-                                                    <!-- NO tiene precio unitario, checkbox deshabilitado -->
-                                                    <div class="precio-unitario-label">
-                                                        <input type="checkbox" 
-                                                               class="precio-unitario-check form-check-input" 
-                                                               disabled
-                                                               title="Este producto no tiene precio unitario configurado">
-                                                        <i class="fas fa-ban text-muted" title="No disponible"></i>
+                                                    <div class="text-muted" style="font-size: 11px;">
+                                                        <i class="fas fa-box"></i> N/A
                                                     </div>
                                                 <?php endif; ?>
                                             </td>
@@ -935,9 +950,29 @@ if ($ruta_id > 0) {
                                         $recarga_existente = $recargas_existentes[$producto['id']] ?? null;
                                         $cantidad = $recarga_existente['cantidad'] ?? 0;
                                         
+                                        // NUEVO: Verificar si hay salida para este producto
+                                        $salida_existente = $salidas_existentes[$producto['id']] ?? null;
+                                        
                                         // SI EL PRODUCTO TIENE PRECIO UNITARIO, está marcado por defecto
                                         $tiene_precio_unitario = !empty($producto['precio_unitario']) && $producto['precio_unitario'] > 0;
-                                        $usa_precio_unitario = $recarga_existente ? $recarga_existente['usa_precio_unitario'] : ($tiene_precio_unitario ? 1 : 0);
+                                        
+                                        // LÓGICA NUEVA: Si hay salida, usar el estado de la salida y deshabilitar el checkbox
+                                        // Si no hay salida pero hay recarga, usar el estado de la recarga
+                                        // Si no hay ni salida ni recarga, usar el valor por defecto del producto
+                                        $usa_precio_unitario = 0;
+                                        $checkbox_disabled = false;
+                                        
+                                        if ($salida_existente) {
+                                            // Si existe salida, usar su estado y deshabilitar
+                                            $usa_precio_unitario = $salida_existente['usa_precio_unitario'];
+                                            $checkbox_disabled = true;
+                                        } elseif ($recarga_existente) {
+                                            // Si existe recarga pero no salida, usar estado de recarga
+                                            $usa_precio_unitario = $recarga_existente['usa_precio_unitario'];
+                                        } else {
+                                            // Si no existe ni salida ni recarga, usar valor por defecto
+                                            $usa_precio_unitario = $tiene_precio_unitario ? 1 : 0;
+                                        }
                                     ?>
                                         <tr>
                                             <td class="text-start">
@@ -953,9 +988,10 @@ if ($ruta_id > 0) {
                                                        name="productos[<?php echo $producto['id']; ?>][cantidad]" 
                                                        min="0" 
                                                        step="0.5"
-                                                       value="<?php echo $cantidad; ?>"
+                                                       value="<?php echo $cantidad > 0 ? $cantidad : ''; ?>"
                                                        placeholder="0"
                                                        data-producto-id="<?php echo $producto['id']; ?>"
+                                                       onfocus="if(this.value=='0') this.value=''"
                                                        onchange="validarCantidades(<?php echo $producto['id']; ?>)">
                                             </td>
                                             <td class="text-center hide-mobile">
@@ -967,26 +1003,25 @@ if ($ruta_id > 0) {
                                             </td>
                                             <td class="text-center">
                                                 <?php if ($tiene_precio_unitario): ?>
-                                                    <!-- SI tiene precio unitario, checkbox MARCADO y opción para cambiar a cajas -->
-                                                    <div class="precio-unitario-label">
-                                                        <input type="checkbox" 
-                                                               class="precio-unitario-check form-check-input" 
-                                                               name="productos[<?php echo $producto['id']; ?>][precio_unitario]" 
+                                                    <div class="form-check form-switch d-flex justify-content-center align-items-center">
+                                                        <input class="form-check-input precio-unitario-check" 
+                                                               type="checkbox" 
+                                                               name="productos[<?php echo $producto['id']; ?>][precio_unitario]"
                                                                value="1"
-                                                               id="precio_unit_<?php echo $producto['id']; ?>"
-                                                               <?php echo $usa_precio_unitario ? 'checked' : ''; ?>>
-                                                        <label for="precio_unit_<?php echo $producto['id']; ?>" style="cursor: pointer; margin: 0;">
-                                                            <i class="fas fa-coins text-warning" title="Desmarcar para vender por cajas"></i>
+                                                               <?php echo $usa_precio_unitario ? 'checked' : ''; ?>
+                                                               <?php echo $checkbox_disabled ? 'disabled' : ''; ?>
+                                                               id="precio_unitario_<?php echo $producto['id']; ?>">
+                                                        <label class="form-check-label ms-2" for="precio_unitario_<?php echo $producto['id']; ?>" style="font-size: 11px;">
+                                                            <i class="fas fa-<?php echo $checkbox_disabled ? 'lock' : 'check-circle'; ?> text-<?php echo $checkbox_disabled ? 'warning' : 'success'; ?>"></i>
                                                         </label>
+                                                        <?php if ($checkbox_disabled): ?>
+                                                            <!-- Campo oculto para enviar el valor cuando está disabled -->
+                                                            <input type="hidden" name="productos[<?php echo $producto['id']; ?>][precio_unitario]" value="<?php echo $usa_precio_unitario; ?>">
+                                                        <?php endif; ?>
                                                     </div>
                                                 <?php else: ?>
-                                                    <!-- NO tiene precio unitario, checkbox deshabilitado -->
-                                                    <div class="precio-unitario-label">
-                                                        <input type="checkbox" 
-                                                               class="precio-unitario-check form-check-input" 
-                                                               disabled
-                                                               title="Este producto no tiene precio unitario configurado">
-                                                        <i class="fas fa-ban text-muted" title="No disponible"></i>
+                                                    <div class="text-muted" style="font-size: 11px;">
+                                                        <i class="fas fa-box"></i> N/A
                                                     </div>
                                                 <?php endif; ?>
                                             </td>
@@ -1079,7 +1114,7 @@ if ($ruta_id > 0) {
                 const cantidad = parseFloat(inputCantidad.value) || 0;
                 
                 // Validar que no sea negativo
-                if (cantidad < 0) inputCantidad.value = 0;
+                if (cantidad < 0) inputCantidad.value = '';
             }
         }
         
@@ -1090,7 +1125,7 @@ if ($ruta_id > 0) {
             const navbarCollapse = document.querySelector('.navbar-collapse');
             
             if (navbarToggler && navbarCollapse) {
-                const navLinks = navbarCollapse.querySelectorAll('.nav-link');
+                const navLinks = navbarCollapse.querySelectorAll('.nav-link, .dropdown-item');
                 navLinks.forEach(link => {
                     link.addEventListener('click', function() {
                         if (window.innerWidth < 992) {
@@ -1103,42 +1138,7 @@ if ($ruta_id > 0) {
                 });
             }
             
-            // Mejorar experiencia táctil
-            if ('ontouchstart' in window) {
-                document.querySelectorAll('.btn, .input-cantidad, .precio-unitario-check').forEach(element => {
-                    element.addEventListener('touchstart', function() {
-                        this.style.opacity = '0.7';
-                    });
-                    
-                    element.addEventListener('touchend', function() {
-                        setTimeout(() => {
-                            this.style.opacity = '1';
-                        }, 100);
-                    });
-                });
-            }
-            
-            // Prevenir zoom accidental en iOS
-            let lastTouchEnd = 0;
-            document.addEventListener('touchend', function(event) {
-                const now = (new Date()).getTime();
-                if (now - lastTouchEnd <= 300) {
-                    event.preventDefault();
-                }
-                lastTouchEnd = now;
-            }, false);
-            
-            // Ajustar tamaño de fuente en inputs para iOS
-            if (/iPad|iPhone|iPod/.test(navigator.userAgent)) {
-                const inputs = document.querySelectorAll('input[type="number"], select');
-                inputs.forEach(input => {
-                    if (window.innerWidth < 768) {
-                        input.style.fontSize = '16px';
-                    }
-                });
-            }
-            
-            // Detectar orientación
+            // Manejar cambios de orientación
             function handleOrientationChange() {
                 const orientation = window.innerWidth > window.innerHeight ? 'landscape' : 'portrait';
                 document.body.setAttribute('data-orientation', orientation);
@@ -1154,25 +1154,28 @@ if ($ruta_id > 0) {
             }
             
             // Validación del formulario antes de enviar
-            const formRecargas = document.getElementById('formRecargas');
-            if (formRecargas) {
-                formRecargas.addEventListener('submit', function(e) {
-                    const inputs = this.querySelectorAll('.input-cantidad');
-                    let hayDatos = false;
-                    
-                    // Verificar si hay al menos un producto con cantidad
-                    inputs.forEach(input => {
-                        const valor = parseFloat(input.value) || 0;
-                        if (valor > 0) {
-                            hayDatos = true;
-                        }
-                    });
-                    
-                    if (!hayDatos) {
-                        e.preventDefault();
-                        alert('Debe ingresar al menos una cantidad de producto para registrar la recarga');
-                        return false;
-                    }
+const formRecargas = document.getElementById('formRecargas');
+if (formRecargas) {
+    formRecargas.addEventListener('submit', function(e) {
+        const inputs = this.querySelectorAll('.input-cantidad');
+        let hayDatos = false;
+        
+        // Verificar si hay al menos un producto con cantidad
+        inputs.forEach(input => {
+            const valor = parseFloat(input.value) || 0;
+            if (valor > 0) {
+                hayDatos = true;
+            }
+        });
+        
+        // CAMBIO: Permitir guardar sin recargas (puede que no hayan recargado nada)
+        if (!hayDatos) {
+            const confirmar = confirm('No ha ingresado ninguna recarga. ¿Desea continuar sin recargas?');
+            if (!confirmar) {
+                e.preventDefault();
+                return false;
+            }
+        }
                     
                     // Añadir indicador de carga
                     const submitBtn = this.querySelector('button[type="submit"]');
@@ -1266,50 +1269,38 @@ if ($ruta_id > 0) {
                     bsAlert.close();
                 }, 5000);
             }
-        });
-        
-        // Confirmación antes de salir si hay datos sin guardar
-        let formModificado = false;
-        const formRecargas = document.getElementById('formRecargas');
-        
-        if (formRecargas) {
-            formRecargas.addEventListener('change', function() {
-                formModificado = true;
-            });
             
-            window.addEventListener('beforeunload', function(e) {
-                if (formModificado) {
-                    e.preventDefault();
-                    e.returnValue = '';
-                    return '';
+            // Confirmación antes de salir con cambios sin guardar
+            const form = document.getElementById('formRecargas');
+            let formModificado = false;
+            
+            if (form) {
+                const inputs = form.querySelectorAll('input, select, textarea');
+                inputs.forEach(input => {
+                    input.addEventListener('change', function() {
+                        formModificado = true;
+                    });
+                });
+                
+                const btnCancelar = document.querySelector('.btn-cancelar-recarga');
+                if (btnCancelar) {
+                    btnCancelar.addEventListener('click', function(e) {
+                        if (formModificado && !confirm('¿Está seguro de cancelar? Los cambios no guardados se perderán.')) {
+                            e.preventDefault();
+                        }
+                    });
                 }
-            });
-            
-            // No mostrar confirmación al enviar el formulario
-            formRecargas.addEventListener('submit', function() {
-                formModificado = false;
-            });
-        }
-        
-        // Atajos de teclado
-        document.addEventListener('keydown', function(e) {
-            // Ctrl/Cmd + S para guardar
-            if ((e.ctrlKey || e.metaKey) && e.key === 's') {
-                e.preventDefault();
-                const submitBtn = document.querySelector('.btn-guardar-recarga');
-                if (submitBtn && formRecargas) {
-                    formRecargas.requestSubmit();
-                }
-            }
-            
-            // Escape para cancelar
-            if (e.key === 'Escape') {
-                const cancelBtn = document.querySelector('.btn-cancelar-recarga');
-                if (cancelBtn) {
-                    if (confirm('¿Está seguro que desea cancelar? Los cambios no guardados se perderán.')) {
-                        window.location.href = 'index.php';
+                
+                window.addEventListener('beforeunload', function(e) {
+                    if (formModificado) {
+                        e.preventDefault();
+                        e.returnValue = '';
                     }
-                }
+                });
+                
+                form.addEventListener('submit', function() {
+                    formModificado = false;
+                });
             }
         });
     </script>
@@ -1402,7 +1393,7 @@ if ($ruta_id > 0) {
         }
         
         /* Estado de fila con datos */
-        .tabla-productos-recarga tbody tr:has(.input-cantidad:not([value="0"]):not([value=""])) {
+        .tabla-productos-recarga tbody tr:has(.input-cantidad:not([value=""]):not([value="0"])) {
             background-color: #f0fff4;
         }
     </style>
