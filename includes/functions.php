@@ -77,10 +77,10 @@ function existeRetorno($conn, $ruta_id, $fecha) {
     return $row['total'] > 0;
 }
 
-// Verificar si la ruta ya completó todos sus registros del día (salida, recarga y retorno)
+// FUNCIÓN CORREGIDA: Verificar si la ruta ya completó todos sus registros del día
+// Una ruta está completa cuando tiene: salida Y retorno (la recarga es OPCIONAL)
 function rutaCompletaHoy($conn, $ruta_id, $fecha) {
     return existeSalida($conn, $ruta_id, $fecha) && 
-           existeRecarga($conn, $ruta_id, $fecha) && 
            existeRetorno($conn, $ruta_id, $fecha);
 }
 
@@ -89,7 +89,7 @@ function obtenerEstadoRuta($conn, $ruta_id, $fecha) {
     $tiene_salida = existeSalida($conn, $ruta_id, $fecha);
     $tiene_recarga = existeRecarga($conn, $ruta_id, $fecha);
     $tiene_retorno = existeRetorno($conn, $ruta_id, $fecha);
-    $completada = $tiene_salida && $tiene_recarga && $tiene_retorno;
+    $completada = $tiene_salida && $tiene_retorno; // CORREGIDO: Ya no requiere recarga
     
     $estado = 'pendiente';
     if ($completada) {
@@ -116,7 +116,7 @@ function puedeRegistrarSalida($conn, $ruta_id, $fecha) {
     
     $hoy = date('Y-m-d');
     
-    // Para HOY: permitir salida si no está completa (salida, recarga y retorno)
+    // Para HOY: permitir salida si no está completa (salida y retorno)
     if ($fecha === $hoy) {
         return !rutaCompletaHoy($conn, $ruta_id, $fecha);
     }
@@ -125,14 +125,14 @@ function puedeRegistrarSalida($conn, $ruta_id, $fecha) {
     return !existeSalida($conn, $ruta_id, $fecha);
 }
 
-// Verificar si se puede registrar recarga para hoy
+// FUNCIÓN CORREGIDA: Verificar si se puede registrar recarga para hoy
 function puedeRegistrarRecarga($conn, $ruta_id, $fecha) {
     // Solo para hoy
     if (!validarFechaHoy($fecha)) {
         return false;
     }
     
-    // No permitir si ya está completa (salida, recarga y retorno)
+    // No permitir si ya está completa (salida y retorno)
     if (rutaCompletaHoy($conn, $ruta_id, $fecha)) {
         return false;
     }
@@ -141,19 +141,20 @@ function puedeRegistrarRecarga($conn, $ruta_id, $fecha) {
     return true;
 }
 
-// Verificar si se puede registrar retorno para hoy
+// FUNCIÓN CORREGIDA: Verificar si se puede registrar retorno para hoy
 function puedeRegistrarRetorno($conn, $ruta_id, $fecha) {
     // Solo para hoy
     if (!validarFechaHoy($fecha)) {
         return false;
     }
     
-    // No permitir si ya está completa (salida, recarga y retorno)
+    // No permitir si ya está completa (salida y retorno)
     if (rutaCompletaHoy($conn, $ruta_id, $fecha)) {
         return false;
     }
     
-    // Permitir retorno para hoy (puede existir salida y/o recarga)
+    // IMPORTANTE: Permitir retorno si existe salida (NO se requiere recarga)
+    // La recarga es opcional, no obligatoria
     return true;
 }
 
@@ -204,7 +205,6 @@ function obtenerNombreUsuario($conn, $usuario_id) {
     $stmt->close();
     return $row ? $row['nombre'] : 'Usuario';
 }
-
 // ============================================
 // FUNCIÓN ACTUALIZADA: calcularVentas
 // Ahora soporta MÚLTIPLES ajustes de precio
@@ -339,7 +339,7 @@ function obtenerCantidadConPrecio($conn, $tabla, $ruta_id, $producto_id, $fecha)
 // ============================================
 function obtenerTodosLosAjustesPrecios($conn, $ruta_id, $producto_id, $fecha) {
     $ajustes = [];
-    $stmt = $conn->prepare("SELECT id, cantidad, precio_ajustado, descripcion FROM ajustes_precios WHERE ruta_id = ? AND producto_id = ? AND fecha = ? ORDER BY id ASC");
+    $stmt = $conn->prepare("SELECT id, cantidad, precio_ajustado FROM ajustes_precios WHERE ruta_id = ? AND producto_id = ? AND fecha = ? ORDER BY id ASC");
     $stmt->bind_param("iis", $ruta_id, $producto_id, $fecha);
     $stmt->execute();
     $result = $stmt->get_result();
@@ -348,8 +348,7 @@ function obtenerTodosLosAjustesPrecios($conn, $ruta_id, $producto_id, $fecha) {
         $ajustes[] = [
             'id' => $row['id'],
             'cantidad' => floatval($row['cantidad']),
-            'precio_ajustado' => floatval($row['precio_ajustado']),
-            'descripcion' => $row['descripcion']
+            'precio_ajustado' => floatval($row['precio_ajustado'])
         ];
     }
     
