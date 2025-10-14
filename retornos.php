@@ -31,98 +31,106 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         $mensaje = 'No se pueden registrar retornos en este momento. La ruta ya está completa o no es válido para hoy.';
         $tipo_mensaje = 'danger';
     } else {
-        // CAMBIO: No validar que haya productos, puede ser retorno vacío (vendieron todo)
-        $conn->begin_transaction();
-        
-        try {
-            $registros_exitosos = 0;
-            $es_edicion = existeRetorno($conn, $ruta_id, $fecha);
-            
-            // Si es edición, eliminar retornos y ajustes existentes
-            if ($es_edicion) {
-                $stmt = $conn->prepare("DELETE FROM retornos WHERE ruta_id = ? AND fecha = ?");
-                $stmt->bind_param("is", $ruta_id, $fecha);
-                $stmt->execute();
-                $stmt->close();
-                
-                $stmt = $conn->prepare("DELETE FROM ajustes_precios WHERE ruta_id = ? AND fecha = ?");
-                $stmt->bind_param("is", $ruta_id, $fecha);
-                $stmt->execute();
-                $stmt->close();
+        // Validar que haya al menos un producto
+        $tiene_productos = false;
+        foreach ($productos as $cantidad) {
+            if (!empty($cantidad) && $cantidad > 0) {
+                $tiene_productos = true;
+                break;
             }
+        }
+        
+        if ($tiene_productos) {
+            $conn->begin_transaction();
             
-            // Insertar nuevos retornos (puede no haber ninguno)
-            foreach ($productos as $producto_id => $cantidad) {
-                if (!empty($cantidad) && $cantidad > 0) {
-                    // Verificar si se marcó precio unitario para este producto
-                    $usa_precio_unitario = isset($precios_unitarios[$producto_id]) ? 1 : 0;
-                    
-                    // Validar cantidad
-                    if (!validarCantidad($cantidad, $usa_precio_unitario)) {
-                        $tipo_texto = $usa_precio_unitario ? 'precio unitario (solo enteros)' : 'precio por caja (enteros o .5)';
-                        throw new Exception("Cantidad inválida para producto ID $producto_id. Use $tipo_texto");
-                    }
-                    
-                    // Insertar retorno
-                    $stmt = $conn->prepare("INSERT INTO retornos (ruta_id, producto_id, cantidad, usa_precio_unitario, fecha, usuario_id) VALUES (?, ?, ?, ?, ?, ?)");
-                    $stmt->bind_param("iidisi", $ruta_id, $producto_id, $cantidad, $usa_precio_unitario, $fecha, $usuario_id);
-                    
-                    if ($stmt->execute()) {
-                        $registros_exitosos++;
-                    } else {
-                        throw new Exception("Error al registrar retorno del producto ID $producto_id");
-                    }
+            try {
+                $registros_exitosos = 0;
+                $es_edicion = existeRetorno($conn, $ruta_id, $fecha);
+                
+                // Si es edición, eliminar retornos y ajustes existentes
+                if ($es_edicion) {
+                    $stmt = $conn->prepare("DELETE FROM retornos WHERE ruta_id = ? AND fecha = ?");
+                    $stmt->bind_param("is", $ruta_id, $fecha);
+                    $stmt->execute();
                     $stmt->close();
                     
-                    // ============================================
-                    // PROCESAR MÚLTIPLES AJUSTES DE PRECIO
-                    // ============================================
-                    if (isset($ajustes_multiples[$producto_id]) && is_array($ajustes_multiples[$producto_id])) {
-                        foreach ($ajustes_multiples[$producto_id] as $ajuste) {
-                            $cantidad_ajuste = floatval($ajuste['cantidad'] ?? 0);
-                            $precio_ajuste = floatval($ajuste['precio'] ?? 0);
-                            $descripcion_ajuste = trim($ajuste['descripcion'] ?? '');
-                            
-                            if ($cantidad_ajuste > 0 && $precio_ajuste > 0) {
-                                // Validar cantidad del ajuste
-                                if (!validarCantidad($cantidad_ajuste, $usa_precio_unitario)) {
-                                    throw new Exception("Cantidad de ajuste inválida para producto ID $producto_id");
-                                }
+                    $stmt = $conn->prepare("DELETE FROM ajustes_precios WHERE ruta_id = ? AND fecha = ?");
+                    $stmt->bind_param("is", $ruta_id, $fecha);
+                    $stmt->execute();
+                    $stmt->close();
+                }
+                
+                // Insertar nuevos retornos
+                foreach ($productos as $producto_id => $cantidad) {
+                    if (!empty($cantidad) && $cantidad > 0) {
+                        // Verificar si se marcó precio unitario para este producto
+                        $usa_precio_unitario = isset($precios_unitarios[$producto_id]) ? 1 : 0;
+                        
+                        // Validar cantidad
+                        if (!validarCantidad($cantidad, $usa_precio_unitario)) {
+                            $tipo_texto = $usa_precio_unitario ? 'precio unitario (solo enteros)' : 'precio por caja (enteros o .5)';
+                            throw new Exception("Cantidad inválida para producto ID $producto_id. Use $tipo_texto");
+                        }
+                        
+                        // Insertar retorno
+                        $stmt = $conn->prepare("INSERT INTO retornos (ruta_id, producto_id, cantidad, usa_precio_unitario, fecha, usuario_id) VALUES (?, ?, ?, ?, ?, ?)");
+                        $usuario_id = $_SESSION['usuario_id'];
+                        $stmt->bind_param("iidisi", $ruta_id, $producto_id, $cantidad, $usa_precio_unitario, $fecha, $usuario_id);
+                        
+                        if ($stmt->execute()) {
+                            $registros_exitosos++;
+                        } else {
+                            throw new Exception("Error al registrar retorno del producto ID $producto_id");
+                        }
+                        $stmt->close();
+                        
+                        // ============================================
+                        // PROCESAR MÚLTIPLES AJUSTES DE PRECIO
+                        // ============================================
+                        if (isset($ajustes_multiples[$producto_id]) && is_array($ajustes_multiples[$producto_id])) {
+                            foreach ($ajustes_multiples[$producto_id] as $ajuste) {
+                                $cantidad_ajuste = floatval($ajuste['cantidad'] ?? 0);
+                                $precio_ajuste = floatval($ajuste['precio'] ?? 0);
+                                $descripcion_ajuste = trim($ajuste['descripcion'] ?? '');
                                 
-                                $stmt = $conn->prepare("INSERT INTO ajustes_precios (ruta_id, producto_id, fecha, cantidad, precio_ajustado, descripcion, usuario_id) VALUES (?, ?, ?, ?, ?, ?, ?)");
-                                $stmt->bind_param("iisddsi", $ruta_id, $producto_id, $fecha, $cantidad_ajuste, $precio_ajuste, $descripcion_ajuste, $usuario_id);
-                                
-                                if (!$stmt->execute()) {
-                                    throw new Exception("Error al registrar ajuste de precio para producto ID $producto_id");
+                                if ($cantidad_ajuste > 0 && $precio_ajuste > 0) {
+                                    // Validar cantidad del ajuste
+                                    if (!validarCantidad($cantidad_ajuste, $usa_precio_unitario)) {
+                                        throw new Exception("Cantidad de ajuste inválida para producto ID $producto_id");
+                                    }
+                                    
+                                    $stmt = $conn->prepare("INSERT INTO ajustes_precios (ruta_id, producto_id, fecha, cantidad, precio_ajustado, descripcion, usuario_id) VALUES (?, ?, ?, ?, ?, ?, ?)");
+                                    $stmt->bind_param("iisddsi", $ruta_id, $producto_id, $fecha, $cantidad_ajuste, $precio_ajuste, $descripcion_ajuste, $usuario_id);
+                                    
+                                    if (!$stmt->execute()) {
+                                        throw new Exception("Error al registrar ajuste de precio para producto ID $producto_id");
+                                    }
+                                    $stmt->close();
                                 }
-                                $stmt->close();
                             }
                         }
                     }
                 }
-            }
-            
-            // CAMBIO: Permitir commit incluso sin productos (retorno vacío = vendieron todo)
-            $conn->commit();
-            
-            // Redirigir al index con mensaje de éxito
-            if ($registros_exitosos > 0) {
-                if ($es_edicion) {
-                    header("Location: index.php?mensaje=" . urlencode("Retornos actualizados exitosamente ($registros_exitosos productos)") . "&tipo=success");
+                
+                if ($registros_exitosos > 0) {
+                    $conn->commit();
+                    
+                    // Redirigir al index con mensaje de éxito
+                    if ($es_edicion) {
+                        header("Location: index.php?mensaje=" . urlencode("Retornos actualizados exitosamente ($registros_exitosos productos)") . "&tipo=success");
+                    } else {
+                        header("Location: index.php?mensaje=" . urlencode("Retornos registrados exitosamente ($registros_exitosos productos)") . "&tipo=success");
+                    }
+                    exit();
                 } else {
-                    header("Location: index.php?mensaje=" . urlencode("Retornos registrados exitosamente ($registros_exitosos productos)") . "&tipo=success");
+                    throw new Exception("No se registraron retornos");
                 }
-            } else {
-                // Sin retornos = vendieron todo
-                $mensaje_sin_retorno = $es_edicion ? "Retornos actualizados: Sin retornos (vendieron todo)" : "Retornos registrados: Sin retornos (vendieron todo)";
-                header("Location: index.php?mensaje=" . urlencode($mensaje_sin_retorno) . "&tipo=success");
+                
+            } catch (Exception $e) {
+                $conn->rollback();
+                $mensaje = "Error: " . $e->getMessage();
+                $tipo_mensaje = 'danger';
             }
-            exit();
-            
-        } catch (Exception $e) {
-            $conn->rollback();
-            $mensaje = "Error: " . $e->getMessage();
-            $tipo_mensaje = 'danger';
         }
     }
 }
@@ -696,6 +704,7 @@ if ($ruta_id > 0 && $puede_registrar) {
             </div>
         </div>
     </nav>
+    
     <!-- Dashboard Container -->
     <div class="dashboard-container">
         <div class="content-card">
@@ -714,7 +723,6 @@ if ($ruta_id > 0 && $puede_registrar) {
                     <li>Puede registrar 1 retorno por ruta al día</li>
                     <li><strong>NUEVO:</strong> Puede agregar <strong>MÚLTIPLES ajustes de precio</strong> por producto</li>
                     <li><strong>PRECIO AUTOMÁTICO:</strong> Se mantiene el tipo de precio usado en salida/recarga</li>
-                    <li>Si vendieron todo, puede enviar sin retornos</li>
                     <li>Una vez complete salida, recarga y retorno del día, no podrá hacer más registros hasta mañana</li>
                 </ul>
             </div>
@@ -1298,7 +1306,7 @@ if ($ruta_id > 0 && $puede_registrar) {
             }
             
             // Verificar que no supere el vendido
-            const retornoInput = document.getElementById('retorno_' +productoId);
+            const retornoInput = document.getElementById('retorno_' + productoId);
             const salida = parseFloat(retornoInput.getAttribute('data-salida'));
             const recarga = parseFloat(retornoInput.getAttribute('data-recarga'));
             const retorno = parseFloat(retornoInput.value) || 0;
@@ -1433,7 +1441,7 @@ if ($ruta_id > 0 && $puede_registrar) {
             document.getElementById('total_general_ventas').textContent = formatearDinero(totalGeneral);
         }
         
-        // Validación del formulario - CAMBIO: PERMITIR SIN RETORNOS
+        // Validación del formulario
         document.getElementById('formRetornos')?.addEventListener('submit', function(e) {
             const inputs = document.querySelectorAll('.retorno-input');
             let hayRetornos = false;
@@ -1449,13 +1457,10 @@ if ($ruta_id > 0 && $puede_registrar) {
                 }
             });
             
-            // CAMBIO: Permitir guardar sin retornos (puede que vendieron todo)
             if (!hayRetornos) {
-                const confirmar = confirm('No ha ingresado ningún retorno (vendieron todo). ¿Desea continuar sin retornos?');
-                if (!confirmar) {
-                    e.preventDefault();
-                    return false;
-                }
+                e.preventDefault();
+                alert('Debe ingresar al menos un retorno');
+                return false;
             }
             
             if (!todosValidos) {
@@ -1497,12 +1502,11 @@ if ($ruta_id > 0 && $puede_registrar) {
                 return false;
             }
             
-            // Si hay retornos, confirmar el registro
-            if (hayRetornos) {
-                return confirm('¿Está seguro de registrar estos retornos? Esta acción finalizará el proceso del día.');
-            }
+            // Limpiar la confirmación después de guardar
+            const rutaId = document.querySelector('[name="ruta_id"]').value;
+            sessionStorage.removeItem('confirmoEdicionRetorno_' + rutaId);
             
-            return true;
+            return confirm('¿Está seguro de registrar estos retornos? Esta acción finalizará el proceso del día.');
         });
     </script>
 </body>
