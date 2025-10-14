@@ -107,11 +107,29 @@ $rutas = $conn->query("SELECT * FROM rutas WHERE activo = 1 ORDER BY nombre ASC"
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="assets/css/custom.css">
     <style>
-        /* Estilos mejorados para la tabla de rutas */
+        /* ============================================
+           ESTILOS RESPONSIVOS PARA RUTAS
+           ============================================ */
+        
+        /* Tabla de rutas mejorada y responsiva */
         .table-rutas {
             box-shadow: 0 2px 8px rgba(0,0,0,0.1);
             border-radius: 10px;
             overflow: hidden;
+        }
+        
+        @media (max-width: 767px) {
+            .table-rutas {
+                border-radius: 8px;
+                font-size: 12px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .table-rutas {
+                border-radius: 6px;
+                font-size: 11px;
+            }
         }
         
         .table-rutas thead {
@@ -129,6 +147,28 @@ $rutas = $conn->query("SELECT * FROM rutas WHERE activo = 1 ORDER BY nombre ASC"
             vertical-align: middle;
         }
         
+        @media (max-width: 991px) {
+            .table-rutas thead th {
+                padding: 15px 12px;
+                font-size: 12px;
+            }
+        }
+        
+        @media (max-width: 767px) {
+            .table-rutas thead th {
+                padding: 12px 8px;
+                font-size: 11px;
+                letter-spacing: 0.3px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .table-rutas thead th {
+                padding: 10px 5px;
+                font-size: 10px;
+            }
+        }
+        
         .table-rutas tbody tr {
             transition: all 0.3s ease;
             border-bottom: 1px solid #e9ecef;
@@ -140,10 +180,37 @@ $rutas = $conn->query("SELECT * FROM rutas WHERE activo = 1 ORDER BY nombre ASC"
             box-shadow: 0 2px 5px rgba(0,0,0,0.05);
         }
         
+        @media (max-width: 767px) {
+            .table-rutas tbody tr:hover {
+                transform: none;
+            }
+        }
+        
         .table-rutas tbody td {
             padding: 16px 15px;
             vertical-align: middle;
             font-size: 14px;
+        }
+        
+        @media (max-width: 991px) {
+            .table-rutas tbody td {
+                padding: 14px 12px;
+                font-size: 13px;
+            }
+        }
+        
+        @media (max-width: 767px) {
+            .table-rutas tbody td {
+                padding: 12px 8px;
+                font-size: 12px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .table-rutas tbody td {
+                padding: 10px 5px;
+                font-size: 11px;
+            }
         }
         
         .numero-orden {
@@ -160,6 +227,22 @@ $rutas = $conn->query("SELECT * FROM rutas WHERE activo = 1 ORDER BY nombre ASC"
             box-shadow: 0 2px 5px rgba(102, 126, 234, 0.3);
         }
         
+        @media (max-width: 767px) {
+            .numero-orden {
+                width: 30px;
+                height: 30px;
+                font-size: 11px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .numero-orden {
+                width: 26px;
+                height: 26px;
+                font-size: 10px;
+            }
+        }
+        
         .ruta-nombre {
             font-weight: 600;
             color: #2c3e50;
@@ -168,10 +251,37 @@ $rutas = $conn->query("SELECT * FROM rutas WHERE activo = 1 ORDER BY nombre ASC"
             margin-bottom: 5px;
         }
         
+        @media (max-width: 767px) {
+            .ruta-nombre {
+                font-size: 13px;
+                margin-bottom: 4px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .ruta-nombre {
+                font-size: 12px;
+                margin-bottom: 3px;
+            }
+        }
+        
         .ruta-descripcion {
             color: #7f8c8d;
             font-size: 13px;
             font-style: italic;
+        }
+        
+        @media (max-width: 767px) {
+            .ruta-descripcion {
+                font-size: 11px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .ruta-descripcion {
+                font-size: 10px;
+                display: none; /* Ocultar descripción en móviles muy pequeños */
+            }
         }
         
         .fecha-texto {
@@ -180,6 +290,23 @@ $rutas = $conn->query("SELECT * FROM rutas WHERE activo = 1 ORDER BY nombre ASC"
             font-weight: 500;
         }
         
+        @media (max-width: 767px) {
+            .fecha-texto {
+                font-size: 11px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .fecha-texto {
+                font-size: 10px;
+            }
+            
+            .fecha-texto i {
+                display: none; /* Ocultar icono en móviles */
+            }
+        }
+        
+        /* Botones de acción responsivos */
         .btn-action {
             padding: 8px 12px;
             border-radius: 6px;
@@ -190,9 +317,44 @@ $rutas = $conn->query("SELECT * FROM rutas WHERE activo = 1 ORDER BY nombre ASC"
             margin: 0 3px;
         }
         
+        @media (max-width: 991px) {
+            .btn-action {
+                padding: 7px 10px;
+                font-size: 12px;
+                margin: 0 2px;
+            }
+        }
+        
+        @media (max-width: 767px) {
+            .btn-action {
+                padding: 6px 8px;
+                font-size: 11px;
+                margin: 2px 0;
+                display: block;
+                width: 100%;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .btn-action {
+                padding: 6px 6px;
+                font-size: 10px;
+            }
+            
+            .btn-action i {
+                margin-right: 3px;
+            }
+        }
+        
         .btn-action:hover {
             transform: translateY(-2px);
             box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+        
+        @media (max-width: 767px) {
+            .btn-action:hover {
+                transform: none;
+            }
         }
         
         .btn-editar {
@@ -209,6 +371,13 @@ $rutas = $conn->query("SELECT * FROM rutas WHERE activo = 1 ORDER BY nombre ASC"
             white-space: nowrap;
         }
         
+        @media (max-width: 767px) {
+            .acciones-cell {
+                white-space: normal;
+            }
+        }
+        
+        /* Header container responsivo */
         .header-container {
             background: white;
             padding: 20px;
@@ -217,6 +386,23 @@ $rutas = $conn->query("SELECT * FROM rutas WHERE activo = 1 ORDER BY nombre ASC"
             margin-bottom: 25px;
         }
         
+        @media (max-width: 767px) {
+            .header-container {
+                padding: 15px;
+                margin-bottom: 20px;
+                border-radius: 8px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .header-container {
+                padding: 12px;
+                margin-bottom: 15px;
+                border-radius: 6px;
+            }
+        }
+        
+        /* Total de rutas */
         .total-rutas {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
@@ -226,15 +412,55 @@ $rutas = $conn->query("SELECT * FROM rutas WHERE activo = 1 ORDER BY nombre ASC"
             box-shadow: 0 4px 10px rgba(102, 126, 234, 0.3);
         }
         
+        @media (max-width: 767px) {
+            .total-rutas {
+                padding: 12px 15px;
+                margin-bottom: 15px;
+                border-radius: 8px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .total-rutas {
+                padding: 10px 12px;
+                margin-bottom: 12px;
+                border-radius: 6px;
+            }
+        }
+        
         .total-rutas h5 {
             margin: 0;
             font-weight: 700;
             font-size: 16px;
         }
         
+        @media (max-width: 767px) {
+            .total-rutas h5 {
+                font-size: 14px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .total-rutas h5 {
+                font-size: 13px;
+            }
+        }
+        
         .total-rutas .numero {
             font-size: 28px;
             font-weight: 800;
+        }
+        
+        @media (max-width: 767px) {
+            .total-rutas .numero {
+                font-size: 24px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .total-rutas .numero {
+                font-size: 20px;
+            }
         }
         
         .ruta-icon {
@@ -248,6 +474,196 @@ $rutas = $conn->query("SELECT * FROM rutas WHERE activo = 1 ORDER BY nombre ASC"
             justify-content: center;
             margin-right: 10px;
             box-shadow: 0 2px 5px rgba(52, 152, 219, 0.3);
+        }
+        
+        @media (max-width: 767px) {
+            .ruta-icon {
+                width: 35px;
+                height: 35px;
+                margin-right: 8px;
+                font-size: 14px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .ruta-icon {
+                width: 30px;
+                height: 30px;
+                margin-right: 6px;
+                font-size: 12px;
+                display: none; /* Ocultar en móviles muy pequeños */
+            }
+        }
+        
+        /* Tabla responsive con scroll horizontal */
+        @media (max-width: 767px) {
+            .table-responsive {
+                margin: 0 -15px;
+                padding: 0 15px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .table-responsive {
+                margin: 0 -12px;
+                padding: 0 12px;
+            }
+            
+            /* Ocultar columnas menos importantes en móviles */
+            .table-rutas .hide-mobile {
+                display: none;
+            }
+        }
+        
+        /* Modales responsivos */
+        @media (max-width: 767px) {
+            .modal-dialog {
+                margin: 10px;
+                max-width: calc(100% - 20px);
+            }
+            
+            .modal-content {
+                border-radius: 8px;
+            }
+            
+            .modal-header {
+                padding: 15px;
+            }
+            
+            .modal-body {
+                padding: 15px;
+            }
+            
+            .modal-footer {
+                padding: 12px 15px;
+            }
+            
+            .modal-title {
+                font-size: 16px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .modal-dialog {
+                margin: 5px;
+                max-width: calc(100% - 10px);
+            }
+            
+            .modal-content {
+                border-radius: 6px;
+            }
+            
+            .modal-header {
+                padding: 12px;
+            }
+            
+            .modal-body {
+                padding: 12px;
+            }
+            
+            .modal-footer {
+                padding: 10px 12px;
+            }
+            
+            .modal-title {
+                font-size: 14px;
+            }
+            
+            .modal-footer .btn {
+                width: 100%;
+                margin: 3px 0;
+            }
+        }
+        
+        /* Botón agregar responsivo */
+        .btn-custom-primary {
+            font-size: 15px;
+            padding: 10px 25px;
+        }
+        
+        @media (max-width: 767px) {
+            .btn-custom-primary {
+                font-size: 14px;
+                padding: 9px 20px;
+                width: 100%;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .btn-custom-primary {
+                font-size: 13px;
+                padding: 8px 15px;
+            }
+        }
+        
+        /* Inputs y textareas en modales */
+        @media (max-width: 767px) {
+            .modal-body .form-control {
+                font-size: 14px;
+            }
+            
+            .modal-body .form-label {
+                font-size: 13px;
+            }
+            
+            .modal-body small {
+                font-size: 11px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .modal-body .form-control {
+                font-size: 13px;
+            }
+            
+            .modal-body .form-label {
+                font-size: 12px;
+            }
+            
+            .modal-body small {
+                font-size: 10px;
+            }
+        }
+        
+        /* Estado vacío responsivo */
+        .text-muted.py-5 {
+            padding: 3rem 1rem !important;
+        }
+        
+        @media (max-width: 767px) {
+            .text-muted.py-5 {
+                padding: 2rem 0.5rem !important;
+            }
+            
+            .text-muted.py-5 .fa-3x {
+                font-size: 2.5em;
+            }
+            
+            .text-muted.py-5 h5 {
+                font-size: 16px;
+            }
+            
+            .text-muted.py-5 p {
+                font-size: 13px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .text-muted.py-5 {
+                padding: 1.5rem 0.5rem !important;
+            }
+            
+            .text-muted.py-5 .fa-3x {
+                font-size: 2em;
+            }
+            
+            .text-muted.py-5 h5 {
+                font-size: 14px;
+            }
+            
+            .text-muted.py-5 p {
+                font-size: 12px;
+            }
         }
     </style>
 </head>
@@ -341,7 +757,7 @@ $rutas = $conn->query("SELECT * FROM rutas WHERE activo = 1 ORDER BY nombre ASC"
                         <tr>
                             <th width="60" class="text-center">#</th>
                             <th>Ruta</th>
-                            <th width="140" class="text-center">Fecha Creación</th>
+                            <th width="140" class="text-center hide-mobile">Fecha Creación</th>
                             <th width="180" class="text-center">Acciones</th>
                         </tr>
                     </thead>
@@ -361,7 +777,7 @@ $rutas = $conn->query("SELECT * FROM rutas WHERE activo = 1 ORDER BY nombre ASC"
                                             <span class="ruta-icon">
                                                 <i class="fas fa-route"></i>
                                             </span>
-                                            <div>
+                                            <div class="flex-grow-1">
                                                 <span class="ruta-nombre"><?php echo $ruta['nombre']; ?></span>
                                                 <?php if (!empty($ruta['descripcion'])): ?>
                                                     <span class="ruta-descripcion">
@@ -371,7 +787,7 @@ $rutas = $conn->query("SELECT * FROM rutas WHERE activo = 1 ORDER BY nombre ASC"
                                             </div>
                                         </div>
                                     </td>
-                                    <td class="text-center">
+                                    <td class="text-center hide-mobile">
                                         <span class="fecha-texto">
                                             <i class="far fa-calendar-alt"></i>
                                             <?php echo date('d/m/Y', strtotime($ruta['fecha_creacion'])); ?>
@@ -531,6 +947,101 @@ $rutas = $conn->query("SELECT * FROM rutas WHERE activo = 1 ORDER BY nombre ASC"
                     document.getElementById('formEditar').reset();
                 });
             }
+            
+            // Cerrar menú navbar en móviles al hacer clic en un enlace
+            const navbarToggler = document.querySelector('.navbar-toggler');
+            const navbarCollapse = document.querySelector('.navbar-collapse');
+            
+            if (navbarToggler && navbarCollapse) {
+                const navLinks = navbarCollapse.querySelectorAll('.nav-link');
+                navLinks.forEach(link => {
+                    link.addEventListener('click', function() {
+                        if (window.innerWidth < 992) {
+                            const bsCollapse = new bootstrap.Collapse(navbarCollapse, {
+                                toggle: false
+                            });
+                            bsCollapse.hide();
+                        }
+                    });
+                });
+            }
+            
+            // Mejorar experiencia táctil en dispositivos móviles
+            if ('ontouchstart' in window) {
+                document.querySelectorAll('.btn, .table-rutas tbody tr').forEach(element => {
+                    element.addEventListener('touchstart', function() {
+                        this.style.opacity = '0.7';
+                    });
+                    
+                    element.addEventListener('touchend', function() {
+                        setTimeout(() => {
+                            this.style.opacity = '1';
+                        }, 100);
+                    });
+                });
+            }
+            
+            // Prevenir zoom accidental en iOS al hacer doble tap
+            let lastTouchEnd = 0;
+            document.addEventListener('touchend', function(event) {
+                const now = (new Date()).getTime();
+                if (now - lastTouchEnd <= 300) {
+                    event.preventDefault();
+                }
+                lastTouchEnd = now;
+            }, false);
+            
+            // Ajustar tamaño de fuente en inputs para prevenir zoom en iOS
+            if (/iPad|iPhone|iPod/.test(navigator.userAgent)) {
+                const inputs = document.querySelectorAll('input[type="text"], textarea');
+                inputs.forEach(input => {
+                    if (window.innerWidth < 768) {
+                        input.style.fontSize = '16px';
+                    }
+                });
+            }
+            
+            // Animación de entrada para las filas de la tabla
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        entry.target.style.opacity = '0';
+                        entry.target.style.transform = 'translateY(20px)';
+                        
+                        setTimeout(() => {
+                            entry.target.style.transition = 'all 0.5s ease';
+                            entry.target.style.opacity = '1';
+                            entry.target.style.transform = 'translateY(0)';
+                        }, 100);
+                        
+                        observer.unobserve(entry.target);
+                    }
+                });
+            }, {
+                threshold: 0.1
+            });
+            
+            document.querySelectorAll('.table-rutas tbody tr').forEach(row => {
+                observer.observe(row);
+            });
+            
+            // Detectar orientación del dispositivo
+            function handleOrientationChange() {
+                const orientation = window.innerWidth > window.innerHeight ? 'landscape' : 'portrait';
+                document.body.setAttribute('data-orientation', orientation);
+            }
+            
+            handleOrientationChange();
+            window.addEventListener('orientationchange', handleOrientationChange);
+            window.addEventListener('resize', handleOrientationChange);
+            
+            // Añadir clase para dispositivos táctiles
+            if ('ontouchstart' in window || navigator.maxTouchPoints > 0) {
+                document.body.classList.add('touch-device');
+            }
+            
+            console.log('Rutas cargadas correctamente');
+            console.log('Total de rutas:', <?php echo $rutas->num_rows; ?>);
         });
         
         // Función para editar ruta - usando data attributes
@@ -584,7 +1095,165 @@ $rutas = $conn->query("SELECT * FROM rutas WHERE activo = 1 ORDER BY nombre ASC"
         document.getElementById('modalEliminar').addEventListener('hidden.bs.modal', function () {
             document.getElementById('formEliminar').reset();
         });
+        
+        // Validación de formularios
+        document.getElementById('formAgregar').addEventListener('submit', function(e) {
+            const nombre = this.querySelector('[name="nombre"]').value.trim();
+            
+            if (nombre === '') {
+                e.preventDefault();
+                alert('El nombre de la ruta es obligatorio');
+                return false;
+            }
+            
+            // Añadir indicador de carga
+            const submitBtn = this.querySelector('button[type="submit"]');
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando...';
+        });
+        
+        document.getElementById('formEditar').addEventListener('submit', function(e) {
+            const nombre = this.querySelector('[name="nombre"]').value.trim();
+            
+            if (nombre === '') {
+                e.preventDefault();
+                alert('El nombre de la ruta es obligatorio');
+                return false;
+            }
+            
+            // Añadir indicador de carga
+            const submitBtn = this.querySelector('button[type="submit"]');
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Actualizando...';
+        });
+        
+        document.getElementById('formEliminar').addEventListener('submit', function(e) {
+            // Añadir indicador de carga
+            const submitBtn = this.querySelector('button[type="submit"]');
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Eliminando...';
+        });
+        
+        // Mejorar scroll en iOS
+        if (/iPad|iPhone|iPod/.test(navigator.userAgent)) {
+            document.querySelectorAll('.table-responsive').forEach(container => {
+                container.style.webkitOverflowScrolling = 'touch';
+            });
+        }
+        
+        // Función para optimizar rendimiento en scroll
+        let ticking = false;
+        window.addEventListener('scroll', function() {
+            if (!ticking) {
+                window.requestAnimationFrame(function() {
+                    ticking = false;
+                });
+                ticking = true;
+            }
+        });
+        
+        // Contador de caracteres para textarea (opcional)
+        const textareaDescripcion = document.querySelectorAll('textarea[name="descripcion"]');
+        textareaDescripcion.forEach(textarea => {
+            const maxLength = 255;
+            
+            textarea.addEventListener('input', function() {
+                const length = this.value.length;
+                const remaining = maxLength - length;
+                
+                let counter = this.nextElementSibling;
+                if (!counter || !counter.classList.contains('char-counter')) {
+                    counter = document.createElement('small');
+                    counter.className = 'char-counter text-muted';
+                    this.parentNode.appendChild(counter);
+                }
+                
+                if (remaining < 50) {
+                    counter.style.color = '#e74c3c';
+                } else {
+                    counter.style.color = '#7f8c8d';
+                }
+                
+                counter.textContent = `${remaining} caracteres restantes`;
+            });
+        });
     </script>
+
+    <style>
+        /* Estilos adicionales para mejorar la experiencia táctil */
+        .touch-device .btn,
+        .touch-device .table-rutas tbody tr {
+            -webkit-tap-highlight-color: rgba(0, 0, 0, 0.1);
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+        
+        /* Mejorar el espaciado en landscape mode para móviles */
+        @media (max-width: 767px) and (orientation: landscape) {
+            .dashboard-container {
+                padding-top: 10px;
+            }
+            
+            .content-card {
+                margin-bottom: 15px;
+            }
+            
+            .header-container {
+                padding: 12px;
+                margin-bottom: 15px;
+            }
+        }
+        
+        /* Ajustes para iPhone X y superiores (notch) */
+        @supports (padding: max(0px)) {
+            body {
+                padding-left: max(10px, env(safe-area-inset-left));
+                padding-right: max(10px, env(safe-area-inset-right));
+            }
+            
+            .navbar-custom {
+                padding-left: max(15px, env(safe-area-inset-left));
+                padding-right: max(15px, env(safe-area-inset-right));
+            }
+        }
+        
+        /* Animación de loading en botones */
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .fa-spinner.fa-spin {
+            animation: spin 1s linear infinite;
+        }
+        
+        /* Mejorar contraste en modo oscuro del sistema */
+        @media (prefers-color-scheme: dark) {
+            /* Descomenta si quieres soporte para modo oscuro
+            .table-rutas tbody tr:hover {
+                background-color: rgba(255, 255, 255, 0.05);
+            }
+            */
+        }
+        
+        /* Contador de caracteres */
+        .char-counter {
+            display: block;
+            margin-top: 5px;
+            font-size: 11px;
+        }
+        
+        /* Scroll suave en toda la página */
+        html {
+            scroll-behavior: smooth;
+        }
+        
+        /* Prevenir el rebote en iOS */
+        body {
+            overscroll-behavior-y: none;
+        }
+    </style>
 </body>
 </html>
 <?php closeConnection($conn); ?>
