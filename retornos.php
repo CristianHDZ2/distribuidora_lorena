@@ -1190,9 +1190,9 @@ if ($ruta_id > 0 && $puede_registrar) {
                     <h5>Ruta completada</h5>
                     <p>Los retornos para esta ruta ya fueron registrados hoy y la liquidación fue creada</p>
                     <a href="generar_pdf.php?ruta=<?php echo $ruta_id; ?>&fecha=<?php echo $fecha_hoy; ?>&generar=1" 
-                       class="btn btn-success btn-lg mt-3" target="_blank">
-                        <i class="fas fa-file-pdf"></i> Ver Reporte Final
-                    </a>
+   class="btn btn-success btn-lg mt-3">
+    <i class="fas fa-file-pdf"></i> Ver Reporte Final
+</a>
                 </div>
             <?php else: ?>
                 <div class="alert alert-warning text-center">

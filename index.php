@@ -25,6 +25,7 @@ while ($ruta = $rutas->fetch_assoc()) {
     $ruta['tiene_salida'] = $estado['tiene_salida'];
     $ruta['tiene_recarga'] = $estado['tiene_recarga'];
     $ruta['tiene_retorno'] = $estado['tiene_retorno'];
+    $ruta['tiene_liquidacion'] = $estado['tiene_liquidacion']; // AGREGADO
     $ruta['completada'] = $estado['completada'];
     
     $rutas_con_estado[] = $ruta;
@@ -410,6 +411,31 @@ closeConnection($conn);
             }
         }
         
+        /* NUEVO: Estilo para alerta de error de liquidación */
+        .alert-liquidacion-error {
+            font-size: 11px;
+            padding: 8px 12px;
+            margin-bottom: 8px;
+            border-radius: 6px;
+            background: #f8d7da;
+            border: 1px solid #f5c2c7;
+            color: #842029;
+        }
+        
+        @media (max-width: 767px) {
+            .alert-liquidacion-error {
+                font-size: 10px;
+                padding: 6px 10px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .alert-liquidacion-error {
+                font-size: 9px;
+                padding: 5px 8px;
+            }
+        }
+        
         /* Grid de columnas responsivo */
         @media (max-width: 767px) {
             .col-md-6 {
@@ -501,6 +527,14 @@ closeConnection($conn);
             <p class="text-muted">Bienvenido, <strong><?php echo $_SESSION['nombre']; ?></strong></p>
         </div>
 
+        <!-- Mostrar mensajes si existen -->
+        <?php if (isset($_GET['mensaje'])): ?>
+            <div class="alert alert-<?php echo $_GET['tipo'] ?? 'info'; ?> alert-dismissible fade show" role="alert">
+                <?php echo htmlspecialchars($_GET['mensaje']); ?>
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        <?php endif; ?>
+
         <!-- Estadísticas -->
         <div class="row">
             <div class="col-lg-4 col-md-6 col-sm-6 mb-4">
@@ -534,9 +568,9 @@ closeConnection($conn);
                         <div class="card ruta-card h-100">
                             <div class="card-body">
                                 <h5 class="card-title text-primary">
-                                    <i class="fas fa-map-pin"></i> <?php echo $ruta['nombre']; ?>
+                                    <i class="fas fa-map-pin"></i> <?php echo htmlspecialchars($ruta['nombre']); ?>
                                 </h5>
-                                <p class="card-text text-muted"><?php echo $ruta['descripcion']; ?></p>
+                                <p class="card-text text-muted"><?php echo htmlspecialchars($ruta['descripcion']); ?></p>
                                 
                                 <!-- Estado de la ruta -->
                                 <?php if ($ruta['estado'] == 'pendiente'): ?>
@@ -570,12 +604,24 @@ closeConnection($conn);
                                 
                                 <!-- Botones de acción -->
                                 <div class="d-flex gap-2 flex-wrap mt-3">
-                                    <?php if ($ruta['completada']): ?>
+                                    <?php if ($ruta['completada'] && $ruta['tiene_liquidacion']): ?>
+                                        <!-- Solo mostrar botón de reporte si existe la liquidación -->
                                         <a href="generar_pdf.php?ruta=<?php echo $ruta['id']; ?>&fecha=<?php echo $fecha_hoy; ?>&generar=1" 
-                                           class="btn btn-success btn-ruta-action">
-                                            <i class="fas fa-file-pdf"></i> Ver Reporte Final
+   class="btn btn-success btn-ruta-action">
+    <i class="fas fa-file-pdf"></i> Ver Reporte Final
+</a>
+                                    <?php elseif ($ruta['tiene_salida'] && $ruta['tiene_retorno'] && !$ruta['tiene_liquidacion']): ?>
+                                        <!-- Caso especial: tiene retorno pero NO tiene liquidación -->
+                                        <div class="alert alert-danger alert-liquidacion-error w-100 mb-2">
+                                            <i class="fas fa-exclamation-triangle"></i> 
+                                            <strong>ERROR:</strong> Los retornos se registraron pero la liquidación no se creó. 
+                                            Edite los retornos nuevamente para regenerar la liquidación.
+                                        </div>
+                                        <a href="retornos.php?ruta=<?php echo $ruta['id']; ?>" class="btn btn-danger btn-ruta-action">
+                                            <i class="fas fa-exclamation-triangle"></i> Regenerar Liquidación
                                         </a>
                                     <?php else: ?>
+                                        <!-- Flujo normal de registro -->
                                         <a href="salidas.php?ruta=<?php echo $ruta['id']; ?>" class="btn btn-outline-primary btn-ruta-action">
                                             <i class="fas fa-arrow-up"></i> <?php echo $ruta['tiene_salida'] ? 'Editar' : 'Registrar'; ?> Salida
                                         </a>
@@ -647,7 +693,6 @@ closeConnection($conn);
             </div>
         </div>
     </div>
-
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="assets/js/notifications.js"></script>
 
@@ -710,9 +755,7 @@ closeConnection($conn);
                         if (height > maxHeight) {
                             maxHeight = height;
                         }
-                    });
-                    
-                    // Set all to max height
+                    });// Set all to max height
                     cards.forEach(card => {
                         card.style.height = maxHeight + 'px';
                     });

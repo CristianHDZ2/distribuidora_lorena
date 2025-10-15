@@ -77,19 +77,34 @@ function existeRetorno($conn, $ruta_id, $fecha) {
     return $row['total'] > 0;
 }
 
-// FUNCIÓN CORREGIDA: Verificar si la ruta ya completó todos sus registros del día
-// Una ruta está completa cuando tiene: salida Y retorno (la recarga es OPCIONAL)
-function rutaCompletaHoy($conn, $ruta_id, $fecha) {
-    return existeSalida($conn, $ruta_id, $fecha) && 
-           existeRetorno($conn, $ruta_id, $fecha);
+// NUEVA FUNCIÓN: Verificar si existe liquidación para una ruta en una fecha
+function existeLiquidacion($conn, $ruta_id, $fecha) {
+    $stmt = $conn->prepare("SELECT COUNT(*) as total FROM liquidaciones WHERE ruta_id = ? AND fecha = ?");
+    $stmt->bind_param("is", $ruta_id, $fecha);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $row = $result->fetch_assoc();
+    $stmt->close();
+    return $row['total'] > 0;
 }
 
-// Obtener el estado de una ruta
+// FUNCIÓN ACTUALIZADA: Verificar si la ruta ya completó todos sus registros del día
+// Una ruta está completa cuando tiene: salida Y retorno Y liquidación
+function rutaCompletaHoy($conn, $ruta_id, $fecha) {
+    return existeSalida($conn, $ruta_id, $fecha) && 
+           existeRetorno($conn, $ruta_id, $fecha) &&
+           existeLiquidacion($conn, $ruta_id, $fecha); // AGREGADO
+}
+
+// FUNCIÓN ACTUALIZADA: Obtener el estado de una ruta
 function obtenerEstadoRuta($conn, $ruta_id, $fecha) {
     $tiene_salida = existeSalida($conn, $ruta_id, $fecha);
     $tiene_recarga = existeRecarga($conn, $ruta_id, $fecha);
     $tiene_retorno = existeRetorno($conn, $ruta_id, $fecha);
-    $completada = $tiene_salida && $tiene_retorno; // CORREGIDO: Ya no requiere recarga
+    $tiene_liquidacion = existeLiquidacion($conn, $ruta_id, $fecha); // NUEVO
+    
+    // Una ruta está completada solo si tiene salida, retorno Y liquidación
+    $completada = $tiene_salida && $tiene_retorno && $tiene_liquidacion; // CORREGIDO
     
     $estado = 'pendiente';
     if ($completada) {
@@ -103,6 +118,7 @@ function obtenerEstadoRuta($conn, $ruta_id, $fecha) {
         'tiene_salida' => $tiene_salida,
         'tiene_recarga' => $tiene_recarga,
         'tiene_retorno' => $tiene_retorno,
+        'tiene_liquidacion' => $tiene_liquidacion, // NUEVO
         'completada' => $completada
     ];
 }

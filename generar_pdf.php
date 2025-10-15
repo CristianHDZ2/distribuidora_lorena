@@ -49,16 +49,25 @@ if ($generar && $ruta_id > 0) {
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
             <title>Liquidación No Encontrada</title>
             <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+            <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
         </head>
         <body>
             <div class="container mt-5">
                 <div class="alert alert-warning text-center">
                     <h3><i class="fas fa-exclamation-triangle"></i> Liquidación No Encontrada</h3>
-                    <p>No existe una liquidación registrada para la ruta <strong><?php echo $ruta['nombre']; ?></strong> en la fecha <strong><?php echo date('d/m/Y', strtotime($fecha)); ?></strong>.</p>
+                    <p>No existe una liquidación registrada para la ruta <strong><?php echo htmlspecialchars($ruta['nombre']); ?></strong> en la fecha <strong><?php echo date('d/m/Y', strtotime($fecha)); ?></strong>.</p>
                     <p>Por favor, asegúrese de haber completado el registro de salidas, recargas y retornos para esta fecha.</p>
-                    <a href="generar_pdf.php" class="btn btn-primary mt-3">Volver</a>
+                    <div class="mt-4">
+                        <a href="index.php" class="btn btn-primary">
+                            <i class="fas fa-home"></i> Volver al Inicio
+                        </a>
+                        <a href="javascript:history.back()" class="btn btn-secondary">
+                            <i class="fas fa-arrow-left"></i> Volver Atrás
+                        </a>
+                    </div>
                 </div>
             </div>
+            <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
         </body>
         </html>
         <?php
@@ -112,7 +121,7 @@ if ($generar && $ruta_id > 0) {
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Reporte de Liquidación - <?php echo $ruta['nombre']; ?></title>
+        <title>Reporte de Liquidación - <?php echo htmlspecialchars($ruta['nombre']); ?></title>
         <style>
             @page {
                 size: letter;
@@ -449,7 +458,7 @@ if ($generar && $ruta_id > 0) {
             <div class="info-section">
                 <div class="info-item">
                     <strong>RUTA:</strong>
-                    <span><?php echo $ruta['nombre']; ?></span>
+                    <span><?php echo htmlspecialchars($ruta['nombre']); ?></span>
                 </div>
                 <div class="info-item">
                     <strong>FECHA:</strong>
@@ -482,7 +491,7 @@ if ($generar && $ruta_id > 0) {
                         <?php foreach ($productos_vendidos as $producto): ?>
                             <tr>
                                 <td>
-                                    <span class="nombre-producto"><?php echo $producto['nombre']; ?></span>
+                                    <span class="nombre-producto"><?php echo htmlspecialchars($producto['nombre']); ?></span>
                                     
                                     <?php if (!empty($producto['ajustes'])): ?>
                                         <div class="ajustes-info">
@@ -549,7 +558,7 @@ if ($generar && $ruta_id > 0) {
                 
                 <div class="footer">
                     <p><strong>Distribuidora LORENA</strong> - Sistema de Liquidación</p>
-                    <p>Usuario: <?php echo $_SESSION['nombre']; ?> | Generado: <?php echo date('d/m/Y H:i:s'); ?></p>
+                    <p>Usuario: <?php echo htmlspecialchars($_SESSION['nombre']); ?> | Generado: <?php echo date('d/m/Y H:i:s'); ?></p>
                     <p style="margin-top: 5px;">
                         Este documento es un reporte generado automáticamente por el sistema.<br>
                         Para cualquier consulta o aclaración, contacte al administrador.
@@ -599,6 +608,10 @@ if ($generar && $ruta_id > 0) {
 }
 
 // Si no se ha solicitado generar, mostrar formulario de selección
+
+// REINICIAR LA CONSULTA DE RUTAS PARA EL FORMULARIO
+$rutas = $conn->query("SELECT * FROM rutas WHERE activo = 1 ORDER BY id");
+
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -694,7 +707,7 @@ if ($generar && $ruta_id > 0) {
                                         <option value="">-- Seleccione una ruta --</option>
                                         <?php while ($ruta = $rutas->fetch_assoc()): ?>
                                             <option value="<?php echo $ruta['id']; ?>">
-                                                <?php echo $ruta['nombre']; ?>
+                                                <?php echo htmlspecialchars($ruta['nombre']); ?>
                                             </option>
                                         <?php endwhile; ?>
                                     </select>
