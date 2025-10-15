@@ -16,6 +16,197 @@ $fecha_hoy = date('Y-m-d');
 $puede_registrar = puedeRegistrarRetorno($conn, $ruta_id, $fecha_hoy);
 $modo_edicion = existeRetorno($conn, $ruta_id, $fecha_hoy);
 
+// ============================================
+// NUEVA FUNCIÓN: Guardar liquidación consolidada
+// ============================================
+function guardarLiquidacion($conn, $ruta_id, $fecha, $usuario_id) {
+    // Verificar si ya existe una liquidación para esta ruta y fecha
+    $stmt_check = $conn->prepare("SELECT id FROM liquidaciones WHERE ruta_id = ? AND fecha = ?");
+    $stmt_check->bind_param("is", $ruta_id, $fecha);
+    $stmt_check->execute();
+    $result_check = $stmt_check->get_result();
+    
+    if ($result_check->num_rows > 0) {
+        // Ya existe, eliminar para recrear
+        $liquidacion_existente = $result_check->fetch_assoc();
+        $liquidacion_id = $liquidacion_existente['id'];
+        
+        // Eliminar detalles antiguos (CASCADE lo hace automáticamente)
+        $stmt_delete = $conn->prepare("DELETE FROM liquidaciones WHERE id = ?");
+        $stmt_delete->bind_param("i", $liquidacion_id);
+        $stmt_delete->execute();
+        $stmt_delete->close();
+    }
+    $stmt_check->close();
+    
+    // Obtener todos los productos con movimientos
+    $query = "SELECT DISTINCT p.id, p.nombre, p.precio_caja, p.precio_unitario
+              FROM productos p 
+              WHERE p.activo = 1 
+              AND (
+                  EXISTS (SELECT 1 FROM salidas s WHERE s.producto_id = p.id AND s.ruta_id = ? AND s.fecha = ?)
+                  OR EXISTS (SELECT 1 FROM recargas r WHERE r.producto_id = p.id AND r.ruta_id = ? AND r.fecha = ?)
+                  OR EXISTS (SELECT 1 FROM retornos ret WHERE ret.producto_id = p.id AND ret.ruta_id = ? AND ret.fecha = ?)
+              )
+              ORDER BY p.nombre";
+    
+    $stmt = $conn->prepare($query);
+    $stmt->bind_param("isisis", $ruta_id, $fecha, $ruta_id, $fecha, $ruta_id, $fecha);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    
+    $productos_liquidacion = [];
+    $total_general = 0;
+    
+    while ($producto = $result->fetch_assoc()) {
+        $producto_id = $producto['id'];
+        
+        // Obtener salida con PRECIO GUARDADO
+        $stmt_salida = $conn->prepare("SELECT COALESCE(SUM(cantidad), 0) as total, MAX(usa_precio_unitario) as usa_unitario, MAX(precio_usado) as precio FROM salidas WHERE ruta_id = ? AND producto_id = ? AND fecha = ?");
+        $stmt_salida->bind_param("iis", $ruta_id, $producto_id, $fecha);
+        $stmt_salida->execute();
+        $result_salida = $stmt_salida->get_result();
+        $salida_data = $result_salida->fetch_assoc();
+        $stmt_salida->close();
+        
+        $salida = floatval($salida_data['total']);
+        $usa_unitario_salida = (bool)$salida_data['usa_unitario'];
+        $precio_salida = floatval($salida_data['precio']);
+        
+        // Obtener recarga con PRECIO GUARDADO
+        $stmt_recarga = $conn->prepare("SELECT COALESCE(SUM(cantidad), 0) as total, MAX(usa_precio_unitario) as usa_unitario, MAX(precio_usado) as precio FROM recargas WHERE ruta_id = ? AND producto_id = ? AND fecha = ?");
+        $stmt_recarga->bind_param("iis", $ruta_id, $producto_id, $fecha);
+        $stmt_recarga->execute();
+        $result_recarga = $stmt_recarga->get_result();
+        $recarga_data = $result_recarga->fetch_assoc();
+        $stmt_recarga->close();
+        
+        $recarga = floatval($recarga_data['total']);
+        $usa_unitario_recarga = (bool)$recarga_data['usa_unitario'];
+        $precio_recarga = floatval($recarga_data['precio']);
+        
+        // Obtener retorno con PRECIO GUARDADO
+        $stmt_retorno = $conn->prepare("SELECT COALESCE(SUM(cantidad), 0) as total, MAX(usa_precio_unitario) as usa_unitario, MAX(precio_usado) as precio FROM retornos WHERE ruta_id = ? AND producto_id = ? AND fecha = ?");
+        $stmt_retorno->bind_param("iis", $ruta_id, $producto_id, $fecha);
+        $stmt_retorno->execute();
+        $result_retorno = $stmt_retorno->get_result();
+        $retorno_data = $result_retorno->fetch_assoc();
+        $stmt_retorno->close();
+        
+        $retorno = floatval($retorno_data['total']);
+        $usa_unitario_retorno = (bool)$retorno_data['usa_unitario'];
+        
+        // Determinar si se usó precio unitario
+        $usa_precio_unitario = $usa_unitario_salida || $usa_unitario_recarga || $usa_unitario_retorno;
+        
+        // USAR EL PRECIO GUARDADO (prioridad: salida > recarga)
+        // FALLBACK: Si precio_usado es 0, usar precio de la tabla productos
+        $precio_usado = 0;
+        if ($precio_salida > 0) {
+            $precio_usado = $precio_salida;
+        } elseif ($precio_recarga > 0) {
+            $precio_usado = $precio_recarga;
+        } else {
+            // FALLBACK: Usar precio actual del producto
+            if ($usa_precio_unitario && $producto['precio_unitario'] !== null && $producto['precio_unitario'] > 0) {
+                $precio_usado = floatval($producto['precio_unitario']);
+            } else {
+                $precio_usado = floatval($producto['precio_caja']);
+            }
+        }
+        
+        // Calcular vendido
+        $vendido = ($salida + $recarga) - $retorno;
+        
+        // Obtener TODOS los ajustes de precio
+        $ajustes = [];
+        $stmt_ajustes = $conn->prepare("SELECT id, cantidad, precio_ajustado FROM ajustes_precios WHERE ruta_id = ? AND producto_id = ? AND fecha = ? ORDER BY id ASC");
+        $stmt_ajustes->bind_param("iis", $ruta_id, $producto_id, $fecha);
+        $stmt_ajustes->execute();
+        $result_ajustes = $stmt_ajustes->get_result();
+        
+        while ($row_ajuste = $result_ajustes->fetch_assoc()) {
+            $ajustes[] = [
+                'cantidad' => floatval($row_ajuste['cantidad']),
+                'precio_ajustado' => floatval($row_ajuste['precio_ajustado'])
+            ];
+        }
+        $stmt_ajustes->close();
+        
+        // Calcular total dinero
+        $total_producto = 0;
+        
+        if (!empty($ajustes) && $vendido > 0) {
+            $cantidad_con_precio_normal = $vendido;
+            
+            foreach ($ajustes as $ajuste) {
+                $cantidad_con_precio_normal -= $ajuste['cantidad'];
+                $total_producto += $ajuste['cantidad'] * $ajuste['precio_ajustado'];
+            }
+            
+            if ($cantidad_con_precio_normal > 0 && $precio_usado > 0) {
+                $total_producto += $cantidad_con_precio_normal * $precio_usado;
+            }
+        } else {
+            if ($vendido > 0 && $precio_usado > 0) {
+                $total_producto = $vendido * $precio_usado;
+            }
+        }
+        
+        // Solo incluir si hay movimiento
+        if ($salida > 0 || $recarga > 0 || $retorno > 0) {
+            $productos_liquidacion[] = [
+                'producto_id' => $producto_id,
+                'producto_nombre' => $producto['nombre'],
+                'salida' => $salida,
+                'recarga' => $recarga,
+                'retorno' => $retorno,
+                'vendido' => $vendido,
+                'precio_usado' => $precio_usado,
+                'usa_precio_unitario' => $usa_precio_unitario,
+                'tiene_ajustes' => !empty($ajustes),
+                'detalle_ajustes' => !empty($ajustes) ? json_encode($ajustes) : null,
+                'total_producto' => $total_producto
+            ];
+            
+            $total_general += $total_producto;
+        }
+    }
+    $stmt->close();
+    
+    // Insertar cabecera de liquidación
+    $stmt_liquidacion = $conn->prepare("INSERT INTO liquidaciones (ruta_id, fecha, total_general, usuario_id) VALUES (?, ?, ?, ?)");
+    $stmt_liquidacion->bind_param("isdi", $ruta_id, $fecha, $total_general, $usuario_id);
+    $stmt_liquidacion->execute();
+    $liquidacion_id = $stmt_liquidacion->insert_id;
+    $stmt_liquidacion->close();
+    
+    // Insertar detalles de liquidación
+    $stmt_detalle = $conn->prepare("INSERT INTO liquidaciones_detalle (liquidacion_id, producto_id, producto_nombre, salida, recarga, retorno, vendido, precio_usado, usa_precio_unitario, tiene_ajustes, detalle_ajustes, total_producto) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+    
+    foreach ($productos_liquidacion as $prod) {
+        $stmt_detalle->bind_param(
+            "iisdddddiiss",
+            $liquidacion_id,
+            $prod['producto_id'],
+            $prod['producto_nombre'],
+            $prod['salida'],
+            $prod['recarga'],
+            $prod['retorno'],
+            $prod['vendido'],
+            $prod['precio_usado'],
+            $prod['usa_precio_unitario'],
+            $prod['tiene_ajustes'],
+            $prod['detalle_ajustes'],
+            $prod['total_producto']
+        );
+        $stmt_detalle->execute();
+    }
+    $stmt_detalle->close();
+    
+    return $liquidacion_id;
+}
+
 // Procesar formulario
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $ruta_id = intval($_POST['ruta_id']);
@@ -91,17 +282,13 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                     }
                     $stmt->close();
                     
-                    // ============================================
                     // PROCESAR MÚLTIPLES AJUSTES DE PRECIO
-                    // ============================================
                     if (isset($ajustes_multiples[$producto_id]) && is_array($ajustes_multiples[$producto_id])) {
                         foreach ($ajustes_multiples[$producto_id] as $ajuste) {
                             $cantidad_ajuste = floatval($ajuste['cantidad'] ?? 0);
                             $precio_ajuste = floatval($ajuste['precio'] ?? 0);
-                            $descripcion_ajuste = trim($ajuste['descripcion'] ?? '');
                             
                             if ($cantidad_ajuste > 0 && $precio_ajuste > 0) {
-                                // Validar cantidad del ajuste
                                 if (!validarCantidad($cantidad_ajuste, $usa_precio_unitario)) {
                                     throw new Exception("Cantidad de ajuste inválida para producto ID $producto_id");
                                 }
@@ -119,12 +306,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 }
             }
             
-            // ============================================
-            // SOLUCIÓN: Si no hay retornos reales (todo se vendió), 
-            // insertar un registro dummy para marcar que el retorno fue completado
-            // ============================================
+            // Si no hay retornos reales, insertar registro dummy
             if (!$hay_retornos_reales) {
-                // Obtener el primer producto de la salida para usarlo como referencia
                 $stmt = $conn->prepare("SELECT producto_id FROM salidas WHERE ruta_id = ? AND fecha = ? LIMIT 1");
                 $stmt->bind_param("is", $ruta_id, $fecha);
                 $stmt->execute();
@@ -132,8 +315,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 
                 if ($row = $result->fetch_assoc()) {
                     $producto_id_dummy = $row['producto_id'];
-                    
-                    // Insertar registro dummy con cantidad 0
                     $cantidad_dummy = 0;
                     $usa_precio_unitario_dummy = 0;
                     $precio_usado_dummy = 0;
@@ -146,21 +327,26 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 $stmt->close();
             }
             
+            // ============================================
+            // GUARDAR LIQUIDACIÓN CONSOLIDADA
+            // ============================================
+            $liquidacion_id = guardarLiquidacion($conn, $ruta_id, $fecha, $usuario_id);
+            
             // Hacer commit
             $conn->commit();
             
             // Redirigir al index con mensaje de éxito
             if ($es_edicion) {
                 if ($registros_exitosos > 0) {
-                    header("Location: index.php?mensaje=" . urlencode("Retornos actualizados exitosamente ($registros_exitosos productos)") . "&tipo=success");
+                    header("Location: index.php?mensaje=" . urlencode("Retornos actualizados y liquidación guardada exitosamente ($registros_exitosos productos)") . "&tipo=success");
                 } else {
-                    header("Location: index.php?mensaje=" . urlencode("Retornos actualizados exitosamente (sin productos devueltos - todo vendido)") . "&tipo=success");
+                    header("Location: index.php?mensaje=" . urlencode("Retornos actualizados y liquidación guardada exitosamente (sin productos devueltos - todo vendido)") . "&tipo=success");
                 }
             } else {
                 if ($registros_exitosos > 0) {
-                    header("Location: index.php?mensaje=" . urlencode("Retornos registrados exitosamente ($registros_exitosos productos)") . "&tipo=success");
+                    header("Location: index.php?mensaje=" . urlencode("Retornos registrados y liquidación guardada exitosamente ($registros_exitosos productos)") . "&tipo=success");
                 } else {
-                    header("Location: index.php?mensaje=" . urlencode("Retornos registrados exitosamente (sin productos devueltos - todo vendido)") . "&tipo=success");
+                    header("Location: index.php?mensaje=" . urlencode("Retornos registrados y liquidación guardada exitosamente (sin productos devueltos - todo vendido)") . "&tipo=success");
                 }
             }
             exit();
@@ -172,7 +358,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         }
     }
 }
-
 // Obtener todas las rutas
 $rutas = $conn->query("SELECT * FROM rutas WHERE activo = 1 ORDER BY id");
 
@@ -222,9 +407,7 @@ if ($ruta_id > 0 && $puede_registrar) {
             $precio_usado = $producto['precio_unitario'];
         }
         
-        // ============================================
         // OBTENER TODOS LOS AJUSTES EXISTENTES (MÚLTIPLES)
-        // ============================================
         $ajustes_existentes = obtenerTodosLosAjustesPrecios($conn, $ruta_id, $producto_id, $fecha_hoy);
         
         // Solo mostrar productos con salida o recarga
@@ -257,7 +440,7 @@ if ($ruta_id > 0 && $puede_registrar) {
                 'disponible' => ($salida + $recarga) - $retorno,
                 'vendido' => $vendido,
                 'total_vendido' => $total_vendido,
-                'ajustes_existentes' => $ajustes_existentes  // Array con TODOS los ajustes
+                'ajustes_existentes' => $ajustes_existentes
             ];
         }
     }
@@ -284,9 +467,7 @@ if ($ruta_id > 0 && $puede_registrar) {
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="assets/css/custom.css">
     <style>
-        /* ============================================
-           ESTILOS ESPECÍFICOS PARA RETORNOS
-           ============================================ */
+        /* ESTILOS ESPECÍFICOS PARA RETORNOS */
         
         .ajuste-precio-row {
             background-color: #fff3cd;
@@ -429,11 +610,8 @@ if ($ruta_id > 0 && $puede_registrar) {
             }
         }
         
-        /* ============================================
-           RESPONSIVIDAD MEJORADA PARA RETORNOS
-           ============================================ */
+        /* RESPONSIVIDAD MEJORADA */
         
-        /* Tabla responsive */
         @media (max-width: 991px) {
             .table-bordered th,
             .table-bordered td {
@@ -481,7 +659,6 @@ if ($ruta_id > 0 && $puede_registrar) {
             }
         }
         
-        /* Input de retorno */
         .retorno-input {
             max-width: 100px;
             text-align: center;
@@ -500,7 +677,6 @@ if ($ruta_id > 0 && $puede_registrar) {
             }
         }
         
-        /* Ajustes de inputs en móviles */
         @media (max-width: 767px) {
             .form-select,
             .form-control {
@@ -523,7 +699,6 @@ if ($ruta_id > 0 && $puede_registrar) {
             }
         }
         
-        /* Resumen de ventas responsive */
         @media (max-width: 767px) {
             #resumen_ventas {
                 font-size: 13px;
@@ -548,7 +723,6 @@ if ($ruta_id > 0 && $puede_registrar) {
             }
         }
         
-        /* Tabla scroll horizontal en móviles */
         @media (max-width: 767px) {
             .table-responsive {
                 overflow-x: auto;
@@ -558,7 +732,6 @@ if ($ruta_id > 0 && $puede_registrar) {
             }
         }
         
-        /* Card responsivo */
         @media (max-width: 767px) {
             .card-body {
                 padding: 15px;
@@ -583,7 +756,6 @@ if ($ruta_id > 0 && $puede_registrar) {
             }
         }
         
-        /* Botones principales responsive */
         @media (max-width: 767px) {
             .btn-lg {
                 font-size: 14px;
@@ -600,7 +772,6 @@ if ($ruta_id > 0 && $puede_registrar) {
             }
         }
         
-        /* Ajustes para iPhone X y superiores (notch) */
         @supports (padding: max(0px)) {
             body {
                 padding-left: max(10px, env(safe-area-inset-left));
@@ -617,7 +788,6 @@ if ($ruta_id > 0 && $puede_registrar) {
             }
         }
         
-        /* Landscape mode para móviles */
         @media (max-width: 767px) and (orientation: landscape) {
             .dashboard-container {
                 padding-top: 10px;
@@ -633,7 +803,6 @@ if ($ruta_id > 0 && $puede_registrar) {
             }
         }
         
-        /* Animación de loading */
         @keyframes spin {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
@@ -643,17 +812,14 @@ if ($ruta_id > 0 && $puede_registrar) {
             animation: spin 1s linear infinite;
         }
         
-        /* Scroll suave */
         html {
             scroll-behavior: smooth;
         }
         
-        /* Prevenir rebote en iOS */
         body {
             overscroll-behavior-y: none;
         }
         
-        /* Focus visible para accesibilidad */
         input:focus,
         select:focus,
         button:focus {
@@ -661,7 +827,6 @@ if ($ruta_id > 0 && $puede_registrar) {
             outline-offset: 2px;
         }
         
-        /* Touch feedback en móviles */
         .touch-device .btn,
         .touch-device input,
         .touch-device select {
@@ -679,7 +844,6 @@ if ($ruta_id > 0 && $puede_registrar) {
             }
         }
         
-        /* Mejoras para el resumen */
         @media (max-width: 480px) {
             .alert-success h5 {
                 font-size: 14px;
@@ -761,7 +925,8 @@ if ($ruta_id > 0 && $puede_registrar) {
                     <li>Puede registrar 1 retorno por ruta al día</li>
                     <li><strong>NUEVO:</strong> Puede agregar <strong>MÚLTIPLES ajustes de precio</strong> por producto</li>
                     <li><strong>PRECIO AUTOMÁTICO:</strong> Se mantiene el tipo de precio usado en salida/recarga</li>
-                    <li><strong>Si se vendió todo:</strong> Puede finalizar el retorno sin devolver productos (todos los retornos en 0 o vacíos)</li>
+                    <li><strong>Si se vendió todo:</strong> Puede finalizar el retorno sin devolver productos</li>
+                    <li><strong>🆕 LIQUIDACIÓN AUTOMÁTICA:</strong> Al guardar el retorno se crea automáticamente la liquidación consolidada</li>
                     <li>Una vez complete salida, recarga y retorno del día, no podrá hacer más registros hasta mañana</li>
                 </ul>
             </div>
@@ -791,7 +956,6 @@ if ($ruta_id > 0 && $puede_registrar) {
                     </select>
                 </div>
             </div>
-            
             <?php if ($ruta_id > 0 && $puede_registrar): ?>
                 <?php if (count($productos_info) > 0): ?>
                     <form method="POST" id="formRetornos">
@@ -861,7 +1025,6 @@ if ($ruta_id > 0 && $puede_registrar) {
                                                         <small class="text-muted">
                                                             <?php echo $producto['usa_precio_unitario'] ? 'Solo enteros' : 'Enteros o .5'; ?>
                                                         </small>
-                                                        <!-- Hidden para mantener el tipo de precio -->
                                                         <?php if ($producto['usa_precio_unitario']): ?>
                                                             <input type="hidden" name="precio_unitario[<?php echo $producto['id']; ?>]" value="1">
                                                         <?php endif; ?>
@@ -917,7 +1080,6 @@ if ($ruta_id > 0 && $puede_registrar) {
                                                             
                                                             <div id="ajustes_container_<?php echo $producto['id']; ?>">
                                                                 <?php 
-                                                                // Mostrar ajustes existentes
                                                                 if (!empty($producto['ajustes_existentes'])) {
                                                                     foreach ($producto['ajustes_existentes'] as $idx => $ajuste):
                                                                 ?>
@@ -998,10 +1160,15 @@ if ($ruta_id > 0 && $puede_registrar) {
                                     </h4>
                                 </div>
                                 
+                                <div class="alert alert-warning mt-3">
+                                    <i class="fas fa-save"></i>
+                                    <strong>Al guardar:</strong> Se creará automáticamente la liquidación consolidada con todos los datos calculados.
+                                </div>
+                                
                                 <div class="d-flex justify-content-end gap-3 mt-4">
                                     <button type="submit" class="btn btn-success btn-lg">
                                         <i class="fas fa-save"></i> 
-                                        <?php echo $modo_edicion ? 'Actualizar Retornos' : 'Registrar Retornos y Finalizar'; ?>
+                                        <?php echo $modo_edicion ? 'Actualizar Retornos y Liquidación' : 'Registrar Retornos y Crear Liquidación'; ?>
                                     </button>
                                     <a href="retornos.php" class="btn btn-secondary btn-lg">
                                         <i class="fas fa-times"></i> Cancelar
@@ -1021,7 +1188,7 @@ if ($ruta_id > 0 && $puede_registrar) {
                 <div class="alert alert-info text-center">
                     <i class="fas fa-check-circle fa-3x mb-3"></i>
                     <h5>Ruta completada</h5>
-                    <p>Los retornos para esta ruta ya fueron registrados hoy</p>
+                    <p>Los retornos para esta ruta ya fueron registrados hoy y la liquidación fue creada</p>
                     <a href="generar_pdf.php?ruta=<?php echo $ruta_id; ?>&fecha=<?php echo $fecha_hoy; ?>&generar=1" 
                        class="btn btn-success btn-lg mt-3" target="_blank">
                         <i class="fas fa-file-pdf"></i> Ver Reporte Final
@@ -1064,7 +1231,6 @@ if ($ruta_id > 0 && $puede_registrar) {
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="assets/js/notifications.js"></script>
     <script>
-        // Cambiar ruta
         function cambiarRuta() {
             const select = document.getElementById('select_ruta');
             const rutaId = select.value;
@@ -1076,27 +1242,20 @@ if ($ruta_id > 0 && $puede_registrar) {
             }
         }
         
-        // Formatear dinero
         function formatearDinero(valor) {
             return '$' + parseFloat(valor).toFixed(2);
         }
         
-        // ============================================
-        // CONTADOR GLOBAL DE AJUSTES POR PRODUCTO
-        // ============================================
         const contadorAjustes = {};
         
-        // Inicializar contadores
         document.addEventListener('DOMContentLoaded', function() {
             <?php foreach ($productos_info as $producto): ?>
                 contadorAjustes[<?php echo $producto['id']; ?>] = <?php echo count($producto['ajustes_existentes']); ?>;
                 actualizarContadorAjustes(<?php echo $producto['id']; ?>);
             <?php endforeach; ?>
             
-            // Calcular resumen inicial
             calcularResumen();
             
-            // Cerrar menú navbar en móviles
             const navbarToggler = document.querySelector('.navbar-toggler');
             const navbarCollapse = document.querySelector('.navbar-collapse');
             
@@ -1114,7 +1273,6 @@ if ($ruta_id > 0 && $puede_registrar) {
                 });
             }
             
-            // Manejar cambios de orientación
             function handleOrientationChange() {
                 const orientation = window.innerWidth > window.innerHeight ? 'landscape' : 'portrait';
                 document.body.setAttribute('data-orientation', orientation);
@@ -1124,19 +1282,16 @@ if ($ruta_id > 0 && $puede_registrar) {
             window.addEventListener('orientationchange', handleOrientationChange);
             window.addEventListener('resize', handleOrientationChange);
             
-            // Añadir clase para dispositivos táctiles
             if ('ontouchstart' in window || navigator.maxTouchPoints > 0) {
                 document.body.classList.add('touch-device');
             }
             
-            // Mejorar scroll en iOS
             if (/iPad|iPhone|iPod/.test(navigator.userAgent)) {
                 document.querySelectorAll('.table-responsive').forEach(container => {
                     container.style.webkitOverflowScrolling = 'touch';
                 });
             }
             
-            // Optimizar rendimiento en scroll
             let ticking = false;
             window.addEventListener('scroll', function() {
                 if (!ticking) {
@@ -1146,12 +1301,8 @@ if ($ruta_id > 0 && $puede_registrar) {
                     ticking = true;
                 }
             });
-            
-            console.log('Retornos cargados correctamente');
-            console.log('Ruta seleccionada:', <?php echo $ruta_id; ?>);
         });
         
-        // Validar retorno
         function validarRetorno(input) {
             const valor = parseFloat(input.value);
             const max = parseFloat(input.getAttribute('max'));
@@ -1174,14 +1325,12 @@ if ($ruta_id > 0 && $puede_registrar) {
             }
             
             if (usaUnitario) {
-                // Para precio unitario: solo enteros
                 if (valor !== Math.floor(valor)) {
                     alert('Para precio unitario solo se permiten cantidades enteras (1, 2, 3...)');
                     input.value = '';
                     return false;
                 }
             } else {
-                // Para precio por caja: enteros o con .5
                 const decimal = valor - Math.floor(valor);
                 
                 if (decimal !== 0 && decimal !== 0.5) {
@@ -1194,7 +1343,6 @@ if ($ruta_id > 0 && $puede_registrar) {
             return true;
         }
         
-        // Calcular vendido
         function calcularVendido(productoId) {
             const input = document.getElementById('retorno_' + productoId);
             const salida = parseFloat(input.getAttribute('data-salida'));
@@ -1212,21 +1360,16 @@ if ($ruta_id > 0 && $puede_registrar) {
             calcularResumen();
         }
         
-        // Mostrar ajustes
         function mostrarAjustes(productoId) {
             document.getElementById('ajustes_' + productoId).style.display = 'table-row';
             calcularVendido(productoId);
         }
         
-        // Ocultar ajustes
         function ocultarAjustes(productoId) {
             document.getElementById('ajustes_' + productoId).style.display = 'none';
             calcularResumen();
         }
         
-        // ============================================
-        // NUEVA FUNCIÓN: Agregar nuevo ajuste dinámicamente
-        // ============================================
         function agregarNuevoAjuste(productoId, usaUnitario) {
             const container = document.getElementById('ajustes_container_' + productoId);
             const index = contadorAjustes[productoId];
@@ -1277,14 +1420,9 @@ if ($ruta_id > 0 && $puede_registrar) {
             `;
             
             container.appendChild(nuevoAjuste);
-            
-            // Actualizar contador visual
             actualizarContadorAjustes(productoId);
         }
         
-        // ============================================
-        // NUEVA FUNCIÓN: Eliminar ajuste
-        // ============================================
         function eliminarAjuste(productoId, index) {
             const ajuste = document.getElementById('ajuste_' + productoId + '_' + index);
             if (ajuste) {
@@ -1296,9 +1434,6 @@ if ($ruta_id > 0 && $puede_registrar) {
             }
         }
         
-        // ============================================
-        // NUEVA FUNCIÓN: Actualizar contador visual
-        // ============================================
         function actualizarContadorAjustes(productoId) {
             const contador = document.getElementById('contador_ajustes_' + productoId);
             if (contador) {
@@ -1311,7 +1446,6 @@ if ($ruta_id > 0 && $puede_registrar) {
             }
         }
         
-        // Validar cantidad de ajuste
         function validarCantidadAjuste(input, productoId) {
             const valor = parseFloat(input.value);
             const usaUnitario = input.step === '1';
@@ -1327,14 +1461,12 @@ if ($ruta_id > 0 && $puede_registrar) {
             }
             
             if (usaUnitario) {
-                // Para precio unitario: solo enteros
                 if (valor !== Math.floor(valor)) {
                     alert('Para precio unitario solo se permiten cantidades enteras');
                     input.value = '';
                     return false;
                 }
             } else {
-                // Para precio por caja: enteros o con .5
                 const decimal = valor - Math.floor(valor);
                 if (decimal !== 0 && decimal !== 0.5) {
                     alert('Solo se permiten cantidades enteras o con .5');
@@ -1343,14 +1475,12 @@ if ($ruta_id > 0 && $puede_registrar) {
                 }
             }
             
-            // Verificar que no supere el vendido
             const retornoInput = document.getElementById('retorno_' + productoId);
             const salida = parseFloat(retornoInput.getAttribute('data-salida'));
             const recarga = parseFloat(retornoInput.getAttribute('data-recarga'));
             const retorno = parseFloat(retornoInput.value) || 0;
             const vendido = (salida + recarga) - retorno;
             
-            // Sumar todos los ajustes
             const ajustesInputs = document.querySelectorAll(`input[name^="ajustes[${productoId}]"][name$="[cantidad]"]`);
             let totalAjustes = 0;
             ajustesInputs.forEach(inp => {
@@ -1369,7 +1499,6 @@ if ($ruta_id > 0 && $puede_registrar) {
             return true;
         }
         
-        // Calcular total con ajustes
         function calcularTotalConAjustes(productoId) {
             const retornoInput = document.getElementById('retorno_' + productoId);
             const precio = parseFloat(retornoInput.getAttribute('data-precio'));
@@ -1381,7 +1510,6 @@ if ($ruta_id > 0 && $puede_registrar) {
             let totalVenta = 0;
             let cantidadConAjustes = 0;
             
-            // Obtener TODOS los ajustes
             const ajustesCantidad = document.querySelectorAll(`input[name^="ajustes[${productoId}]"][name$="[cantidad]"]`);
             const ajustesPrecio = document.querySelectorAll(`input[name^="ajustes[${productoId}]"][name$="[precio]"]`);
             
@@ -1395,13 +1523,11 @@ if ($ruta_id > 0 && $puede_registrar) {
                 }
             });
             
-            // Cantidad con precio normal
             const cantidadPrecioNormal = vendido - cantidadConAjustes;
             if (cantidadPrecioNormal > 0) {
                 totalVenta += cantidadPrecioNormal * precio;
             }
             
-            // Actualizar display
             const totalElement = document.getElementById('total_ajustes_' + productoId);
             if (totalElement) {
                 totalElement.textContent = formatearDinero(totalVenta);
@@ -1410,7 +1536,6 @@ if ($ruta_id > 0 && $puede_registrar) {
             calcularResumen();
         }
         
-        // Calcular resumen
         function calcularResumen() {
             const inputs = document.querySelectorAll('.retorno-input');
             let resumenHTML = '';
@@ -1429,11 +1554,8 @@ if ($ruta_id > 0 && $puede_registrar) {
                     let cantidadConAjustes = 0;
                     let detalleAjustes = '';
                     
-                    // Obtener TODOS los ajustes
                     const ajustesCantidad = document.querySelectorAll(`input[name^="ajustes[${productoId}]"][name$="[cantidad]"]`);
-                    const ajustesPrecio = document.querySelectorAll(`input[name^="ajustes[${productoId}]"][name$="[precio]"]`);
-                    
-                    let ajustesTexto = [];
+                    const ajustesPrecio = document.querySelectorAll(`input[name^="ajustes[${productoId}]"][name$="[precio]"]`);let ajustesTexto = [];
                     
                     ajustesCantidad.forEach((inputCantidad, index) => {
                         const cantidad = parseFloat(inputCantidad.value) || 0;
@@ -1446,7 +1568,6 @@ if ($ruta_id > 0 && $puede_registrar) {
                         }
                     });
                     
-                    // Cantidad con precio normal
                     const cantidadPrecioNormal = vendido - cantidadConAjustes;
                     if (cantidadPrecioNormal > 0) {
                         totalVenta += cantidadPrecioNormal * precio;
@@ -1456,7 +1577,6 @@ if ($ruta_id > 0 && $puede_registrar) {
                         detalleAjustes = ` <small class="text-muted">(${ajustesTexto.join(', ')} con ajuste)</small>`;
                     }
                     
-                    // Obtener nombre del producto
                     const nombreProducto = input.closest('tr').querySelector('strong').textContent;
                     
                     resumenHTML += `
@@ -1479,12 +1599,10 @@ if ($ruta_id > 0 && $puede_registrar) {
             document.getElementById('total_general_ventas').textContent = formatearDinero(totalGeneral);
         }
         
-        // Validación del formulario - MODIFICADA PARA PERMITIR REGISTRAR SIN RETORNOS
         document.getElementById('formRetornos')?.addEventListener('submit', function(e) {
             const inputs = document.querySelectorAll('.retorno-input');
             let todosValidos = true;
             
-            // Validar que los retornos ingresados sean válidos
             inputs.forEach(input => {
                 const valor = parseFloat(input.value) || 0;
                 if (valor > 0) {
@@ -1499,7 +1617,6 @@ if ($ruta_id > 0 && $puede_registrar) {
                 return false;
             }
             
-            // Validar que los ajustes sean correctos
             let ajustesValidos = true;
             
             inputs.forEach(input => {
@@ -1512,14 +1629,12 @@ if ($ruta_id > 0 && $puede_registrar) {
                     const cantidad = parseFloat(inputCantidad.value) || 0;
                     const precio = parseFloat(ajustesPrecio[index].value) || 0;
                     
-                    // Si hay cantidad, debe haber precio
                     if (cantidad > 0 && precio <= 0) {
                         alert('Si ingresa cantidad de ajuste, debe ingresar también el precio ajustado');
                         ajustesValidos = false;
                         return;
                     }
                     
-                    // Si hay precio, debe haber cantidad
                     if (precio > 0 && cantidad <= 0) {
                         alert('Si ingresa precio ajustado, debe ingresar también la cantidad');
                         ajustesValidos = false;
@@ -1533,11 +1648,9 @@ if ($ruta_id > 0 && $puede_registrar) {
                 return false;
             }
             
-            // Limpiar la confirmación después de guardar
             const rutaId = document.querySelector('[name="ruta_id"]').value;
             sessionStorage.removeItem('confirmoEdicionRetorno_' + rutaId);
             
-            // CAMBIO: Mensaje de confirmación diferente si no hay retornos
             let hayRetornos = false;
             inputs.forEach(input => {
                 if (parseFloat(input.value) > 0) {
@@ -1546,9 +1659,9 @@ if ($ruta_id > 0 && $puede_registrar) {
             });
             
             if (hayRetornos) {
-                return confirm('¿Está seguro de registrar estos retornos? Esta acción finalizará el proceso del día.');
+                return confirm('¿Está seguro de registrar estos retornos? Esta acción finalizará el proceso del día y creará la liquidación consolidada.');
             } else {
-                return confirm('No hay productos para retornar (se vendió todo). ¿Desea finalizar el registro del día?');
+                return confirm('No hay productos para retornar (se vendió todo). ¿Desea finalizar el registro del día y crear la liquidación?');
             }
         });
     </script>

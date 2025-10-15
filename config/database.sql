@@ -40,13 +40,55 @@ CREATE TABLE IF NOT EXISTS `ajustes_precios` (
 
 -- Volcando datos para la tabla distribuidora_lorena.ajustes_precios: ~0 rows (aproximadamente)
 
+-- Volcando estructura para tabla distribuidora_lorena.liquidaciones
+CREATE TABLE IF NOT EXISTS `liquidaciones` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `ruta_id` int NOT NULL,
+  `fecha` date NOT NULL,
+  `total_general` decimal(10,2) NOT NULL,
+  `usuario_id` int NOT NULL,
+  `fecha_liquidacion` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `unique_ruta_fecha` (`ruta_id`,`fecha`),
+  KEY `ruta_id` (`ruta_id`),
+  KEY `usuario_id` (`usuario_id`),
+  CONSTRAINT `liquidaciones_ibfk_1` FOREIGN KEY (`ruta_id`) REFERENCES `rutas` (`id`),
+  CONSTRAINT `liquidaciones_ibfk_2` FOREIGN KEY (`usuario_id`) REFERENCES `usuarios` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Volcando datos para la tabla distribuidora_lorena.liquidaciones: ~0 rows (aproximadamente)
+
+-- Volcando estructura para tabla distribuidora_lorena.liquidaciones_detalle
+CREATE TABLE IF NOT EXISTS `liquidaciones_detalle` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `liquidacion_id` int NOT NULL,
+  `producto_id` int NOT NULL,
+  `producto_nombre` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `salida` decimal(10,1) NOT NULL,
+  `recarga` decimal(10,1) NOT NULL,
+  `retorno` decimal(10,1) NOT NULL,
+  `vendido` decimal(10,1) NOT NULL,
+  `precio_usado` decimal(10,2) NOT NULL,
+  `usa_precio_unitario` tinyint(1) NOT NULL DEFAULT '0',
+  `tiene_ajustes` tinyint(1) NOT NULL DEFAULT '0',
+  `detalle_ajustes` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
+  `total_producto` decimal(10,2) NOT NULL,
+  PRIMARY KEY (`id`),
+  KEY `liquidacion_id` (`liquidacion_id`),
+  KEY `producto_id` (`producto_id`),
+  CONSTRAINT `liquidaciones_detalle_ibfk_1` FOREIGN KEY (`liquidacion_id`) REFERENCES `liquidaciones` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `liquidaciones_detalle_ibfk_2` FOREIGN KEY (`producto_id`) REFERENCES `productos` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Volcando datos para la tabla distribuidora_lorena.liquidaciones_detalle: ~0 rows (aproximadamente)
+
 -- Volcando estructura para tabla distribuidora_lorena.productos
 CREATE TABLE IF NOT EXISTS `productos` (
   `id` int NOT NULL AUTO_INCREMENT,
-  `nombre` varchar(200) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `nombre` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
   `precio_caja` decimal(10,2) NOT NULL DEFAULT '1.00',
   `precio_unitario` decimal(10,2) DEFAULT NULL,
-  `tipo` enum('Big Cola','Varios','Ambos') COLLATE utf8mb4_unicode_ci NOT NULL,
+  `tipo` enum('Big Cola','Varios','Ambos') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
   `activo` tinyint(1) DEFAULT '1',
   `fecha_creacion` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`)
@@ -161,44 +203,15 @@ CREATE TABLE IF NOT EXISTS `retornos` (
   CONSTRAINT `retornos_ibfk_1` FOREIGN KEY (`ruta_id`) REFERENCES `rutas` (`id`),
   CONSTRAINT `retornos_ibfk_2` FOREIGN KEY (`producto_id`) REFERENCES `productos` (`id`),
   CONSTRAINT `retornos_ibfk_3` FOREIGN KEY (`usuario_id`) REFERENCES `usuarios` (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=29 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Volcando datos para la tabla distribuidora_lorena.retornos: ~27 rows (aproximadamente)
-INSERT INTO `retornos` (`id`, `ruta_id`, `producto_id`, `cantidad`, `usa_precio_unitario`, `precio_usado`, `fecha`, `usuario_id`, `fecha_registro`) VALUES
-	(1, 1, 63, 1.0, 0, 5.00, '2025-10-10', 1, '2025-10-10 17:01:42'),
-	(2, 1, 3, 1.0, 0, 8.00, '2025-10-10', 1, '2025-10-10 17:01:42'),
-	(3, 1, 1, 10.0, 0, 0.90, '2025-10-10', 1, '2025-10-10 17:01:42'),
-	(4, 1, 4, 18.0, 1, 1.00, '2025-10-10', 1, '2025-10-10 17:01:42'),
-	(5, 1, 5, 2.0, 0, 10.00, '2025-10-10', 1, '2025-10-10 17:01:42'),
-	(6, 1, 6, 4.0, 1, 2.25, '2025-10-10', 1, '2025-10-10 17:01:42'),
-	(7, 1, 7, 2.0, 0, 1.00, '2025-10-10', 1, '2025-10-10 17:01:42'),
-	(8, 1, 8, 1.0, 0, 3.00, '2025-10-10', 1, '2025-10-10 17:01:42'),
-	(9, 1, 9, 6.0, 0, 2.85, '2025-10-10', 1, '2025-10-10 17:01:42'),
-	(10, 1, 10, 3.0, 0, 3.95, '2025-10-10', 1, '2025-10-10 17:01:42'),
-	(11, 1, 11, 1.0, 0, 11.55, '2025-10-10', 1, '2025-10-10 17:01:42'),
-	(12, 1, 14, 3.0, 0, 13.50, '2025-10-10', 1, '2025-10-10 17:01:42'),
-	(13, 1, 16, 1.0, 0, 5.85, '2025-10-10', 1, '2025-10-10 17:01:42'),
-	(14, 1, 17, 1.0, 0, 8.55, '2025-10-10', 1, '2025-10-10 17:01:42'),
-	(15, 1, 18, 3.0, 0, 5.75, '2025-10-10', 1, '2025-10-10 17:01:42'),
-	(16, 1, 21, 1.0, 0, 22.10, '2025-10-10', 1, '2025-10-10 17:01:42'),
-	(17, 1, 64, 2.0, 0, 10.00, '2025-10-10', 1, '2025-10-10 17:01:42'),
-	(18, 1, 22, 1.0, 0, 5.00, '2025-10-10', 1, '2025-10-10 17:01:42'),
-	(19, 1, 23, 3.0, 0, 5.00, '2025-10-10', 1, '2025-10-10 17:01:42'),
-	(20, 1, 24, 1.0, 0, 9.60, '2025-10-10', 1, '2025-10-10 17:01:42'),
-	(21, 1, 26, 2.0, 0, 3.50, '2025-10-10', 1, '2025-10-10 17:01:42'),
-	(22, 1, 29, 1.0, 0, 7.25, '2025-10-10', 1, '2025-10-10 17:01:42'),
-	(23, 1, 30, 1.0, 0, 9.75, '2025-10-10', 1, '2025-10-10 17:01:42'),
-	(24, 1, 31, 2.0, 0, 10.00, '2025-10-10', 1, '2025-10-10 17:01:42'),
-	(25, 1, 32, 6.0, 1, 2.00, '2025-10-10', 1, '2025-10-10 17:01:42'),
-	(26, 1, 33, 1.0, 0, 5.00, '2025-10-10', 1, '2025-10-10 17:01:42'),
-	(27, 1, 34, 4.0, 0, 2.50, '2025-10-10', 1, '2025-10-10 17:01:42'),
-	(28, 2, 1, 10.0, 0, 0.90, '2025-10-10', 1, '2025-10-10 18:43:48');
+-- Volcando datos para la tabla distribuidora_lorena.retornos: ~0 rows (aproximadamente)
 
 -- Volcando estructura para tabla distribuidora_lorena.rutas
 CREATE TABLE IF NOT EXISTS `rutas` (
   `id` int NOT NULL AUTO_INCREMENT,
-  `nombre` varchar(100) COLLATE utf8mb4_unicode_ci NOT NULL,
-  `descripcion` text COLLATE utf8mb4_unicode_ci,
+  `nombre` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `descripcion` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
   `activo` tinyint(1) DEFAULT '1',
   `fecha_creacion` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`)
@@ -230,61 +243,22 @@ CREATE TABLE IF NOT EXISTS `salidas` (
   CONSTRAINT `salidas_ibfk_1` FOREIGN KEY (`ruta_id`) REFERENCES `rutas` (`id`),
   CONSTRAINT `salidas_ibfk_2` FOREIGN KEY (`producto_id`) REFERENCES `productos` (`id`),
   CONSTRAINT `salidas_ibfk_3` FOREIGN KEY (`usuario_id`) REFERENCES `usuarios` (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=73 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Volcando datos para la tabla distribuidora_lorena.salidas: ~35 rows (aproximadamente)
-INSERT INTO `salidas` (`id`, `ruta_id`, `producto_id`, `cantidad`, `usa_precio_unitario`, `precio_usado`, `fecha`, `usuario_id`, `fecha_registro`) VALUES
-	(35, 1, 63, 1.0, 0, 5.00, '2025-10-10', 1, '2025-10-10 16:46:23'),
-	(36, 1, 3, 2.0, 0, 8.00, '2025-10-10', 1, '2025-10-10 16:46:23'),
-	(37, 1, 1, 300.0, 0, 0.90, '2025-10-10', 1, '2025-10-10 16:46:23'),
-	(38, 1, 4, 24.0, 1, 1.00, '2025-10-10', 1, '2025-10-10 16:46:23'),
-	(39, 1, 5, 2.0, 0, 10.00, '2025-10-10', 1, '2025-10-10 16:46:23'),
-	(40, 1, 6, 5.0, 1, 2.25, '2025-10-10', 1, '2025-10-10 16:46:23'),
-	(41, 1, 7, 2.0, 0, 1.00, '2025-10-10', 1, '2025-10-10 16:46:23'),
-	(42, 1, 8, 2.0, 0, 3.00, '2025-10-10', 1, '2025-10-10 16:46:23'),
-	(43, 1, 9, 10.0, 0, 2.85, '2025-10-10', 1, '2025-10-10 16:46:23'),
-	(44, 1, 10, 3.0, 0, 3.95, '2025-10-10', 1, '2025-10-10 16:46:23'),
-	(45, 1, 11, 6.0, 0, 11.55, '2025-10-10', 1, '2025-10-10 16:46:23'),
-	(46, 1, 12, 4.0, 0, 8.50, '2025-10-10', 1, '2025-10-10 16:46:23'),
-	(47, 1, 13, 4.0, 0, 14.45, '2025-10-10', 1, '2025-10-10 16:46:23'),
-	(48, 1, 14, 6.0, 0, 13.50, '2025-10-10', 1, '2025-10-10 16:46:23'),
-	(49, 1, 16, 2.0, 0, 5.85, '2025-10-10', 1, '2025-10-10 16:46:23'),
-	(50, 1, 17, 1.0, 0, 8.55, '2025-10-10', 1, '2025-10-10 16:46:23'),
-	(51, 1, 18, 3.0, 0, 5.75, '2025-10-10', 1, '2025-10-10 16:46:23'),
-	(52, 1, 20, 1.0, 0, 3.00, '2025-10-10', 1, '2025-10-10 16:46:23'),
-	(53, 1, 21, 1.0, 0, 22.10, '2025-10-10', 1, '2025-10-10 16:46:23'),
-	(54, 1, 64, 3.5, 0, 10.00, '2025-10-10', 1, '2025-10-10 16:46:23'),
-	(55, 1, 22, 1.0, 0, 5.00, '2025-10-10', 1, '2025-10-10 16:46:23'),
-	(56, 1, 23, 4.0, 0, 5.00, '2025-10-10', 1, '2025-10-10 16:46:23'),
-	(57, 1, 24, 1.0, 0, 9.60, '2025-10-10', 1, '2025-10-10 16:46:23'),
-	(58, 1, 26, 2.0, 0, 3.50, '2025-10-10', 1, '2025-10-10 16:46:23'),
-	(59, 1, 27, 0.5, 0, 13.00, '2025-10-10', 1, '2025-10-10 16:46:23'),
-	(60, 1, 28, 1.0, 0, 8.15, '2025-10-10', 1, '2025-10-10 16:46:23'),
-	(61, 1, 66, 5.0, 0, 31.00, '2025-10-10', 1, '2025-10-10 16:46:23'),
-	(62, 1, 29, 2.0, 0, 7.25, '2025-10-10', 1, '2025-10-10 16:46:23'),
-	(63, 1, 30, 2.0, 0, 9.75, '2025-10-10', 1, '2025-10-10 16:46:23'),
-	(64, 1, 31, 2.0, 0, 10.00, '2025-10-10', 1, '2025-10-10 16:46:23'),
-	(65, 1, 65, 0.5, 0, 13.00, '2025-10-10', 1, '2025-10-10 16:46:23'),
-	(66, 1, 32, 6.0, 1, 2.00, '2025-10-10', 1, '2025-10-10 16:46:23'),
-	(67, 1, 33, 1.0, 0, 5.00, '2025-10-10', 1, '2025-10-10 16:46:23'),
-	(68, 1, 34, 4.0, 0, 2.50, '2025-10-10', 1, '2025-10-10 16:46:23'),
-	(69, 1, 35, 1.0, 0, 5.00, '2025-10-10', 1, '2025-10-10 16:46:23'),
-	(70, 2, 1, 300.0, 0, 0.90, '2025-10-10', 1, '2025-10-10 18:42:48'),
-	(71, 2, 12, 4.0, 0, 8.50, '2025-10-10', 1, '2025-10-10 18:42:48'),
-	(72, 2, 31, 2.0, 0, 10.00, '2025-10-10', 1, '2025-10-10 18:42:48');
+-- Volcando datos para la tabla distribuidora_lorena.salidas: ~0 rows (aproximadamente)
 
 -- Volcando estructura para tabla distribuidora_lorena.usuarios
 CREATE TABLE IF NOT EXISTS `usuarios` (
   `id` int NOT NULL AUTO_INCREMENT,
-  `usuario` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL,
-  `password` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
-  `nombre` varchar(100) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `usuario` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `password` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `nombre` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
   `fecha_creacion` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   UNIQUE KEY `usuario` (`usuario`)
 ) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Volcando datos para la tabla distribuidora_lorena.usuarios: ~0 rows (aproximadamente)
+-- Volcando datos para la tabla distribuidora_lorena.usuarios: ~1 rows (aproximadamente)
 INSERT INTO `usuarios` (`id`, `usuario`, `password`, `nombre`, `fecha_creacion`) VALUES
 	(1, 'admin', '$2y$10$p2/SmOSAarh5ME2q7BBI7.imG2YvGtXdcduROPg5b0LG/U.3LrwMO', 'Administrador', '2025-10-03 21:25:07');
 

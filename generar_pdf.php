@@ -28,14 +28,81 @@ if ($generar && $ruta_id > 0) {
         die("Ruta no encontrada");
     }
     
-    // Obtener productos vendidos
-    $productos_vendidos = calcularVentas($conn, $ruta_id, $fecha);
+    // ============================================
+    // NUEVA LÓGICA: Leer desde tabla liquidaciones
+    // ============================================
     
-    // Calcular total general
-    $total_general = 0;
-    foreach ($productos_vendidos as $producto) {
-        $total_general += $producto['total_dinero'];
+    // Verificar si existe liquidación para esta ruta y fecha
+    $stmt_liquidacion = $conn->prepare("SELECT id, total_general, fecha_liquidacion FROM liquidaciones WHERE ruta_id = ? AND fecha = ?");
+    $stmt_liquidacion->bind_param("is", $ruta_id, $fecha);
+    $stmt_liquidacion->execute();
+    $result_liquidacion = $stmt_liquidacion->get_result();
+    
+    if ($result_liquidacion->num_rows == 0) {
+        // No existe liquidación - mostrar mensaje
+        $stmt_liquidacion->close();
+        ?>
+        <!DOCTYPE html>
+        <html lang="es">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Liquidación No Encontrada</title>
+            <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+        </head>
+        <body>
+            <div class="container mt-5">
+                <div class="alert alert-warning text-center">
+                    <h3><i class="fas fa-exclamation-triangle"></i> Liquidación No Encontrada</h3>
+                    <p>No existe una liquidación registrada para la ruta <strong><?php echo $ruta['nombre']; ?></strong> en la fecha <strong><?php echo date('d/m/Y', strtotime($fecha)); ?></strong>.</p>
+                    <p>Por favor, asegúrese de haber completado el registro de salidas, recargas y retornos para esta fecha.</p>
+                    <a href="generar_pdf.php" class="btn btn-primary mt-3">Volver</a>
+                </div>
+            </div>
+        </body>
+        </html>
+        <?php
+        closeConnection($conn);
+        exit();
     }
+    
+    $liquidacion = $result_liquidacion->fetch_assoc();
+    $liquidacion_id = $liquidacion['id'];
+    $total_general = $liquidacion['total_general'];
+    $fecha_liquidacion = $liquidacion['fecha_liquidacion'];
+    $stmt_liquidacion->close();
+    
+    // Obtener detalles de la liquidación
+    $stmt_detalle = $conn->prepare("SELECT * FROM liquidaciones_detalle WHERE liquidacion_id = ? ORDER BY producto_nombre");
+    $stmt_detalle->bind_param("i", $liquidacion_id);
+    $stmt_detalle->execute();
+    $result_detalle = $stmt_detalle->get_result();
+    
+    $productos_vendidos = [];
+    while ($detalle = $result_detalle->fetch_assoc()) {
+        // Decodificar ajustes desde JSON
+        $ajustes = [];
+        if ($detalle['tiene_ajustes'] && !empty($detalle['detalle_ajustes'])) {
+            $ajustes = json_decode($detalle['detalle_ajustes'], true);
+            if (!is_array($ajustes)) {
+                $ajustes = [];
+            }
+        }
+        
+        $productos_vendidos[] = [
+            'id' => $detalle['producto_id'],
+            'nombre' => $detalle['producto_nombre'],
+            'salida' => floatval($detalle['salida']),
+            'recarga' => floatval($detalle['recarga']),
+            'retorno' => floatval($detalle['retorno']),
+            'vendido' => floatval($detalle['vendido']),
+            'precio' => floatval($detalle['precio_usado']),
+            'usa_precio_unitario' => (bool)$detalle['usa_precio_unitario'],
+            'total_dinero' => floatval($detalle['total_producto']),
+            'ajustes' => $ajustes
+        ];
+    }
+    $stmt_detalle->close();
     
     // Generar PDF
     header('Content-Type: text/html; charset=utf-8');
@@ -283,9 +350,6 @@ if ($generar && $ruta_id > 0) {
                 background: #7f8c8d;
             }
             
-            /* ============================================
-               NUEVOS ESTILOS PARA MÚLTIPLES AJUSTES
-               ============================================ */
             .ajustes-info {
                 background: #fff3cd;
                 padding: 4px 6px;
@@ -309,24 +373,22 @@ if ($generar && $ruta_id > 0) {
                 border-radius: 2px;
             }
             
-            .ajuste-descripcion {
-                color: #666;
-                font-style: italic;
-                margin-left: 4px;
-            }
-            
             .nombre-producto {
                 font-weight: 600;
                 color: #2c3e50;
                 font-size: 9px;
             }
             
-            .precio-tipo-badge {
-                display: block;
-                margin-top: 2px;
+            .badge-liquidacion {
+                background: #28a745;
+                color: white;
+                padding: 5px 10px;
+                border-radius: 15px;
+                font-size: 9px;
+                display: inline-block;
+                margin-left: 10px;
             }
             
-            /* Ajustes para que quepa todo en una página */
             @media print {
                 body {
                     background: white;
@@ -379,7 +441,9 @@ if ($generar && $ruta_id > 0) {
             
             <div class="header">
                 <h1>DISTRIBUIDORA LORENA</h1>
-                <h2>Control Diario de Salidas y Retornos</h2>
+                <h2>Control Diario de Salidas y Retornos 
+                    <span class="badge-liquidacion">✓ LIQUIDACIÓN CONSOLIDADA</span>
+                </h2>
             </div>
             
             <div class="info-section">
@@ -392,11 +456,14 @@ if ($generar && $ruta_id > 0) {
                     <span><?php echo date('d/m/Y', strtotime($fecha)); ?></span>
                 </div>
                 <div class="info-item">
+                    <strong>LIQUIDADO:</strong>
+                    <span><?php echo date('d/m/Y H:i', strtotime($fecha_liquidacion)); ?></span>
+                </div>
+                <div class="info-item">
                     <strong>GENERADO:</strong>
                     <span><?php echo date('d/m/Y H:i'); ?></span>
                 </div>
             </div>
-            
             <?php if (count($productos_vendidos) > 0): ?>
                 <table>
                     <thead>
@@ -422,10 +489,7 @@ if ($generar && $ruta_id > 0) {
                                             <strong>⚠️ Ajustes de Precio (<?php echo count($producto['ajustes']); ?>):</strong>
                                             <?php foreach ($producto['ajustes'] as $ajuste): ?>
                                                 <span class="ajuste-item">
-                                                    • <?php echo $ajuste['cantidad']; ?> paq. × <?php echo formatearDinero($ajuste['precio_ajustado']); ?> = <?php echo formatearDinero($ajuste['cantidad'] * $ajuste['precio_ajustado']); ?>
-                                                    <?php if (!empty($ajuste['descripcion'])): ?>
-                                                        <span class="ajuste-descripcion">(<?php echo htmlspecialchars($ajuste['descripcion']); ?>)</span>
-                                                    <?php endif; ?>
+                                                    • <?php echo $ajuste['cantidad']; ?> × <?php echo formatearDinero($ajuste['precio_ajustado']); ?> = <?php echo formatearDinero($ajuste['cantidad'] * $ajuste['precio_ajustado']); ?>
                                                 </span>
                                             <?php endforeach; ?>
                                             
@@ -439,7 +503,7 @@ if ($generar && $ruta_id > 0) {
                                             if ($cantidad_precio_normal > 0):
                                             ?>
                                                 <span class="ajuste-item">
-                                                    • <?php echo $cantidad_precio_normal; ?> paq. × <?php echo formatearDinero($producto['precio']); ?> = <?php echo formatearDinero($cantidad_precio_normal * $producto['precio']); ?> (Precio normal)
+                                                    • <?php echo $cantidad_precio_normal; ?> × <?php echo formatearDinero($producto['precio']); ?> = <?php echo formatearDinero($cantidad_precio_normal * $producto['precio']); ?> (Precio normal)
                                                 </span>
                                             <?php endif; ?>
                                         </div>
@@ -506,11 +570,15 @@ if ($generar && $ruta_id > 0) {
                             </p>
                         <?php endif; ?>
                     <?php endif; ?>
+                    <p style="margin-top: 8px; padding: 5px; background: #d4edda; border-radius: 3px; color: #155724;">
+                        <strong>✓ LIQUIDACIÓN CONSOLIDADA:</strong> Este documento refleja la liquidación guardada el <?php echo date('d/m/Y H:i', strtotime($fecha_liquidacion)); ?>. 
+                        Los datos están congelados y NO se actualizarán aunque cambien los precios en el catálogo.
+                    </p>
                 </div>
             <?php else: ?>
                 <div style="text-align: center; padding: 30px; color: #999;">
-                    <h3>No hay registros de ventas para esta ruta en la fecha seleccionada</h3>
-                    <p>Por favor, verifique que haya salidas y retornos registrados.</p>
+                    <h3>No hay registros de ventas en esta liquidación</h3>
+                    <p>Esta liquidación no contiene productos vendidos.</p>
                 </div>
             <?php endif; ?>
         </div>
@@ -601,6 +669,11 @@ if ($generar && $ruta_id > 0) {
                 <i class="fas fa-file-pdf"></i> Generar Reporte PDF
             </h1>
             
+            <div class="alert alert-success alert-custom">
+                <i class="fas fa-check-circle"></i>
+                <strong>🆕 SISTEMA MEJORADO:</strong> Los reportes ahora se generan desde liquidaciones consolidadas guardadas automáticamente.
+            </div>
+            
             <div class="alert alert-info alert-custom">
                 <i class="fas fa-info-circle"></i>
                 <strong>Instrucciones:</strong> Seleccione la ruta y fecha para generar el reporte de liquidación en formato PDF optimizado para tamaño carta.
@@ -649,54 +722,51 @@ if ($generar && $ruta_id > 0) {
                     
                     <!-- Información adicional -->
                     <div class="card mt-4">
-                        <div class="card-header bg-primary text-white">
-                            <h5 class="mb-0"><i class="fas fa-question-circle"></i> Información del Reporte</h5>
+                        <div class="card-header bg-success text-white">
+                            <h5 class="mb-0"><i class="fas fa-check-circle"></i> Nueva Funcionalidad: Liquidaciones Consolidadas</h5>
                         </div>
                         <div class="card-body">
-                            <h6 class="fw-bold">El reporte PDF incluirá:</h6>
+                            <h6 class="fw-bold">Ventajas del nuevo sistema:</h6>
+                            <ul>
+                                <li><strong>✓ Datos congelados:</strong> Al completar retornos, se guarda automáticamente la liquidación con todos los cálculos</li>
+                                <li><strong>✓ Reportes instantáneos:</strong> El PDF se genera en milisegundos leyendo datos ya calculados</li>
+                                <li><strong>✓ Integridad histórica garantizada:</strong> Los reportes NUNCA cambian aunque modifiques precios en el catálogo</li>
+                                <li><strong>✓ Múltiples ajustes de precio:</strong> Todos los ajustes se guardan en la liquidación</li>
+                                <li><strong>✓ Auditoría completa:</strong> Cada liquidación incluye fecha y hora exacta de registro</li>
+                            </ul>
+                            
+                            <div class="alert alert-success mt-3">
+                                <i class="fas fa-database"></i>
+                                <strong>Base de datos optimizada:</strong> Las liquidaciones se guardan en tablas dedicadas (<code>liquidaciones</code> y <code>liquidaciones_detalle</code>) para máximo rendimiento.
+                            </div>
+                            
+                            <h6 class="fw-bold mt-4">El reporte PDF incluirá:</h6>
                             <ul>
                                 <li>Nombre de la ruta y fecha de la liquidación</li>
-                                <li>Listado completo de productos con sus movimientos (Salida, Recarga, Retorno)</li>
+                                <li>Fecha y hora exacta de la liquidación</li>
+                                <li>Listado completo de productos con movimientos (Salida, Recarga, Retorno)</li>
                                 <li>Cantidad vendida por producto</li>
-                                <li><strong>Tipo de precio usado:</strong> Badge indicando si fue precio por CAJA o UNITARIO</li>
+                                <li>Tipo de precio usado (CAJA o UNITARIO)</li>
                                 <li>Precio unitario y total por producto</li>
-                                <li><strong>🆕 MÚLTIPLES ajustes de precios:</strong> Muestra TODOS los ajustes aplicados con sus descripciones</li>
-                                <li><strong>🆕 Desglose detallado:</strong> Cantidad × Precio para cada ajuste individual</li>
-                                <li><strong>🆕 Cálculo correcto:</strong> Suma todos los ajustes + cantidad con precio normal</li>
+                                <li><strong>TODOS los ajustes de precios</strong> con desglose detallado</li>
                                 <li>Total general de la liquidación</li>
                                 <li>Información del usuario que genera el reporte</li>
                             </ul>
                             
-                            <div class="alert alert-success mt-3">
-                                <i class="fas fa-check-circle"></i>
-                                <strong>Protección de datos históricos:</strong> Los reportes generados reflejan los precios y ajustes registrados en esa fecha específica. Actualizar precios en el catálogo NO afecta reportes anteriores.
+                            <div class="alert alert-info mt-3">
+                                <i class="fas fa-lightbulb"></i>
+                                <strong>Ejemplo:</strong> Si hoy completas los retornos de una ruta, el sistema automáticamente:
+                                <ol class="mt-2 mb-0">
+                                    <li>Calcula todos los totales con sus ajustes</li>
+                                    <li>Guarda la liquidación en la base de datos</li>
+                                    <li>Congela los datos para siempre</li>
+                                    <li>El reporte PDF se genera instantáneamente desde esos datos</li>
+                                </ol>
                             </div>
                             
                             <div class="alert alert-warning mt-3">
                                 <i class="fas fa-exclamation-triangle"></i>
-                                <strong>Nota:</strong> Asegúrese de haber registrado las salidas, recargas y retornos antes de generar el reporte.
-                            </div>
-                            
-                            <div class="alert alert-info mt-3">
-                                <i class="fas fa-lightbulb"></i>
-                                <strong>Ejemplo de ajustes múltiples:</strong>
-                                <br>Si vendió 4 Coca-Colas 3L:
-                                <ul class="mb-0 mt-2">
-                                    <li>2 unidades a $8.50 (precio normal)</li>
-                                    <li>1 unidad a $8.00 (descuento cliente)</li>
-                                    <li>1 unidad a $8.70 (precio especial)</li>
-                                </ul>
-                                El reporte mostrará cada ajuste desglosado con su cálculo individual.
-                            </div>
-                            
-                            <div class="alert alert-success mt-3">
-                                <i class="fas fa-check-circle"></i>
-                                <strong>Optimizado:</strong> El reporte está diseñado para caber completamente en una página tamaño carta al imprimir.
-                            </div>
-                            
-                            <div class="alert alert-info mt-3">
-                                <i class="fas fa-mobile-alt"></i>
-                                <strong>Compatible con dispositivos móviles:</strong> Puede generar reportes desde cualquier dispositivo. El reporte se abrirá en la misma ventana del navegador para una mejor experiencia.
+                                <strong>Nota:</strong> Solo puede generar reportes de rutas que tengan liquidación completada (salidas + retornos registrados).
                             </div>
                         </div>
                     </div>
