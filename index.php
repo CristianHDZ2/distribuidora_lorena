@@ -6,461 +6,157 @@ verificarSesion();
 
 $conn = getConnection();
 
-// Obtener estadísticas
-$total_rutas = $conn->query("SELECT COUNT(*) as total FROM rutas WHERE activo = 1")->fetch_assoc()['total'];
-$total_productos = $conn->query("SELECT COUNT(*) as total FROM productos WHERE activo = 1")->fetch_assoc()['total'];
-
-// Obtener rutas con su estado de progreso
-$fecha_hoy = date('Y-m-d');
-$rutas = $conn->query("SELECT * FROM rutas WHERE activo = 1 ORDER BY id");
-
-// Obtener estado de cada ruta
-$rutas_con_estado = [];
-while ($ruta = $rutas->fetch_assoc()) {
-    $ruta_id = $ruta['id'];
-    
-    $estado = obtenerEstadoRuta($conn, $ruta_id, $fecha_hoy);
-    
-    $ruta['estado'] = $estado['estado'];
-    $ruta['tiene_salida'] = $estado['tiene_salida'];
-    $ruta['tiene_recarga'] = $estado['tiene_recarga'];
-    $ruta['tiene_retorno'] = $estado['tiene_retorno'];
-    $ruta['tiene_liquidacion'] = $estado['tiene_liquidacion']; // AGREGADO
-    $ruta['completada'] = $estado['completada'];
-    
-    $rutas_con_estado[] = $ruta;
+// Obtener mensajes si existen
+$mensaje = '';
+$tipo_mensaje = '';
+if (isset($_GET['mensaje'])) {
+    $mensaje = $_GET['mensaje'];
+    $tipo_mensaje = $_GET['tipo'] ?? 'info';
 }
 
-closeConnection($conn);
+// Obtener estadísticas generales
+$stats = [
+    'total_rutas' => 0,
+    'total_productos' => 0,
+    'total_usuarios' => 0,
+    'stock_total' => 0,
+    'productos_stock_bajo' => 0,
+    'ventas_hoy' => 0,
+    'devoluciones_hoy' => 0
+];
+
+// Total de rutas activas
+$result = $conn->query("SELECT COUNT(*) as total FROM rutas WHERE activo = 1");
+$stats['total_rutas'] = $result->fetch_assoc()['total'];
+
+// Total de productos activos
+$result = $conn->query("SELECT COUNT(*) as total FROM productos WHERE activo = 1");
+$stats['total_productos'] = $result->fetch_assoc()['total'];
+
+// Total de usuarios
+$result = $conn->query("SELECT COUNT(*) as total FROM usuarios");
+$stats['total_usuarios'] = $result->fetch_assoc()['total'];
+
+// Stock total en inventario
+$result = $conn->query("SELECT SUM(stock_actual) as total FROM inventario");
+$row = $result->fetch_assoc();
+$stats['stock_total'] = $row['total'] ?? 0;
+
+// Productos con stock bajo (alertas)
+$result = $conn->query("
+    SELECT COUNT(*) as total 
+    FROM inventario i
+    INNER JOIN productos p ON i.producto_id = p.id
+    WHERE p.activo = 1 
+    AND i.stock_actual <= i.stock_minimo 
+    AND i.stock_minimo > 0
+");
+$stats['productos_stock_bajo'] = $result->fetch_assoc()['total'];
+
+// Ventas directas hoy
+$fecha_hoy = date('Y-m-d');
+$stmt = $conn->prepare("SELECT COUNT(*) as total FROM ventas_directas WHERE fecha = ?");
+$stmt->bind_param("s", $fecha_hoy);
+$stmt->execute();
+$stats['ventas_hoy'] = $stmt->get_result()->fetch_assoc()['total'];
+$stmt->close();
+
+// Devoluciones hoy
+$stmt = $conn->prepare("SELECT COUNT(*) as total FROM devoluciones_directas WHERE fecha = ?");
+$stmt->bind_param("s", $fecha_hoy);
+$stmt->execute();
+$stats['devoluciones_hoy'] = $stmt->get_result()->fetch_assoc()['total'];
+$stmt->close();
+
+// Obtener productos con stock bajo para alertas
+$query_alertas = "
+    SELECT 
+        p.id,
+        p.nombre,
+        p.tipo,
+        i.stock_actual,
+        i.stock_minimo
+    FROM productos p
+    INNER JOIN inventario i ON p.id = i.producto_id
+    WHERE p.activo = 1 
+    AND i.stock_actual <= i.stock_minimo 
+    AND i.stock_minimo > 0
+    ORDER BY i.stock_actual ASC
+    LIMIT 10
+";
+$alertas_stock = $conn->query($query_alertas);
+
+// Obtener últimas 5 liquidaciones
+$query_liquidaciones = "
+    SELECT 
+        l.id,
+        l.fecha,
+        l.total_general,
+        l.fecha_liquidacion,
+        r.nombre as ruta_nombre
+    FROM liquidaciones l
+    INNER JOIN rutas r ON l.ruta_id = r.id
+    ORDER BY l.fecha_liquidacion DESC
+    LIMIT 5
+";
+$liquidaciones_recientes = $conn->query($query_liquidaciones);
 ?>
 <!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard - Distribuidora LORENA</title>
+    <title>Inicio - Distribuidora LORENA</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="assets/css/custom.css">
     <style>
-        /* ============================================
-           ESTILOS RESPONSIVOS ESPECÍFICOS DEL INDEX
-           ============================================ */
-        
-        /* Cards de rutas mejorados */
-        .ruta-card {
+        .stat-card {
+            border-left: 4px solid;
+            transition: transform 0.2s;
             height: 100%;
-            transition: all 0.3s ease;
-            border: none;
-            border-radius: 12px;
-            overflow: hidden;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
         }
-        
-        .ruta-card:hover {
+        .stat-card:hover {
             transform: translateY(-5px);
-            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
         }
-        
-        .ruta-card .card-body {
-            padding: 20px;
+        .stat-card.primary {
+            border-left-color: #007bff;
         }
-        
-        @media (max-width: 767px) {
-            .ruta-card .card-body {
-                padding: 15px;
-            }
+        .stat-card.success {
+            border-left-color: #28a745;
         }
-        
-        @media (max-width: 480px) {
-            .ruta-card .card-body {
-                padding: 12px;
-            }
+        .stat-card.info {
+            border-left-color: #17a2b8;
         }
-        
-        .ruta-card .card-title {
-            font-size: 16px;
-            font-weight: 700;
-            margin-bottom: 10px;
+        .stat-card.warning {
+            border-left-color: #ffc107;
         }
-        
-        @media (max-width: 767px) {
-            .ruta-card .card-title {
-                font-size: 14px;
-            }
+        .stat-card.danger {
+            border-left-color: #dc3545;
         }
-        
-        @media (max-width: 480px) {
-            .ruta-card .card-title {
-                font-size: 13px;
-            }
-        }
-        
-        .ruta-card .card-text {
-            font-size: 13px;
-            margin-bottom: 15px;
-        }
-        
-        @media (max-width: 767px) {
-            .ruta-card .card-text {
-                font-size: 12px;
-                margin-bottom: 12px;
-            }
-        }
-        
-        @media (max-width: 480px) {
-            .ruta-card .card-text {
-                font-size: 11px;
-                margin-bottom: 10px;
-            }
-        }
-        
-        /* Botones de acción responsivos */
-        .btn-ruta-action {
-            font-size: 13px;
-            padding: 8px 15px;
-            border-radius: 6px;
-            white-space: nowrap;
-            transition: all 0.3s ease;
-            margin: 3px;
-        }
-        
-        @media (max-width: 991px) {
-            .btn-ruta-action {
-                font-size: 12px;
-                padding: 7px 12px;
-            }
-        }
-        
-        @media (max-width: 767px) {
-            .btn-ruta-action {
-                font-size: 11px;
-                padding: 6px 10px;
-                margin: 2px;
-            }
-        }
-        
-        @media (max-width: 480px) {
-            .btn-ruta-action {
-                font-size: 11px;
-                padding: 8px 10px;
-                width: 100%;
-                margin: 4px 0;
-                display: block;
-            }
-            
-            .btn-ruta-action i {
-                margin-right: 5px;
-            }
-        }
-        
-        /* Contenedor de botones flex */
-        .d-flex.gap-2.flex-wrap {
-            gap: 8px !important;
-        }
-        
-        @media (max-width: 767px) {
-            .d-flex.gap-2.flex-wrap {
-                gap: 6px !important;
-            }
-        }
-        
-        @media (max-width: 480px) {
-            .d-flex.gap-2.flex-wrap {
-                flex-direction: column !important;
-                gap: 0 !important;
-            }
-        }
-        
-        /* Accesos rápidos */
-        .acceso-rapido-card {
-            transition: all 0.3s ease;
-            text-decoration: none;
-            display: block;
+        .quick-action {
+            transition: all 0.3s;
             height: 100%;
         }
-        
-        .acceso-rapido-card .card {
-            height: 100%;
-            border-radius: 12px;
-            transition: all 0.3s ease;
-        }
-        
-        .acceso-rapido-card:hover .card {
+        .quick-action:hover {
             transform: translateY(-5px);
-            box-shadow: 0 5px 15px rgba(0,0,0,0.15);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        .alert-stock-item {
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        .alert-stock-item:hover {
+            background-color: #f8f9fa;
         }
         
-        .acceso-rapido-card .card-body {
-            padding: 25px;
-            text-align: center;
-        }
-        
-        @media (max-width: 991px) {
-            .acceso-rapido-card .card-body {
-                padding: 20px;
+        @media (max-width: 768px) {
+            .stat-card h3 {
+                font-size: 1.5rem;
             }
-        }
-        
-        @media (max-width: 767px) {
-            .acceso-rapido-card .card-body {
-                padding: 18px;
-            }
-        }
-        
-        @media (max-width: 480px) {
-            .acceso-rapido-card .card-body {
-                padding: 15px;
-            }
-        }
-        
-        .acceso-rapido-card i {
-            font-size: 3rem;
-            margin-bottom: 15px;
-        }
-        
-        @media (max-width: 991px) {
-            .acceso-rapido-card i {
-                font-size: 2.5rem;
-                margin-bottom: 12px;
-            }
-        }
-        
-        @media (max-width: 767px) {
-            .acceso-rapido-card i {
-                font-size: 2.2rem;
-                margin-bottom: 10px;
-            }
-        }
-        
-        @media (max-width: 480px) {
-            .acceso-rapido-card i {
-                font-size: 2rem;
-                margin-bottom: 8px;
-            }
-        }
-        
-        .acceso-rapido-card h6 {
-            color: #2c3e50;
-            font-weight: 600;
-            margin: 0;
-            font-size: 15px;
-        }
-        
-        @media (max-width: 991px) {
-            .acceso-rapido-card h6 {
-                font-size: 14px;
-            }
-        }
-        
-        @media (max-width: 767px) {
-            .acceso-rapido-card h6 {
-                font-size: 13px;
-            }
-        }
-        
-        @media (max-width: 480px) {
-            .acceso-rapido-card h6 {
-                font-size: 12px;
-            }
-        }
-        
-        /* Progress indicator responsivo */
-        .progress-indicator {
-            display: flex;
-            align-items: center;
-            gap: 5px;
-            margin-top: 10px;
-            justify-content: center;
-        }
-        
-        @media (max-width: 767px) {
-            .progress-indicator {
-                gap: 3px;
-                margin-top: 8px;
-            }
-        }
-        
-        @media (max-width: 480px) {
-            .progress-indicator {
-                gap: 2px;
-                margin-top: 6px;
-            }
-        }
-        
-        .progress-step {
-            width: 32px;
-            height: 32px;
-            border-radius: 50%;
-            background: #e0e0e0;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 14px;
-            color: #999;
-            transition: all 0.3s ease;
-        }
-        
-        @media (max-width: 767px) {
-            .progress-step {
-                width: 28px;
-                height: 28px;
-                font-size: 12px;
-            }
-        }
-        
-        @media (max-width: 480px) {
-            .progress-step {
-                width: 24px;
-                height: 24px;
-                font-size: 11px;
-            }
-        }
-        
-        .progress-step.completed {
-            background: #27ae60;
-            color: white;
-        }
-        
-        .progress-step.active {
-            background: #3498db;
-            color: white;
-            box-shadow: 0 0 10px rgba(52, 152, 219, 0.5);
-        }
-        
-        .progress-line {
-            flex: 1;
-            height: 3px;
-            background: #e0e0e0;
-            min-width: 15px;
-        }
-        
-        @media (max-width: 767px) {
-            .progress-line {
-                height: 2px;
-                min-width: 10px;
-            }
-        }
-        
-        @media (max-width: 480px) {
-            .progress-line {
-                min-width: 8px;
-            }
-        }
-        
-        .progress-line.completed {
-            background: #27ae60;
-        }
-        
-        /* Status badge responsivo */
-        .ruta-status-badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            padding: 6px 12px;
-            border-radius: 15px;
-            font-size: 12px;
-            font-weight: 600;
-            margin-top: 8px;
-        }
-        
-        @media (max-width: 767px) {
-            .ruta-status-badge {
-                padding: 5px 10px;
-                font-size: 11px;
-                gap: 5px;
-            }
-        }
-        
-        @media (max-width: 480px) {
-            .ruta-status-badge {
-                padding: 4px 8px;
-                font-size: 10px;
-                gap: 4px;
-            }
-        }
-        
-        .ruta-status-badge.pendiente {
-            background: #ffeaa7;
-            color: #d63031;
-        }
-        
-        .ruta-status-badge.en-proceso {
-            background: #74b9ff;
-            color: #0984e3;
-        }
-        
-        .ruta-status-badge.completada {
-            background: #55efc4;
-            color: #00b894;
-        }
-        
-        .ruta-status-badge i {
-            font-size: 14px;
-        }
-        
-        @media (max-width: 767px) {
-            .ruta-status-badge i {
-                font-size: 12px;
-            }
-        }
-        
-        @media (max-width: 480px) {
-            .ruta-status-badge i {
-                font-size: 11px;
-            }
-        }
-        
-        /* NUEVO: Estilo para alerta de error de liquidación */
-        .alert-liquidacion-error {
-            font-size: 11px;
-            padding: 8px 12px;
-            margin-bottom: 8px;
-            border-radius: 6px;
-            background: #f8d7da;
-            border: 1px solid #f5c2c7;
-            color: #842029;
-        }
-        
-        @media (max-width: 767px) {
-            .alert-liquidacion-error {
-                font-size: 10px;
-                padding: 6px 10px;
-            }
-        }
-        
-        @media (max-width: 480px) {
-            .alert-liquidacion-error {
-                font-size: 9px;
-                padding: 5px 8px;
-            }
-        }
-        
-        /* Grid de columnas responsivo */
-        @media (max-width: 767px) {
-            .col-md-6 {
+            .quick-action {
                 margin-bottom: 15px;
-            }
-        }
-        
-        @media (max-width: 480px) {
-            .col-md-6 {
-                margin-bottom: 12px;
-            }
-            
-            .col-md-4,
-            .col-sm-6 {
-                margin-bottom: 10px;
-            }
-        }
-        
-        /* Footer fijo en móviles */
-        @media (max-width: 480px) {
-            .footer-fixed {
-                position: relative;
-                bottom: 0;
-                left: 0;
-                right: 0;
             }
         }
     </style>
@@ -493,13 +189,37 @@ closeConnection($conn);
                         </a>
                     </li>
                     <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="navbarDropdownOperaciones" role="button" data-bs-toggle="dropdown">
                             <i class="fas fa-clipboard-list"></i> Operaciones
                         </a>
                         <ul class="dropdown-menu">
                             <li><a class="dropdown-item" href="salidas.php"><i class="fas fa-arrow-up"></i> Salidas</a></li>
                             <li><a class="dropdown-item" href="recargas.php"><i class="fas fa-sync"></i> Recargas</a></li>
                             <li><a class="dropdown-item" href="retornos.php"><i class="fas fa-arrow-down"></i> Retornos</a></li>
+                        </ul>
+                    </li>
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="navbarDropdownInventario" role="button" data-bs-toggle="dropdown">
+                            <i class="fas fa-warehouse"></i> Inventario
+                            <?php if ($stats['productos_stock_bajo'] > 0): ?>
+                                <span class="badge bg-danger"><?php echo $stats['productos_stock_bajo']; ?></span>
+                            <?php endif; ?>
+                        </a>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="inventario.php"><i class="fas fa-boxes"></i> Ver Inventario</a></li>
+                            <li><a class="dropdown-item" href="inventario_ingresos.php"><i class="fas fa-plus-circle"></i> Ingresos</a></li>
+                            <li><a class="dropdown-item" href="inventario_movimientos.php"><i class="fas fa-exchange-alt"></i> Movimientos</a></li>
+                            <li><a class="dropdown-item" href="inventario_danados.php"><i class="fas fa-exclamation-triangle"></i> Productos Dañados</a></li>
+                        </ul>
+                    </li>
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="navbarDropdownVentas" role="button" data-bs-toggle="dropdown">
+                            <i class="fas fa-shopping-cart"></i> Ventas
+                        </a>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="ventas_directas.php"><i class="fas fa-cash-register"></i> Ventas Directas</a></li>
+                            <li><a class="dropdown-item" href="devoluciones_directas.php"><i class="fas fa-undo"></i> Devoluciones</a></li>
+                            <li><a class="dropdown-item" href="consumo_interno.php"><i class="fas fa-utensils"></i> Consumo Interno</a></li>
                         </ul>
                     </li>
                     <li class="nav-item">
@@ -524,520 +244,309 @@ closeConnection($conn);
             <h1 class="page-title">
                 <i class="fas fa-chart-line"></i> Panel de Control
             </h1>
-            <p class="text-muted">Bienvenido, <strong><?php echo $_SESSION['nombre']; ?></strong></p>
+            <p class="text-muted">Bienvenido, <strong><?php echo htmlspecialchars($_SESSION['nombre']); ?></strong></p>
         </div>
 
         <!-- Mostrar mensajes si existen -->
-        <?php if (isset($_GET['mensaje'])): ?>
-            <div class="alert alert-<?php echo $_GET['tipo'] ?? 'info'; ?> alert-dismissible fade show" role="alert">
-                <?php echo htmlspecialchars($_GET['mensaje']); ?>
+        <?php if ($mensaje): ?>
+            <div class="alert alert-<?php echo $tipo_mensaje; ?> alert-dismissible fade show" role="alert">
+                <i class="fas fa-<?php echo $tipo_mensaje == 'success' ? 'check-circle' : ($tipo_mensaje == 'danger' ? 'exclamation-triangle' : 'info-circle'); ?>"></i>
+                <?php echo htmlspecialchars($mensaje); ?>
                 <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
             </div>
         <?php endif; ?>
 
-        <!-- Estadísticas -->
-        <div class="row">
-            <div class="col-lg-4 col-md-6 col-sm-6 mb-4">
-                <div class="summary-card" style="border-left-color: #3498db;">
-                    <h5><i class="fas fa-route"></i> Total Rutas</h5>
-                    <h3><?php echo $total_rutas; ?></h3>
+        <!-- Alertas de Stock Bajo -->
+        <?php if ($stats['productos_stock_bajo'] > 0): ?>
+            <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                <h5 class="alert-heading">
+                    <i class="fas fa-exclamation-triangle"></i> ¡Alerta de Stock Bajo!
+                </h5>
+                <p>
+                    Hay <strong><?php echo $stats['productos_stock_bajo']; ?></strong> producto(s) con stock igual o menor al mínimo establecido.
+                </p>
+                <hr>
+                <p class="mb-0">
+                    <strong>Productos con stock bajo:</strong>
+                </p>
+                <ul class="list-unstyled mt-2 mb-2">
+                    <?php while ($alerta = $alertas_stock->fetch_assoc()): ?>
+                        <li class="alert-stock-item p-2 rounded" onclick="window.location.href='inventario_ingresos.php?producto=<?php echo $alerta['id']; ?>'">
+                            <i class="fas fa-box text-danger me-2"></i>
+                            <strong><?php echo htmlspecialchars($alerta['nombre']); ?></strong>
+                            - Stock: <span class="badge bg-danger"><?php echo number_format($alerta['stock_actual'], 1); ?></span>
+                            / Mínimo: <span class="badge bg-secondary"><?php echo number_format($alerta['stock_minimo'], 1); ?></span>
+                            <i class="fas fa-arrow-right ms-2"></i>
+                        </li>
+                    <?php endwhile; ?>
+                </ul>
+                <a href="inventario.php" class="btn btn-sm btn-danger">
+                    <i class="fas fa-eye"></i> Ver Todos los Productos
+                </a>
+                <a href="inventario_ingresos.php" class="btn btn-sm btn-success">
+                    <i class="fas fa-plus-circle"></i> Registrar Ingreso
+                </a>
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        <?php endif; ?>
+
+        <!-- Estadísticas Generales -->
+        <div class="content-card">
+            <h3 class="mb-4">
+                <i class="fas fa-chart-bar"></i> Estadísticas Generales
+            </h3>
+            <div class="row">
+                <div class="col-lg-3 col-md-6 mb-4">
+                    <div class="card stat-card primary">
+                        <div class="card-body text-center">
+                            <i class="fas fa-route fa-3x text-primary mb-3"></i>
+                            <h3 class="mb-0"><?php echo $stats['total_rutas']; ?></h3>
+                            <p class="text-muted mb-0">Rutas Activas</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-3 col-md-6 mb-4">
+                    <div class="card stat-card success">
+                        <div class="card-body text-center">
+                            <i class="fas fa-box fa-3x text-success mb-3"></i>
+                            <h3 class="mb-0"><?php echo $stats['total_productos']; ?></h3>
+                            <p class="text-muted mb-0">Productos Activos</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-3 col-md-6 mb-4">
+                    <div class="card stat-card info">
+                        <div class="card-body text-center">
+                            <i class="fas fa-cubes fa-3x text-info mb-3"></i>
+                            <h3 class="mb-0"><?php echo number_format($stats['stock_total'], 1); ?></h3>
+                            <p class="text-muted mb-0">Stock Total</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-3 col-md-6 mb-4">
+                    <div class="card stat-card <?php echo $stats['productos_stock_bajo'] > 0 ? 'danger' : 'warning'; ?>">
+                        <div class="card-body text-center">
+                            <i class="fas fa-exclamation-triangle fa-3x text-<?php echo $stats['productos_stock_bajo'] > 0 ? 'danger' : 'warning'; ?> mb-3"></i>
+                            <h3 class="mb-0"><?php echo $stats['productos_stock_bajo']; ?></h3>
+                            <p class="text-muted mb-0">Alertas de Stock</p>
+                        </div>
+                    </div>
                 </div>
             </div>
-            <div class="col-lg-4 col-md-6 col-sm-6 mb-4">
-                <div class="summary-card" style="border-left-color: #27ae60;">
-                    <h5><i class="fas fa-box"></i> Total Productos</h5>
-                    <h3><?php echo $total_productos; ?></h3>
+
+            <!-- Estadísticas del Día -->
+            <div class="row mt-3">
+                <div class="col-lg-4 col-md-6 mb-4">
+                    <div class="card stat-card primary">
+                        <div class="card-body text-center">
+                            <i class="fas fa-cash-register fa-3x text-primary mb-3"></i>
+                            <h3 class="mb-0"><?php echo $stats['ventas_hoy']; ?></h3>
+                            <p class="text-muted mb-0">Ventas Directas Hoy</p>
+                        </div>
+                    </div>
                 </div>
-            </div>
-            <div class="col-lg-4 col-md-12 col-sm-12 mb-4">
-                <div class="summary-card" style="border-left-color: #f39c12;">
-                    <h5><i class="fas fa-calendar-day"></i> Fecha Actual</h5>
-                    <h3><?php echo date('d/m/Y'); ?></h3>
+                <div class="col-lg-4 col-md-6 mb-4">
+                    <div class="card stat-card warning">
+                        <div class="card-body text-center">
+                            <i class="fas fa-undo fa-3x text-warning mb-3"></i>
+                            <h3 class="mb-0"><?php echo $stats['devoluciones_hoy']; ?></h3>
+                            <p class="text-muted mb-0">Devoluciones Hoy</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-4 col-md-6 mb-4">
+                    <div class="card stat-card info">
+                        <div class="card-body text-center">
+                            <i class="fas fa-users fa-3x text-info mb-3"></i>
+                            <h3 class="mb-0"><?php echo $stats['total_usuarios']; ?></h3>
+                            <p class="text-muted mb-0">Usuarios del Sistema</p>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
 
-        <!-- Listado de Rutas -->
+        <!-- Acciones Rápidas -->
         <div class="content-card">
             <h3 class="mb-4">
-                <i class="fas fa-map-marked-alt"></i> Rutas Disponibles
+                <i class="fas fa-bolt"></i> Acciones Rápidas
             </h3>
             <div class="row">
-                <?php foreach ($rutas_con_estado as $ruta): ?>
-                    <div class="col-lg-6 col-md-6 col-sm-12 mb-3">
-                        <div class="card ruta-card h-100">
-                            <div class="card-body">
-                                <h5 class="card-title text-primary">
-                                    <i class="fas fa-map-pin"></i> <?php echo htmlspecialchars($ruta['nombre']); ?>
-                                </h5>
-                                <p class="card-text text-muted"><?php echo htmlspecialchars($ruta['descripcion']); ?></p>
-                                
-                                <!-- Estado de la ruta -->
-                                <?php if ($ruta['estado'] == 'pendiente'): ?>
-                                    <span class="ruta-status-badge pendiente">
-                                        <i class="fas fa-clock"></i> Pendiente
-                                    </span>
-                                <?php elseif ($ruta['estado'] == 'en-proceso'): ?>
-                                    <span class="ruta-status-badge en-proceso">
-                                        <i class="fas fa-spinner"></i> En Proceso
-                                    </span>
-                                <?php else: ?>
-                                    <span class="ruta-status-badge completada">
-                                        <i class="fas fa-check-circle"></i> Completada Hoy
-                                    </span>
-                                <?php endif; ?>
-                                
-                                <!-- Indicador de progreso -->
-                                <div class="progress-indicator">
-                                    <div class="progress-step <?php echo $ruta['tiene_salida'] ? 'completed' : ($ruta['estado'] == 'pendiente' ? 'active' : ''); ?>" title="Salida">
-                                        <i class="fas fa-arrow-up"></i>
-                                    </div>
-                                    <div class="progress-line <?php echo $ruta['tiene_salida'] ? 'completed' : ''; ?>"></div>
-                                    <div class="progress-step <?php echo $ruta['tiene_recarga'] ? 'completed' : ($ruta['tiene_salida'] && !$ruta['tiene_recarga'] ? 'active' : ''); ?>" title="Recarga">
-                                        <i class="fas fa-sync"></i>
-                                    </div>
-                                    <div class="progress-line <?php echo $ruta['tiene_recarga'] ? 'completed' : ''; ?>"></div>
-                                    <div class="progress-step <?php echo $ruta['tiene_retorno'] ? 'completed' : ($ruta['tiene_recarga'] && !$ruta['tiene_retorno'] ? 'active' : ''); ?>" title="Retorno">
-                                        <i class="fas fa-arrow-down"></i>
-                                    </div>
-                                </div>
-                                
-                                <!-- Botones de acción -->
-                                <div class="d-flex gap-2 flex-wrap mt-3">
-                                    <?php if ($ruta['completada'] && $ruta['tiene_liquidacion']): ?>
-                                        <!-- Solo mostrar botón de reporte si existe la liquidación -->
-                                        <a href="generar_pdf.php?ruta=<?php echo $ruta['id']; ?>&fecha=<?php echo $fecha_hoy; ?>&generar=1" 
-   class="btn btn-success btn-ruta-action">
-    <i class="fas fa-file-pdf"></i> Ver Reporte Final
-</a>
-                                    <?php elseif ($ruta['tiene_salida'] && $ruta['tiene_retorno'] && !$ruta['tiene_liquidacion']): ?>
-                                        <!-- Caso especial: tiene retorno pero NO tiene liquidación -->
-                                        <div class="alert alert-danger alert-liquidacion-error w-100 mb-2">
-                                            <i class="fas fa-exclamation-triangle"></i> 
-                                            <strong>ERROR:</strong> Los retornos se registraron pero la liquidación no se creó. 
-                                            Edite los retornos nuevamente para regenerar la liquidación.
-                                        </div>
-                                        <a href="retornos.php?ruta=<?php echo $ruta['id']; ?>" class="btn btn-danger btn-ruta-action">
-                                            <i class="fas fa-exclamation-triangle"></i> Regenerar Liquidación
-                                        </a>
-                                    <?php else: ?>
-                                        <!-- Flujo normal de registro -->
-                                        <a href="salidas.php?ruta=<?php echo $ruta['id']; ?>" class="btn btn-outline-primary btn-ruta-action">
-                                            <i class="fas fa-arrow-up"></i> <?php echo $ruta['tiene_salida'] ? 'Editar' : 'Registrar'; ?> Salida
-                                        </a>
-                                        <?php if ($ruta['tiene_salida']): ?>
-                                            <a href="recargas.php?ruta=<?php echo $ruta['id']; ?>" class="btn btn-outline-success btn-ruta-action">
-                                                <i class="fas fa-sync"></i> <?php echo $ruta['tiene_recarga'] ? 'Editar' : 'Registrar'; ?> Recarga
-                                            </a>
-                                        <?php endif; ?>
-                                        <?php if ($ruta['tiene_salida'] || $ruta['tiene_recarga']): ?>
-                                            <a href="retornos.php?ruta=<?php echo $ruta['id']; ?>" class="btn btn-outline-warning btn-ruta-action">
-                                                <i class="fas fa-arrow-down"></i> <?php echo $ruta['tiene_retorno'] ? 'Editar' : 'Registrar'; ?> Retorno
-                                            </a>
-                                        <?php endif; ?>
-                                    <?php endif; ?>
-                                </div>
+                <!-- Operaciones de Rutas -->
+                <div class="col-lg-4 col-md-6 mb-4">
+                    <div class="card quick-action h-100">
+                        <div class="card-body text-center">
+                            <i class="fas fa-clipboard-list fa-3x text-primary mb-3"></i>
+                            <h5 class="card-title">Operaciones de Rutas</h5>
+                            <p class="card-text text-muted">Gestionar salidas, recargas y retornos</p>
+                            <div class="d-grid gap-2">
+                                <a href="salidas.php" class="btn btn-primary">
+                                    <i class="fas fa-arrow-up"></i> Salidas
+                                </a>
+                                <a href="recargas.php" class="btn btn-info">
+                                    <i class="fas fa-sync"></i> Recargas
+                                </a>
+                                <a href="retornos.php" class="btn btn-success">
+                                    <i class="fas fa-arrow-down"></i> Retornos
+                                </a>
                             </div>
                         </div>
                     </div>
-                <?php endforeach; ?>
+                </div>
+
+                <!-- Gestión de Inventario -->
+                <div class="col-lg-4 col-md-6 mb-4">
+                    <div class="card quick-action h-100">
+                        <div class="card-body text-center">
+                            <i class="fas fa-warehouse fa-3x text-success mb-3"></i>
+                            <h5 class="card-title">Gestión de Inventario</h5>
+                            <p class="card-text text-muted">Control completo del inventario</p>
+                            <div class="d-grid gap-2">
+                                <a href="inventario.php" class="btn btn-success">
+                                    <i class="fas fa-boxes"></i> Ver Inventario
+                                </a>
+                                <a href="inventario_ingresos.php" class="btn btn-primary">
+                                    <i class="fas fa-plus-circle"></i> Registrar Ingreso
+                                </a>
+                                <a href="inventario_danados.php" class="btn btn-warning">
+                                    <i class="fas fa-exclamation-triangle"></i> Productos Dañados
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Ventas y Devoluciones -->
+                <div class="col-lg-4 col-md-6 mb-4">
+                    <div class="card quick-action h-100">
+                        <div class="card-body text-center">
+                            <i class="fas fa-shopping-cart fa-3x text-warning mb-3"></i>
+                            <h5 class="card-title">Ventas y Devoluciones</h5>
+                            <p class="card-text text-muted">Ventas directas y control de devoluciones</p>
+                            <div class="d-grid gap-2">
+                                <a href="ventas_directas.php" class="btn btn-success">
+                                    <i class="fas fa-cash-register"></i> Ventas Directas
+                                </a>
+                                <a href="devoluciones_directas.php" class="btn btn-primary">
+                                    <i class="fas fa-undo"></i> Devoluciones
+                                </a>
+                                <a href="consumo_interno.php" class="btn btn-warning">
+                                    <i class="fas fa-utensils"></i> Consumo Interno
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Gestión de Datos -->
+                <div class="col-lg-4 col-md-6 mb-4">
+                    <div class="card quick-action h-100">
+                        <div class="card-body text-center">
+                            <i class="fas fa-database fa-3x text-info mb-3"></i>
+                            <h5 class="card-title">Gestión de Datos</h5>
+                            <p class="card-text text-muted">Administrar rutas y productos</p>
+                            <div class="d-grid gap-2">
+                                <a href="rutas.php" class="btn btn-info">
+                                    <i class="fas fa-route"></i> Gestionar Rutas
+                                </a>
+                                <a href="productos.php" class="btn btn-primary">
+                                    <i class="fas fa-box"></i> Gestionar Productos
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Reportes -->
+                <div class="col-lg-4 col-md-6 mb-4">
+                    <div class="card quick-action h-100">
+                        <div class="card-body text-center">
+                            <i class="fas fa-file-pdf fa-3x text-danger mb-3"></i>
+                            <h5 class="card-title">Reportes y Liquidaciones</h5>
+                            <p class="card-text text-muted">Generar reportes en PDF</p>
+                            <div class="d-grid gap-2">
+                                <a href="generar_pdf.php" class="btn btn-danger">
+                                    <i class="fas fa-file-pdf"></i> Generar Reporte PDF
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Movimientos -->
+                <div class="col-lg-4 col-md-6 mb-4">
+                    <div class="card quick-action h-100">
+                        <div class="card-body text-center">
+                            <i class="fas fa-exchange-alt fa-3x text-secondary mb-3"></i>
+                            <h5 class="card-title">Historial de Movimientos</h5>
+                            <p class="card-text text-muted">Ver movimientos del inventario</p>
+                            <div class="d-grid gap-2">
+                                <a href="inventario_movimientos.php" class="btn btn-secondary">
+                                    <i class="fas fa-history"></i> Ver Movimientos
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
 
-        <!-- Accesos Rápidos -->
-        <div class="content-card">
-            <h3 class="mb-4">
-                <i class="fas fa-tachometer-alt"></i> Accesos Rápidos
-            </h3>
-            <div class="row">
-                <div class="col-lg-3 col-md-6 col-sm-6 col-6 mb-3">
-                    <a href="rutas.php" class="acceso-rapido-card">
-                        <div class="card text-center h-100 border-primary">
-                            <div class="card-body">
-                                <i class="fas fa-route text-primary"></i>
-                                <h6>Gestionar Rutas</h6>
-                            </div>
-                        </div>
-                    </a>
-                </div>
-                <div class="col-lg-3 col-md-6 col-sm-6 col-6 mb-3">
-                    <a href="productos.php" class="acceso-rapido-card">
-                        <div class="card text-center h-100 border-success">
-                            <div class="card-body">
-                                <i class="fas fa-box text-success"></i>
-                                <h6>Gestionar Productos</h6>
-                            </div>
-                        </div>
-                    </a>
-                </div>
-                <div class="col-lg-3 col-md-6 col-sm-6 col-6 mb-3">
-                    <a href="salidas.php" class="acceso-rapido-card">
-                        <div class="card text-center h-100 border-info">
-                            <div class="card-body">
-                                <i class="fas fa-arrow-up text-info"></i>
-                                <h6>Registrar Salidas</h6>
-                            </div>
-                        </div>
-                    </a>
-                </div>
-                <div class="col-lg-3 col-md-6 col-sm-6 col-6 mb-3">
-                    <a href="generar_pdf.php" class="acceso-rapido-card">
-                        <div class="card text-center h-100 border-danger">
-                            <div class="card-body">
-                                <i class="fas fa-file-pdf text-danger"></i>
-                                <h6>Generar Reporte PDF</h6>
-                            </div>
-                        </div>
-                    </a>
+        <!-- Últimas Liquidaciones -->
+        <?php if ($liquidaciones_recientes->num_rows > 0): ?>
+            <div class="content-card">
+                <h3 class="mb-4">
+                    <i class="fas fa-receipt"></i> Últimas Liquidaciones
+                </h3>
+                <div class="table-responsive">
+                    <table class="table table-hover table-striped">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>Fecha Liquidación</th>
+                                <th>Ruta</th>
+                                <th>Fecha</th>
+                                <th class="text-end">Total</th>
+                                <th class="text-center">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php while ($liq = $liquidaciones_recientes->fetch_assoc()): ?>
+                                <tr>
+                                    <td>
+                                        <small><?php echo date('d/m/Y H:i', strtotime($liq['fecha_liquidacion'])); ?></small>
+                                    </td>
+                                    <td>
+                                        <strong><?php echo htmlspecialchars($liq['ruta_nombre']); ?></strong>
+                                    </td>
+                                    <td><?php echo date('d/m/Y', strtotime($liq['fecha'])); ?></td>
+                                    <td class="text-end">
+                                        <strong class="text-success">$<?php echo number_format($liq['total_general'], 2); ?></strong>
+                                    </td>
+                                    <td class="text-center">
+                                        <a href="generar_pdf.php?generar=1&ruta=<?php echo $liq['id']; ?>&fecha=<?php echo $liq['fecha']; ?>" 
+                                           class="btn btn-sm btn-danger" target="_blank">
+                                            <i class="fas fa-file-pdf"></i> Ver PDF
+                                        </a>
+                                    </td>
+                                </tr>
+                            <?php endwhile; ?>
+                        </tbody>
+                    </table>
                 </div>
             </div>
-        </div>
+        <?php endif; ?>
     </div>
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="assets/js/notifications.js"></script>
-
-    <!-- Footer Copyright -->
-    <div class="footer-fixed" style="width: 100%; text-align: center; padding: 20px 15px; background: rgba(44, 62, 80, 0.85); color: white; font-size: 12px; margin-top: 50px; backdrop-filter: blur(10px);">
-        <div>Desarrollado por <strong style="color: #667eea;">Cristian Hernández</strong> para Distribuidora LORENA</div>
-        <div style="margin-top: 5px; color: #bdc3c7;"><i class="fas fa-code-branch"></i> Versión 1.0</div>
-    </div>
-
     <script>
-        // Script para mejorar la experiencia en móviles
-        document.addEventListener('DOMContentLoaded', function() {
-            // Mejorar el colapso del navbar en móviles
-            const navbarToggler = document.querySelector('.navbar-toggler');
-            const navbarCollapse = document.querySelector('.navbar-collapse');
-            
-            if (navbarToggler && navbarCollapse) {
-                // Cerrar el menú al hacer clic en un enlace
-                const navLinks = navbarCollapse.querySelectorAll('.nav-link');
-                navLinks.forEach(link => {
-                    link.addEventListener('click', function() {
-                        if (window.innerWidth < 992) {
-                            const bsCollapse = new bootstrap.Collapse(navbarCollapse, {
-                                toggle: false
-                            });
-                            bsCollapse.hide();
-                        }
-                    });
-                });
-            }
-            
-            // Añadir smooth scroll en móviles
-            document.querySelectorAll('a[href^="#"]').forEach(anchor => {
-                anchor.addEventListener('click', function (e) {
-                    e.preventDefault();
-                    const target = document.querySelector(this.getAttribute('href'));
-                    if (target) {
-                        target.scrollIntoView({
-                            behavior: 'smooth',
-                            block: 'start'
-                        });
-                    }
-                });
+        // Auto-cerrar alertas después de 5 segundos (excepto alertas de stock)
+        setTimeout(function() {
+            var alerts = document.querySelectorAll('.alert-dismissible:not(.alert-danger)');
+            alerts.forEach(function(alert) {
+                var bsAlert = new bootstrap.Alert(alert);
+                bsAlert.close();
             });
-            
-            // Ajustar altura de cards de rutas para que sean iguales
-            function ajustarAlturaCards() {
-                if (window.innerWidth >= 768) {
-                    const cards = document.querySelectorAll('.ruta-card');
-                    let maxHeight = 0;
-                    
-                    // Reset heights
-                    cards.forEach(card => {
-                        card.style.height = 'auto';
-                    });
-                    
-                    // Find max height
-                    cards.forEach(card => {
-                        const height = card.offsetHeight;
-                        if (height > maxHeight) {
-                            maxHeight = height;
-                        }
-                    });// Set all to max height
-                    cards.forEach(card => {
-                        card.style.height = maxHeight + 'px';
-                    });
-                }
-            }
-            
-            // Ejecutar al cargar y al redimensionar
-            ajustarAlturaCards();
-            window.addEventListener('resize', ajustarAlturaCards);
-            
-            // Añadir efecto de carga suave a las cards
-            const observer = new IntersectionObserver((entries) => {
-                entries.forEach(entry => {
-                    if (entry.isIntersecting) {
-                        entry.target.style.opacity = '0';
-                        entry.target.style.transform = 'translateY(20px)';
-                        
-                        setTimeout(() => {
-                            entry.target.style.transition = 'all 0.5s ease';
-                            entry.target.style.opacity = '1';
-                            entry.target.style.transform = 'translateY(0)';
-                        }, 100);
-                        
-                        observer.unobserve(entry.target);
-                    }
-                });
-            }, {
-                threshold: 0.1
-            });
-            
-            document.querySelectorAll('.ruta-card, .acceso-rapido-card').forEach(card => {
-                observer.observe(card);
-            });
-            
-            // Mejorar el comportamiento de los botones en móviles
-            if (window.innerWidth < 480) {
-                const botonesRuta = document.querySelectorAll('.btn-ruta-action');
-                botonesRuta.forEach(boton => {
-                    boton.classList.add('w-100');
-                });
-            }
-            
-            // Añadir feedback táctil en dispositivos móviles
-            if ('ontouchstart' in window) {
-                document.querySelectorAll('.btn, .card, a').forEach(element => {
-                    element.addEventListener('touchstart', function() {
-                        this.style.opacity = '0.7';
-                    });
-                    
-                    element.addEventListener('touchend', function() {
-                        setTimeout(() => {
-                            this.style.opacity = '1';
-                        }, 100);
-                    });
-                });
-            }
-            
-            // Prevenir zoom accidental en iOS al hacer doble tap
-            let lastTouchEnd = 0;
-            document.addEventListener('touchend', function(event) {
-                const now = (new Date()).getTime();
-                if (now - lastTouchEnd <= 300) {
-                    event.preventDefault();
-                }
-                lastTouchEnd = now;
-            }, false);
-            
-            // Optimizar rendimiento en scroll para móviles
-            let ticking = false;
-            window.addEventListener('scroll', function() {
-                if (!ticking) {
-                    window.requestAnimationFrame(function() {
-                        // Aquí puedes añadir efectos en scroll si lo deseas
-                        ticking = false;
-                    });
-                    ticking = true;
-                }
-            });
-            
-            // Mejorar la visibilidad del footer en dispositivos pequeños
-            function ajustarFooter() {
-                const footer = document.querySelector('.footer-fixed');
-                const body = document.body;
-                const html = document.documentElement;
-                
-                const documentHeight = Math.max(
-                    body.scrollHeight, body.offsetHeight,
-                    html.clientHeight, html.scrollHeight, html.offsetHeight
-                );
-                
-                const windowHeight = window.innerHeight;
-                
-                if (documentHeight <= windowHeight && window.innerWidth < 768) {
-                    footer.style.position = 'fixed';
-                    footer.style.bottom = '0';
-                } else {
-                    footer.style.position = 'relative';
-                }
-            }
-            
-            ajustarFooter();
-            window.addEventListener('resize', ajustarFooter);
-            
-            // Añadir indicador de carga para botones
-            document.querySelectorAll('.btn-ruta-action').forEach(boton => {
-                boton.addEventListener('click', function(e) {
-                    // Solo para enlaces que no sean de reportes
-                    if (!this.href.includes('generar_pdf')) {
-                        const icon = this.querySelector('i');
-                        if (icon) {
-                            const originalClass = icon.className;
-                            icon.className = 'fas fa-spinner fa-spin';
-                            
-                            // Restaurar después de un tiempo si no navega
-                            setTimeout(() => {
-                                icon.className = originalClass;
-                            }, 2000);
-                        }
-                    }
-                });
-            });
-            
-            // Detectar orientación del dispositivo y ajustar
-            function handleOrientationChange() {
-                const orientation = window.innerWidth > window.innerHeight ? 'landscape' : 'portrait';
-                document.body.setAttribute('data-orientation', orientation);
-                
-                // Reajustar elementos cuando cambia la orientación
-                setTimeout(() => {
-                    ajustarAlturaCards();
-                    ajustarFooter();
-                }, 300);
-            }
-            
-            handleOrientationChange();
-            window.addEventListener('orientationchange', handleOrientationChange);
-            window.addEventListener('resize', handleOrientationChange);
-            
-            // Añadir clase para detección de touch
-            if ('ontouchstart' in window || navigator.maxTouchPoints > 0) {
-                document.body.classList.add('touch-device');
-            } else {
-                document.body.classList.add('no-touch-device');
-            }
-            
-            // Console log para debugging en desarrollo
-            console.log('Dashboard cargado correctamente');
-            console.log('Ancho de pantalla:', window.innerWidth);
-            console.log('Tipo de dispositivo:', window.innerWidth < 768 ? 'Móvil' : window.innerWidth < 992 ? 'Tablet' : 'Desktop');
-        });
-        
-        // Función para forzar recarga en cambios de orientación en iOS
-        if (/iPad|iPhone|iPod/.test(navigator.userAgent)) {
-            window.addEventListener('orientationchange', function() {
-                setTimeout(function() {
-                    window.scrollTo(0, 0);
-                }, 100);
-            });
-        }
+        }, 5000);
     </script>
-
-    <style>
-        /* Estilos adicionales para mejorar la experiencia táctil */
-        .touch-device .btn,
-        .touch-device .card,
-        .touch-device a {
-            -webkit-tap-highlight-color: rgba(0, 0, 0, 0.1);
-            -webkit-touch-callout: none;
-            -webkit-user-select: none;
-            user-select: none;
-        }
-        
-        /* Prevenir selección de texto en elementos interactivos en móviles */
-        .touch-device .btn-ruta-action,
-        .touch-device .acceso-rapido-card {
-            -webkit-tap-highlight-color: transparent;
-        }
-        
-        /* Mejorar el espaciado en landscape mode para móviles */
-        @media (max-width: 767px) and (orientation: landscape) {
-            .dashboard-container {
-                padding-top: 10px;
-            }
-            
-            .content-card {
-                margin-bottom: 15px;
-            }
-            
-            .ruta-card .card-body {
-                padding: 12px;
-            }
-            
-            .summary-card {
-                padding: 12px;
-            }
-        }
-        
-        /* Ajustes específicos para iPhone X y superiores (notch) */
-        @supports (padding: max(0px)) {
-            body {
-                padding-left: max(10px, env(safe-area-inset-left));
-                padding-right: max(10px, env(safe-area-inset-right));
-            }
-            
-            .navbar-custom {
-                padding-left: max(15px, env(safe-area-inset-left));
-                padding-right: max(15px, env(safe-area-inset-right));
-            }
-            
-            .footer-fixed {
-                padding-bottom: max(20px, env(safe-area-inset-bottom));
-            }
-        }
-        
-        /* Mejorar contraste en modo oscuro (para dispositivos que lo soporten) */
-        @media (prefers-color-scheme: dark) {
-            /* Si deseas añadir soporte para modo oscuro, descomenta esto:
-            body {
-                background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-            }
-            
-            .content-card,
-            .card {
-                background: #2d3561;
-                color: #ecf0f1;
-            }
-            */
-        }
-        
-        /* Animación para botones al cargar */
-        @keyframes fadeInUp {
-            from {
-                opacity: 0;
-                transform: translateY(20px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-        
-        .btn-ruta-action {
-            animation: fadeInUp 0.5s ease;
-        }
-        
-        /* Loading state para botones */
-        .btn-ruta-action:active {
-            transform: scale(0.98);
-        }
-        
-        /* Mejorar scroll suave en iOS */
-        * {
-            -webkit-overflow-scrolling: touch;
-        }
-        
-        /* Prevenir el rebote en iOS */
-        body {
-            overscroll-behavior-y: none;
-        }
-        
-        /* Mejorar la legibilidad en pantallas pequeñas */
-        @media (max-width: 480px) {
-            .card-title,
-            .card-text {
-                line-height: 1.4;
-            }
-            
-            .ruta-status-badge {
-                display: inline-block;
-                width: 100%;
-                text-align: center;
-                margin-top: 10px;
-            }
-        }
-        
-        /* Ajuste para tablets en portrait */
-        @media (min-width: 768px) and (max-width: 991px) and (orientation: portrait) {
-            .col-md-6 {
-                flex: 0 0 100%;
-                max-width: 100%;
-            }
-        }
-    </style>
 </body>
 </html>
+<?php closeConnection($conn); ?>
