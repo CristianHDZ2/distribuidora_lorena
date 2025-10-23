@@ -177,189 +177,162 @@ $rutas = $conn->query("SELECT * FROM rutas WHERE activo = 1 ORDER BY nombre ASC"
         .table-rutas tbody tr:hover {
             background-color: #f8f9ff;
             transform: scale(1.01);
-            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
-        }
-        
-        @media (max-width: 767px) {
-            .table-rutas tbody tr:hover {
-                transform: none;
-            }
+            box-shadow: 0 3px 10px rgba(0,0,0,0.08);
         }
         
         .table-rutas tbody td {
-            padding: 16px 15px;
+            padding: 15px;
             vertical-align: middle;
-            font-size: 14px;
         }
         
         @media (max-width: 991px) {
             .table-rutas tbody td {
-                padding: 14px 12px;
-                font-size: 13px;
+                padding: 12px 10px;
             }
         }
         
         @media (max-width: 767px) {
             .table-rutas tbody td {
-                padding: 12px 8px;
-                font-size: 12px;
+                padding: 10px 8px;
             }
         }
         
         @media (max-width: 480px) {
             .table-rutas tbody td {
-                padding: 10px 5px;
-                font-size: 11px;
+                padding: 8px 5px;
             }
         }
         
+        /* Número de orden */
         .numero-orden {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            width: 35px;
-            height: 35px;
+            font-weight: 700;
+            font-size: 16px;
+            color: #667eea;
+            background: #f0f3ff;
             border-radius: 50%;
+            width: 40px;
+            height: 40px;
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            font-weight: 700;
-            font-size: 13px;
-            box-shadow: 0 2px 5px rgba(102, 126, 234, 0.3);
+        }
+        
+        @media (max-width: 991px) {
+            .numero-orden {
+                width: 35px;
+                height: 35px;
+                font-size: 14px;
+            }
         }
         
         @media (max-width: 767px) {
             .numero-orden {
                 width: 30px;
                 height: 30px;
-                font-size: 11px;
+                font-size: 12px;
             }
         }
         
         @media (max-width: 480px) {
             .numero-orden {
-                width: 26px;
-                height: 26px;
-                font-size: 10px;
+                width: 25px;
+                height: 25px;
+                font-size: 11px;
             }
         }
         
-        .ruta-nombre {
-            font-weight: 600;
+        /* Información de la ruta */
+        .ruta-info h5 {
             color: #2c3e50;
-            font-size: 15px;
-            display: block;
-            margin-bottom: 5px;
+            font-weight: 700;
+            margin-bottom: 8px;
+            font-size: 16px;
         }
         
         @media (max-width: 767px) {
-            .ruta-nombre {
-                font-size: 13px;
-                margin-bottom: 4px;
+            .ruta-info h5 {
+                font-size: 14px;
+                margin-bottom: 5px;
             }
         }
         
         @media (max-width: 480px) {
-            .ruta-nombre {
-                font-size: 12px;
+            .ruta-info h5 {
+                font-size: 13px;
                 margin-bottom: 3px;
             }
         }
         
-        .ruta-descripcion {
+        .ruta-info p {
             color: #7f8c8d;
-            font-size: 13px;
-            font-style: italic;
+            margin: 0;
+            font-size: 14px;
         }
         
         @media (max-width: 767px) {
-            .ruta-descripcion {
-                font-size: 11px;
+            .ruta-info p {
+                font-size: 12px;
             }
         }
         
         @media (max-width: 480px) {
-            .ruta-descripcion {
-                font-size: 10px;
-                display: none; /* Ocultar descripción en móviles muy pequeños */
+            .ruta-info p {
+                font-size: 11px;
             }
         }
         
-        .fecha-texto {
-            color: #7f8c8d;
+        /* Botones de acción */
+        .btn-action {
+            padding: 8px 15px;
+            border-radius: 8px;
             font-size: 13px;
             font-weight: 500;
-        }
-        
-        @media (max-width: 767px) {
-            .fecha-texto {
-                font-size: 11px;
-            }
-        }
-        
-        @media (max-width: 480px) {
-            .fecha-texto {
-                font-size: 10px;
-            }
-            
-            .fecha-texto i {
-                display: none; /* Ocultar icono en móviles */
-            }
-        }
-        
-        /* Botones de acción responsivos */
-        .btn-action {
-            padding: 8px 12px;
-            border-radius: 6px;
-            font-size: 13px;
-            font-weight: 600;
             transition: all 0.3s ease;
             border: none;
-            margin: 0 3px;
+            margin: 2px;
         }
         
         @media (max-width: 991px) {
             .btn-action {
-                padding: 7px 10px;
+                padding: 7px 12px;
                 font-size: 12px;
-                margin: 0 2px;
+                border-radius: 6px;
             }
         }
         
         @media (max-width: 767px) {
             .btn-action {
-                padding: 6px 8px;
+                padding: 6px 10px;
                 font-size: 11px;
-                margin: 2px 0;
-                display: block;
-                width: 100%;
             }
         }
         
         @media (max-width: 480px) {
             .btn-action {
-                padding: 6px 6px;
+                padding: 5px 8px;
                 font-size: 10px;
+                margin: 1px;
             }
             
             .btn-action i {
-                margin-right: 3px;
+                font-size: 10px;
             }
-        }
-        
-        .btn-action:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
-        }
-        
-        @media (max-width: 767px) {
-            .btn-action:hover {
-                transform: none;
+            
+            .btn-action span {
+                display: none;
             }
         }
         
         .btn-editar {
-            background: linear-gradient(135deg, #f39c12, #e67e22);
+            background: linear-gradient(135deg, #3498db, #2980b9);
             color: white;
+        }
+        
+        .btn-editar:hover {
+            background: linear-gradient(135deg, #2980b9, #21618c);
+            color: white;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(52, 152, 219, 0.4);
         }
         
         .btn-eliminar {
@@ -367,38 +340,17 @@ $rutas = $conn->query("SELECT * FROM rutas WHERE activo = 1 ORDER BY nombre ASC"
             color: white;
         }
         
-        .acciones-cell {
-            white-space: nowrap;
+        .btn-eliminar:hover {
+            background: linear-gradient(135deg, #c0392b, #a93226);
+            color: white;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(231, 76, 60, 0.4);
         }
         
+        /* Ocultar columna de fecha en móviles */
         @media (max-width: 767px) {
-            .acciones-cell {
-                white-space: normal;
-            }
-        }
-        
-        /* Header container responsivo */
-        .header-container {
-            background: white;
-            padding: 20px;
-            border-radius: 10px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-            margin-bottom: 25px;
-        }
-        
-        @media (max-width: 767px) {
-            .header-container {
-                padding: 15px;
-                margin-bottom: 20px;
-                border-radius: 8px;
-            }
-        }
-        
-        @media (max-width: 480px) {
-            .header-container {
-                padding: 12px;
-                margin-bottom: 15px;
-                border-radius: 6px;
+            .hide-mobile {
+                display: none !important;
             }
         }
         
@@ -406,49 +358,47 @@ $rutas = $conn->query("SELECT * FROM rutas WHERE activo = 1 ORDER BY nombre ASC"
         .total-rutas {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
-            padding: 15px 20px;
+            padding: 20px;
             border-radius: 10px;
             margin-bottom: 20px;
-            box-shadow: 0 4px 10px rgba(102, 126, 234, 0.3);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
         }
         
         @media (max-width: 767px) {
             .total-rutas {
-                padding: 12px 15px;
-                margin-bottom: 15px;
+                padding: 15px;
                 border-radius: 8px;
             }
         }
         
         @media (max-width: 480px) {
             .total-rutas {
-                padding: 10px 12px;
-                margin-bottom: 12px;
+                padding: 12px;
                 border-radius: 6px;
             }
         }
         
         .total-rutas h5 {
             margin: 0;
-            font-weight: 700;
-            font-size: 16px;
+            font-weight: 600;
+            font-size: 18px;
         }
         
         @media (max-width: 767px) {
             .total-rutas h5 {
-                font-size: 14px;
+                font-size: 16px;
             }
         }
         
         @media (max-width: 480px) {
             .total-rutas h5 {
-                font-size: 13px;
+                font-size: 14px;
             }
         }
         
         .total-rutas .numero {
             font-size: 28px;
-            font-weight: 800;
+            font-weight: 700;
         }
         
         @media (max-width: 767px) {
@@ -463,206 +413,53 @@ $rutas = $conn->query("SELECT * FROM rutas WHERE activo = 1 ORDER BY nombre ASC"
             }
         }
         
-        .ruta-icon {
-            background: linear-gradient(135deg, #3498db, #2980b9);
-            color: white;
-            width: 40px;
-            height: 40px;
-            border-radius: 8px;
-            display: inline-flex;
+        /* Header container responsivo */
+        .header-container {
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: flex-end;
             align-items: center;
-            justify-content: center;
-            margin-right: 10px;
-            box-shadow: 0 2px 5px rgba(52, 152, 219, 0.3);
+            gap: 10px;
         }
         
         @media (max-width: 767px) {
-            .ruta-icon {
-                width: 35px;
-                height: 35px;
-                margin-right: 8px;
-                font-size: 14px;
-            }
-        }
-        
-        @media (max-width: 480px) {
-            .ruta-icon {
-                width: 30px;
-                height: 30px;
-                margin-right: 6px;
-                font-size: 12px;
-                display: none; /* Ocultar en móviles muy pequeños */
-            }
-        }
-        
-        /* Tabla responsive con scroll horizontal */
-        @media (max-width: 767px) {
-            .table-responsive {
-                margin: 0 -15px;
-                padding: 0 15px;
-            }
-        }
-        
-        @media (max-width: 480px) {
-            .table-responsive {
-                margin: 0 -12px;
-                padding: 0 12px;
+            .header-container {
+                justify-content: center;
+                flex-direction: column;
             }
             
-            /* Ocultar columnas menos importantes en móviles */
-            .table-rutas .hide-mobile {
-                display: none;
-            }
-        }
-        
-        /* Modales responsivos */
-        @media (max-width: 767px) {
-            .modal-dialog {
-                margin: 10px;
-                max-width: calc(100% - 20px);
-            }
-            
-            .modal-content {
-                border-radius: 8px;
-            }
-            
-            .modal-header {
-                padding: 15px;
-            }
-            
-            .modal-body {
-                padding: 15px;
-            }
-            
-            .modal-footer {
-                padding: 12px 15px;
-            }
-            
-            .modal-title {
-                font-size: 16px;
-            }
-        }
-        
-        @media (max-width: 480px) {
-            .modal-dialog {
-                margin: 5px;
-                max-width: calc(100% - 10px);
-            }
-            
-            .modal-content {
-                border-radius: 6px;
-            }
-            
-            .modal-header {
-                padding: 12px;
-            }
-            
-            .modal-body {
-                padding: 12px;
-            }
-            
-            .modal-footer {
-                padding: 10px 12px;
-            }
-            
-            .modal-title {
-                font-size: 14px;
-            }
-            
-            .modal-footer .btn {
-                width: 100%;
-                margin: 3px 0;
-            }
-        }
-        
-        /* Botón agregar responsivo */
-        .btn-custom-primary {
-            font-size: 15px;
-            padding: 10px 25px;
-        }
-        
-        @media (max-width: 767px) {
-            .btn-custom-primary {
-                font-size: 14px;
-                padding: 9px 20px;
+            .header-container .btn {
                 width: 100%;
             }
         }
         
-        @media (max-width: 480px) {
-            .btn-custom-primary {
-                font-size: 13px;
-                padding: 8px 15px;
-            }
+        /* Copyright Footer */
+        .copyright-footer {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            text-align: center;
+            margin-top: 30px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            color: #7f8c8d;
+            font-size: 14px;
         }
         
-        /* Inputs y textareas en modales */
-        @media (max-width: 767px) {
-            .modal-body .form-control {
-                font-size: 14px;
-            }
-            
-            .modal-body .form-label {
-                font-size: 13px;
-            }
-            
-            .modal-body small {
-                font-size: 11px;
-            }
-        }
-        
-        @media (max-width: 480px) {
-            .modal-body .form-control {
-                font-size: 13px;
-            }
-            
-            .modal-body .form-label {
-                font-size: 12px;
-            }
-            
-            .modal-body small {
-                font-size: 10px;
-            }
-        }
-        
-        /* Estado vacío responsivo */
-        .text-muted.py-5 {
-            padding: 3rem 1rem !important;
+        .copyright-footer strong {
+            color: #2c3e50;
+            display: block;
+            margin-bottom: 5px;
+            font-size: 16px;
         }
         
         @media (max-width: 767px) {
-            .text-muted.py-5 {
-                padding: 2rem 0.5rem !important;
-            }
-            
-            .text-muted.py-5 .fa-3x {
-                font-size: 2.5em;
-            }
-            
-            .text-muted.py-5 h5 {
-                font-size: 16px;
-            }
-            
-            .text-muted.py-5 p {
-                font-size: 13px;
-            }
-        }
-        
-        @media (max-width: 480px) {
-            .text-muted.py-5 {
-                padding: 1.5rem 0.5rem !important;
-            }
-            
-            .text-muted.py-5 .fa-3x {
-                font-size: 2em;
-            }
-            
-            .text-muted.py-5 h5 {
-                font-size: 14px;
-            }
-            
-            .text-muted.py-5 p {
+            .copyright-footer {
+                padding: 15px;
                 font-size: 12px;
+            }
+            
+            .copyright-footer strong {
+                font-size: 14px;
             }
         }
     </style>
@@ -704,8 +501,29 @@ $rutas = $conn->query("SELECT * FROM rutas WHERE activo = 1 ORDER BY nombre ASC"
                             <li><a class="dropdown-item" href="retornos.php"><i class="fas fa-arrow-down"></i> Retornos</a></li>
                         </ul>
                     </li>
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="navbarDropdownInventario" role="button" data-bs-toggle="dropdown">
+                            <i class="fas fa-warehouse"></i> Inventario
+                        </a>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="inventario.php"><i class="fas fa-boxes"></i> Ver Inventario</a></li>
+                            <li><a class="dropdown-item" href="inventario_ingresos.php"><i class="fas fa-plus-circle"></i> Ingresos</a></li>
+                            <li><a class="dropdown-item" href="inventario_movimientos.php"><i class="fas fa-exchange-alt"></i> Movimientos</a></li>
+                            <li><a class="dropdown-item" href="inventario_danados.php"><i class="fas fa-exclamation-triangle"></i> Productos Dañados</a></li>
+                        </ul>
+                    </li>
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="navbarDropdownVentas" role="button" data-bs-toggle="dropdown">
+                            <i class="fas fa-shopping-cart"></i> Ventas
+                        </a>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="ventas_directas.php"><i class="fas fa-cash-register"></i> Ventas Directas</a></li>
+                            <li><a class="dropdown-item" href="devoluciones_directas.php"><i class="fas fa-undo"></i> Devoluciones</a></li>
+                            <li><a class="dropdown-item" href="consumo_interno.php"><i class="fas fa-utensils"></i> Consumo Interno</a></li>
+                        </ul>
+                    </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="generar_pdf.php" target="generar_pdf.php">
+                        <a class="nav-link" href="generar_pdf.php">
                             <i class="fas fa-file-pdf"></i> Reportes
                         </a>
                     </li>
@@ -726,8 +544,14 @@ $rutas = $conn->query("SELECT * FROM rutas WHERE activo = 1 ORDER BY nombre ASC"
                 <i class="fas fa-route"></i> Gestión de Rutas
             </h1>
             
-            <?php if ($mensaje): ?>
-                <div class="alert alert-<?php echo $tipo_mensaje; ?> alert-custom alert-dismissible fade show" id="mensajeAlerta">
+            <div class="alert alert-info alert-custom">
+                <i class="fas fa-info-circle"></i>
+                <strong>Instrucciones:</strong> Administre las rutas de distribución del sistema. Puede agregar nuevas rutas, editar las existentes o desactivarlas cuando sea necesario.
+            </div>
+            
+            <!-- Mensaje de éxito/error -->
+            <?php if (!empty($mensaje)): ?>
+                <div class="alert alert-<?php echo $tipo_mensaje; ?> alert-dismissible fade show" role="alert">
                     <i class="fas fa-<?php echo $tipo_mensaje == 'success' ? 'check-circle' : 'exclamation-circle'; ?>"></i>
                     <?php echo htmlspecialchars($mensaje); ?>
                     <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
@@ -740,6 +564,7 @@ $rutas = $conn->query("SELECT * FROM rutas WHERE activo = 1 ORDER BY nombre ASC"
                     <i class="fas fa-plus"></i> Agregar Nueva Ruta
                 </button>
             </div>
+
             <!-- Total de rutas -->
             <?php if ($rutas->num_rows > 0): ?>
                 <div class="total-rutas">
@@ -773,39 +598,32 @@ $rutas = $conn->query("SELECT * FROM rutas WHERE activo = 1 ORDER BY nombre ASC"
                                         <span class="numero-orden"><?php echo $contador; ?></span>
                                     </td>
                                     <td>
-                                        <div class="d-flex align-items-start">
-                                            <span class="ruta-icon">
-                                                <i class="fas fa-route"></i>
-                                            </span>
-                                            <div class="flex-grow-1">
-                                                <span class="ruta-nombre"><?php echo $ruta['nombre']; ?></span>
-                                                <?php if (!empty($ruta['descripcion'])): ?>
-                                                    <span class="ruta-descripcion">
-                                                        <i class="fas fa-info-circle"></i> <?php echo $ruta['descripcion']; ?>
-                                                    </span>
-                                                <?php endif; ?>
-                                            </div>
+                                        <div class="ruta-info">
+                                            <h5><?php echo htmlspecialchars($ruta['nombre']); ?></h5>
+                                            <?php if (!empty($ruta['descripcion'])): ?>
+                                                <p><?php echo htmlspecialchars($ruta['descripcion']); ?></p>
+                                            <?php endif; ?>
                                         </div>
                                     </td>
                                     <td class="text-center hide-mobile">
-                                        <span class="fecha-texto">
-                                            <i class="far fa-calendar-alt"></i>
+                                        <small class="text-muted">
+                                            <i class="fas fa-calendar"></i>
                                             <?php echo date('d/m/Y', strtotime($ruta['fecha_creacion'])); ?>
-                                        </span>
+                                        </small>
                                     </td>
-                                    <td class="text-center acciones-cell">
+                                    <td class="text-center">
                                         <button class="btn btn-action btn-editar" 
                                                 data-id="<?php echo $ruta['id']; ?>"
-                                                data-nombre="<?php echo htmlspecialchars($ruta['nombre'], ENT_QUOTES); ?>"
-                                                data-descripcion="<?php echo htmlspecialchars($ruta['descripcion'], ENT_QUOTES); ?>"
-                                                onclick="editarRuta(this)" 
+                                                data-nombre="<?php echo htmlspecialchars($ruta['nombre']); ?>"
+                                                data-descripcion="<?php echo htmlspecialchars($ruta['descripcion']); ?>"
+                                                onclick="editarRuta(this)"
                                                 title="Editar">
-                                            <i class="fas fa-edit"></i> Editar
+                                            <i class="fas fa-edit"></i> <span>Editar</span>
                                         </button>
                                         <button class="btn btn-action btn-eliminar" 
                                                 onclick="confirmarEliminar(<?php echo $ruta['id']; ?>, '<?php echo addslashes($ruta['nombre']); ?>')" 
                                                 title="Eliminar">
-                                            <i class="fas fa-trash"></i> Eliminar
+                                            <i class="fas fa-trash"></i> <span>Eliminar</span>
                                         </button>
                                     </td>
                                 </tr>
@@ -826,9 +644,18 @@ $rutas = $conn->query("SELECT * FROM rutas WHERE activo = 1 ORDER BY nombre ASC"
                 </table>
             </div>
         </div>
-    </div>
 
-    <!-- Modal Agregar Ruta -->
+        <!-- Copyright Footer -->
+        <div class="copyright-footer">
+            <strong>Distribuidora LORENA</strong>
+            <p class="mb-1">Sistema de Gestión de Inventario y Liquidaciones</p>
+            <p class="mb-0">
+                <i class="fas fa-copyright"></i> <?php echo date('Y'); ?> - Todos los derechos reservados
+                <br>
+                <small>Desarrollado por: Cristian Hernandez</small>
+            </p>
+        </div>
+    </div><!-- Modal Agregar Ruta -->
     <div class="modal fade" id="modalAgregar" tabindex="-1">
         <div class="modal-dialog">
             <div class="modal-content">
@@ -843,13 +670,13 @@ $rutas = $conn->query("SELECT * FROM rutas WHERE activo = 1 ORDER BY nombre ASC"
                         <div class="mb-3">
                             <label class="form-label fw-bold">Nombre de la Ruta *</label>
                             <input type="text" class="form-control" name="nombre" required placeholder="Ej: RUTA #1: COSTA DEL SOL">
-                            <small class="text-muted">El nombre de la ruta es obligatorio</small>
+                            <small class="text-muted">Ingrese un nombre descriptivo para la ruta</small>
                         </div>
                         
                         <div class="mb-3">
                             <label class="form-label fw-bold">Descripción</label>
-                            <textarea class="form-control" name="descripcion" rows="3" placeholder="Descripción opcional de la ruta..."></textarea>
-                            <small class="text-muted">Información adicional sobre la ruta (opcional)</small>
+                            <textarea class="form-control" name="descripcion" rows="3" placeholder="Descripción opcional de la ruta"></textarea>
+                            <small class="text-muted">Puede incluir zonas, clientes o detalles adicionales</small>
                         </div>
                     </div>
                     <div class="modal-footer">
@@ -857,7 +684,7 @@ $rutas = $conn->query("SELECT * FROM rutas WHERE activo = 1 ORDER BY nombre ASC"
                             <i class="fas fa-times"></i> Cancelar
                         </button>
                         <button type="submit" class="btn btn-custom-primary">
-                            <i class="fas fa-save"></i> Guardar
+                            <i class="fas fa-save"></i> Guardar Ruta
                         </button>
                     </div>
                 </form>
@@ -880,20 +707,22 @@ $rutas = $conn->query("SELECT * FROM rutas WHERE activo = 1 ORDER BY nombre ASC"
                         
                         <div class="mb-3">
                             <label class="form-label fw-bold">Nombre de la Ruta *</label>
-                            <input type="text" class="form-control" name="nombre" id="edit_nombre" required>
+                            <input type="text" class="form-control" name="nombre" id="edit_nombre" required placeholder="Ej: RUTA #1: COSTA DEL SOL">
+                            <small class="text-muted">Ingrese un nombre descriptivo para la ruta</small>
                         </div>
                         
                         <div class="mb-3">
                             <label class="form-label fw-bold">Descripción</label>
-                            <textarea class="form-control" name="descripcion" id="edit_descripcion" rows="3"></textarea>
+                            <textarea class="form-control" name="descripcion" id="edit_descripcion" rows="3" placeholder="Descripción opcional de la ruta"></textarea>
+                            <small class="text-muted">Puede incluir zonas, clientes o detalles adicionales</small>
                         </div>
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
                             <i class="fas fa-times"></i> Cancelar
                         </button>
-                        <button type="submit" class="btn btn-warning">
-                            <i class="fas fa-save"></i> Actualizar
+                        <button type="submit" class="btn btn-custom-primary">
+                            <i class="fas fa-save"></i> Actualizar Ruta
                         </button>
                     </div>
                 </form>
@@ -901,7 +730,7 @@ $rutas = $conn->query("SELECT * FROM rutas WHERE activo = 1 ORDER BY nombre ASC"
         </div>
     </div>
 
-    <!-- Modal Eliminar -->
+    <!-- Modal Eliminar Ruta -->
     <div class="modal fade" id="modalEliminar" tabindex="-1">
         <div class="modal-dialog">
             <div class="modal-content">
@@ -914,8 +743,15 @@ $rutas = $conn->query("SELECT * FROM rutas WHERE activo = 1 ORDER BY nombre ASC"
                         <input type="hidden" name="accion" value="eliminar">
                         <input type="hidden" name="id" id="delete_id">
                         
-                        <p>¿Está seguro que desea eliminar la ruta <strong id="delete_nombre"></strong>?</p>
-                        <p class="text-danger"><i class="fas fa-info-circle"></i> Esta acción desactivará la ruta del sistema.</p>
+                        <div class="alert alert-warning">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            <strong>¡Advertencia!</strong> Esta acción desactivará la ruta del sistema.
+                        </div>
+                        
+                        <p class="mb-0">¿Está seguro que desea eliminar la ruta <strong id="delete_nombre"></strong>?</p>
+                        <p class="text-muted mt-2 mb-0">
+                            <small>Nota: La ruta será desactivada, no eliminada permanentemente. Los registros históricos se mantendrán intactos.</small>
+                        </p>
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
@@ -933,27 +769,22 @@ $rutas = $conn->query("SELECT * FROM rutas WHERE activo = 1 ORDER BY nombre ASC"
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="assets/js/notifications.js"></script>
     <script>
-        // Variable global para el modal de edición
+        // Inicializar modales
         let modalEditarInstance = null;
         
-        // Inicializar modal cuando el DOM esté listo
         document.addEventListener('DOMContentLoaded', function() {
+            // Inicializar modal de editar
             const modalEditarElement = document.getElementById('modalEditar');
             if (modalEditarElement) {
                 modalEditarInstance = new bootstrap.Modal(modalEditarElement);
-                
-                // Limpiar formulario cuando se cierre el modal
-                modalEditarElement.addEventListener('hidden.bs.modal', function () {
-                    document.getElementById('formEditar').reset();
-                });
             }
             
-            // Cerrar menú navbar en móviles al hacer clic en un enlace
+            // Responsive navbar
             const navbarToggler = document.querySelector('.navbar-toggler');
             const navbarCollapse = document.querySelector('.navbar-collapse');
             
             if (navbarToggler && navbarCollapse) {
-                const navLinks = navbarCollapse.querySelectorAll('.nav-link');
+                const navLinks = navbarCollapse.querySelectorAll('.nav-link, .dropdown-item');
                 navLinks.forEach(link => {
                     link.addEventListener('click', function() {
                         if (window.innerWidth < 992) {
@@ -968,7 +799,7 @@ $rutas = $conn->query("SELECT * FROM rutas WHERE activo = 1 ORDER BY nombre ASC"
             
             // Mejorar experiencia táctil en dispositivos móviles
             if ('ontouchstart' in window) {
-                document.querySelectorAll('.btn, .table-rutas tbody tr').forEach(element => {
+                document.querySelectorAll('.btn').forEach(element => {
                     element.addEventListener('touchstart', function() {
                         this.style.opacity = '0.7';
                     });
@@ -976,58 +807,14 @@ $rutas = $conn->query("SELECT * FROM rutas WHERE activo = 1 ORDER BY nombre ASC"
                     element.addEventListener('touchend', function() {
                         setTimeout(() => {
                             this.style.opacity = '1';
-                        }, 100);
+                        }, 200);
                     });
                 });
             }
             
-            // Prevenir zoom accidental en iOS al hacer doble tap
-            let lastTouchEnd = 0;
-            document.addEventListener('touchend', function(event) {
-                const now = (new Date()).getTime();
-                if (now - lastTouchEnd <= 300) {
-                    event.preventDefault();
-                }
-                lastTouchEnd = now;
-            }, false);
-            
-            // Ajustar tamaño de fuente en inputs para prevenir zoom en iOS
-            if (/iPad|iPhone|iPod/.test(navigator.userAgent)) {
-                const inputs = document.querySelectorAll('input[type="text"], textarea');
-                inputs.forEach(input => {
-                    if (window.innerWidth < 768) {
-                        input.style.fontSize = '16px';
-                    }
-                });
-            }
-            
-            // Animación de entrada para las filas de la tabla
-            const observer = new IntersectionObserver((entries) => {
-                entries.forEach(entry => {
-                    if (entry.isIntersecting) {
-                        entry.target.style.opacity = '0';
-                        entry.target.style.transform = 'translateY(20px)';
-                        
-                        setTimeout(() => {
-                            entry.target.style.transition = 'all 0.5s ease';
-                            entry.target.style.opacity = '1';
-                            entry.target.style.transform = 'translateY(0)';
-                        }, 100);
-                        
-                        observer.unobserve(entry.target);
-                    }
-                });
-            }, {
-                threshold: 0.1
-            });
-            
-            document.querySelectorAll('.table-rutas tbody tr').forEach(row => {
-                observer.observe(row);
-            });
-            
-            // Detectar orientación del dispositivo
+            // Manejar orientación en dispositivos móviles
             function handleOrientationChange() {
-                const orientation = window.innerWidth > window.innerHeight ? 'landscape' : 'portrait';
+                const orientation = window.innerHeight > window.innerWidth ? 'portrait' : 'landscape';
                 document.body.setAttribute('data-orientation', orientation);
             }
             
@@ -1077,183 +864,92 @@ $rutas = $conn->query("SELECT * FROM rutas WHERE activo = 1 ORDER BY nombre ASC"
         }
         
         // Auto-ocultar alerta después de 5 segundos
-        window.addEventListener('DOMContentLoaded', function() {
-            const alerta = document.getElementById('mensajeAlerta');
-            if (alerta) {
+        window.addEventListener('load', function() {
+            const alert = document.querySelector('.alert-dismissible');
+            if (alert) {
                 setTimeout(function() {
-                    const bsAlert = new bootstrap.Alert(alerta);
+                    const bsAlert = new bootstrap.Alert(alert);
                     bsAlert.close();
                 }, 5000);
             }
-        });
-        
-        // Limpiar formularios cuando se cierren los modales
-        document.getElementById('modalAgregar').addEventListener('hidden.bs.modal', function () {
-            document.getElementById('formAgregar').reset();
-        });
-        
-        document.getElementById('modalEliminar').addEventListener('hidden.bs.modal', function () {
-            document.getElementById('formEliminar').reset();
         });
         
         // Validación de formularios
         document.getElementById('formAgregar').addEventListener('submit', function(e) {
             const nombre = this.querySelector('[name="nombre"]').value.trim();
             
-            if (nombre === '') {
+            if (nombre.length < 3) {
                 e.preventDefault();
-                alert('El nombre de la ruta es obligatorio');
+                alert('El nombre de la ruta debe tener al menos 3 caracteres');
                 return false;
             }
-            
-            // Añadir indicador de carga
-            const submitBtn = this.querySelector('button[type="submit"]');
-            submitBtn.disabled = true;
-            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando...';
         });
         
         document.getElementById('formEditar').addEventListener('submit', function(e) {
             const nombre = this.querySelector('[name="nombre"]').value.trim();
             
-            if (nombre === '') {
+            if (nombre.length < 3) {
                 e.preventDefault();
-                alert('El nombre de la ruta es obligatorio');
+                alert('El nombre de la ruta debe tener al menos 3 caracteres');
                 return false;
             }
-            
-            // Añadir indicador de carga
-            const submitBtn = this.querySelector('button[type="submit"]');
-            submitBtn.disabled = true;
-            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Actualizando...';
         });
         
+        // Confirmación adicional antes de eliminar
         document.getElementById('formEliminar').addEventListener('submit', function(e) {
-            // Añadir indicador de carga
-            const submitBtn = this.querySelector('button[type="submit"]');
-            submitBtn.disabled = true;
-            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Eliminando...';
-        });
-        
-        // Mejorar scroll en iOS
-        if (/iPad|iPhone|iPod/.test(navigator.userAgent)) {
-            document.querySelectorAll('.table-responsive').forEach(container => {
-                container.style.webkitOverflowScrolling = 'touch';
-            });
-        }
-        
-        // Función para optimizar rendimiento en scroll
-        let ticking = false;
-        window.addEventListener('scroll', function() {
-            if (!ticking) {
-                window.requestAnimationFrame(function() {
-                    ticking = false;
-                });
-                ticking = true;
+            const nombre = document.getElementById('delete_nombre').textContent;
+            
+            if (!confirm(`¿Está COMPLETAMENTE SEGURO que desea eliminar la ruta "${nombre}"?`)) {
+                e.preventDefault();
+                return false;
             }
         });
         
-        // Contador de caracteres para textarea (opcional)
-        const textareaDescripcion = document.querySelectorAll('textarea[name="descripcion"]');
-        textareaDescripcion.forEach(textarea => {
-            const maxLength = 255;
-            
-            textarea.addEventListener('input', function() {
-                const length = this.value.length;
-                const remaining = maxLength - length;
+        // Limpiar formularios al cerrar modales
+        document.getElementById('modalAgregar').addEventListener('hidden.bs.modal', function() {
+            document.getElementById('formAgregar').reset();
+        });
+        
+        document.getElementById('modalEditar').addEventListener('hidden.bs.modal', function() {
+            document.getElementById('formEditar').reset();
+        });
+        
+        // Efecto hover mejorado para filas de tabla en desktop
+        if (window.innerWidth > 768) {
+            document.querySelectorAll('.table-rutas tbody tr').forEach(row => {
+                row.addEventListener('mouseenter', function() {
+                    this.style.transform = 'scale(1.01)';
+                });
                 
-                let counter = this.nextElementSibling;
-                if (!counter || !counter.classList.contains('char-counter')) {
-                    counter = document.createElement('small');
-                    counter.className = 'char-counter text-muted';
-                    this.parentNode.appendChild(counter);
-                }
-                
-                if (remaining < 50) {
-                    counter.style.color = '#e74c3c';
-                } else {
-                    counter.style.color = '#7f8c8d';
-                }
-                
-                counter.textContent = `${remaining} caracteres restantes`;
+                row.addEventListener('mouseleave', function() {
+                    this.style.transform = 'scale(1)';
+                });
             });
+        }
+        
+        // Prevenir doble submit
+        const forms = document.querySelectorAll('form');
+        forms.forEach(form => {
+            form.addEventListener('submit', function() {
+                const submitBtn = this.querySelector('button[type="submit"]');
+                if (submitBtn) {
+                    submitBtn.disabled = true;
+                    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Procesando...';
+                    
+                    // Re-habilitar después de 3 segundos por si hay error
+                    setTimeout(() => {
+                        submitBtn.disabled = false;
+                        submitBtn.innerHTML = submitBtn.getAttribute('data-original-text') || 'Enviar';
+                    }, 3000);
+                }
+            });
+        });
+        
+        // Guardar texto original de botones
+        document.querySelectorAll('button[type="submit"]').forEach(btn => {
+            btn.setAttribute('data-original-text', btn.innerHTML);
         });
     </script>
-
-    <style>
-        /* Estilos adicionales para mejorar la experiencia táctil */
-        .touch-device .btn,
-        .touch-device .table-rutas tbody tr {
-            -webkit-tap-highlight-color: rgba(0, 0, 0, 0.1);
-            -webkit-touch-callout: none;
-            -webkit-user-select: none;
-            user-select: none;
-        }
-        
-        /* Mejorar el espaciado en landscape mode para móviles */
-        @media (max-width: 767px) and (orientation: landscape) {
-            .dashboard-container {
-                padding-top: 10px;
-            }
-            
-            .content-card {
-                margin-bottom: 15px;
-            }
-            
-            .header-container {
-                padding: 12px;
-                margin-bottom: 15px;
-            }
-        }
-        
-        /* Ajustes para iPhone X y superiores (notch) */
-        @supports (padding: max(0px)) {
-            body {
-                padding-left: max(10px, env(safe-area-inset-left));
-                padding-right: max(10px, env(safe-area-inset-right));
-            }
-            
-            .navbar-custom {
-                padding-left: max(15px, env(safe-area-inset-left));
-                padding-right: max(15px, env(safe-area-inset-right));
-            }
-        }
-        
-        /* Animación de loading en botones */
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-        
-        .fa-spinner.fa-spin {
-            animation: spin 1s linear infinite;
-        }
-        
-        /* Mejorar contraste en modo oscuro del sistema */
-        @media (prefers-color-scheme: dark) {
-            /* Descomenta si quieres soporte para modo oscuro
-            .table-rutas tbody tr:hover {
-                background-color: rgba(255, 255, 255, 0.05);
-            }
-            */
-        }
-        
-        /* Contador de caracteres */
-        .char-counter {
-            display: block;
-            margin-top: 5px;
-            font-size: 11px;
-        }
-        
-        /* Scroll suave en toda la página */
-        html {
-            scroll-behavior: smooth;
-        }
-        
-        /* Prevenir el rebote en iOS */
-        body {
-            overscroll-behavior-y: none;
-        }
-    </style>
 </body>
 </html>
 <?php closeConnection($conn); ?>

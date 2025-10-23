@@ -8,21 +8,23 @@ $conn = getConnection();
 $mensaje = '';
 $tipo_mensaje = '';
 
-// Procesar formularios
+// Procesar acciones
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $accion = $_POST['accion'] ?? '';
     
     if ($accion == 'agregar') {
-        $nombre = trim($_POST['nombre']);
+        $nombre = limpiarInput($_POST['nombre']);
         $precio_caja = floatval($_POST['precio_caja']);
-        $tipo = $_POST['tipo'];
-        $tiene_precio_unitario = isset($_POST['tiene_precio_unitario']) ? 1 : 0;
-        $precio_unitario = $tiene_precio_unitario ? floatval($_POST['precio_unitario']) : null;
-        $etiqueta_propietario = $_POST['etiqueta_propietario'];
-        $etiqueta_declaracion = $_POST['etiqueta_declaracion'];
+        $precio_unitario = !empty($_POST['precio_unitario']) ? floatval($_POST['precio_unitario']) : NULL;
+        $tipo = limpiarInput($_POST['tipo']);
+        $etiqueta_propietario = limpiarInput($_POST['etiqueta_propietario']);
+        $etiqueta_declaracion = limpiarInput($_POST['etiqueta_declaracion']);
         
-        if (!empty($nombre) && $precio_caja > 0 && !empty($tipo) && !empty($etiqueta_propietario) && !empty($etiqueta_declaracion)) {
-            $stmt = $conn->prepare("INSERT INTO productos (nombre, precio_caja, precio_unitario, tipo, etiqueta_propietario, etiqueta_declaracion, activo) VALUES (?, ?, ?, ?, ?, ?, 1)");
+        if (!empty($nombre) && $precio_caja > 0 && in_array($tipo, ['Big Cola', 'Varios', 'Ambos']) 
+            && in_array($etiqueta_propietario, ['LORENA', 'FRANCISCO']) 
+            && in_array($etiqueta_declaracion, ['SE DECLARA', 'NO SE DECLARA'])) {
+            
+            $stmt = $conn->prepare("INSERT INTO productos (nombre, precio_caja, precio_unitario, tipo, etiqueta_propietario, etiqueta_declaracion) VALUES (?, ?, ?, ?, ?, ?)");
             $stmt->bind_param("sddsss", $nombre, $precio_caja, $precio_unitario, $tipo, $etiqueta_propietario, $etiqueta_declaracion);
             
             if ($stmt->execute()) {
@@ -44,15 +46,17 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         
     } elseif ($accion == 'editar') {
         $id = intval($_POST['id']);
-        $nombre = trim($_POST['nombre']);
+        $nombre = limpiarInput($_POST['nombre']);
         $precio_caja = floatval($_POST['precio_caja']);
-        $tipo = $_POST['tipo'];
-        $tiene_precio_unitario = isset($_POST['tiene_precio_unitario']) ? 1 : 0;
-        $precio_unitario = $tiene_precio_unitario ? floatval($_POST['precio_unitario']) : null;
-        $etiqueta_propietario = $_POST['etiqueta_propietario'];
-        $etiqueta_declaracion = $_POST['etiqueta_declaracion'];
+        $precio_unitario = !empty($_POST['precio_unitario']) ? floatval($_POST['precio_unitario']) : NULL;
+        $tipo = limpiarInput($_POST['tipo']);
+        $etiqueta_propietario = limpiarInput($_POST['etiqueta_propietario']);
+        $etiqueta_declaracion = limpiarInput($_POST['etiqueta_declaracion']);
         
-        if ($id > 0 && !empty($nombre) && $precio_caja > 0 && !empty($tipo) && !empty($etiqueta_propietario) && !empty($etiqueta_declaracion)) {
+        if (!empty($nombre) && $precio_caja > 0 && $id > 0 && in_array($tipo, ['Big Cola', 'Varios', 'Ambos'])
+            && in_array($etiqueta_propietario, ['LORENA', 'FRANCISCO']) 
+            && in_array($etiqueta_declaracion, ['SE DECLARA', 'NO SE DECLARA'])) {
+            
             $stmt = $conn->prepare("UPDATE productos SET nombre = ?, precio_caja = ?, precio_unitario = ?, tipo = ?, etiqueta_propietario = ?, etiqueta_declaracion = ? WHERE id = ?");
             $stmt->bind_param("sddsssi", $nombre, $precio_caja, $precio_unitario, $tipo, $etiqueta_propietario, $etiqueta_declaracion, $id);
             
@@ -132,20 +136,272 @@ if (!empty($params)) {
     $stmt->bind_param($types, ...$params);
     $stmt->execute();
     $productos = $stmt->get_result();
-    $stmt->close();
 } else {
     $productos = $conn->query($query);
 }
+
 ?>
 <!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Productos - Distribuidora LORENA</title>
+    <title>Gestión de Productos - Distribuidora LORENA</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="assets/css/custom.css">
+    <style>
+        /* Estilos adicionales específicos para productos */
+        .table-productos {
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            border-radius: 10px;
+            overflow: hidden;
+            font-size: 14px;
+        }
+        
+        @media (max-width: 991px) {
+            .table-productos {
+                font-size: 12px;
+            }
+        }
+        
+        @media (max-width: 767px) {
+            .table-productos {
+                font-size: 11px;
+            }
+        }
+        
+        .table-productos thead {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        
+        .table-productos thead th {
+            color: white;
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 12px;
+            letter-spacing: 0.5px;
+            padding: 15px 10px;
+            border: none;
+        }
+        
+        @media (max-width: 767px) {
+            .table-productos thead th {
+                padding: 10px 5px;
+                font-size: 10px;
+            }
+        }
+        
+        .table-productos tbody tr {
+            transition: all 0.3s ease;
+        }
+        
+        .table-productos tbody tr:hover {
+            background-color: #f8f9ff;
+            transform: scale(1.01);
+        }
+        
+        .table-productos tbody td {
+            padding: 12px 10px;
+            vertical-align: middle;
+        }
+        
+        @media (max-width: 767px) {
+            .table-productos tbody td {
+                padding: 8px 5px;
+            }
+        }
+        
+        .numero-orden {
+            font-weight: 700;
+            font-size: 14px;
+            color: #667eea;
+            background: #f0f3ff;
+            border-radius: 50%;
+            width: 35px;
+            height: 35px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        @media (max-width: 767px) {
+            .numero-orden {
+                width: 25px;
+                height: 25px;
+                font-size: 11px;
+            }
+        }
+        
+        .producto-info h6 {
+            color: #2c3e50;
+            font-weight: 600;
+            margin-bottom: 5px;
+            font-size: 14px;
+        }
+        
+        @media (max-width: 767px) {
+            .producto-info h6 {
+                font-size: 12px;
+            }
+        }
+        
+        .btn-action {
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            border: none;
+            margin: 2px;
+        }
+        
+        @media (max-width: 767px) {
+            .btn-action {
+                padding: 5px 8px;
+                font-size: 10px;
+            }
+            
+            .btn-action span {
+                display: none;
+            }
+        }
+        
+        .btn-editar {
+            background: linear-gradient(135deg, #3498db, #2980b9);
+            color: white;
+        }
+        
+        .btn-editar:hover {
+            background: linear-gradient(135deg, #2980b9, #21618c);
+            color: white;
+            transform: translateY(-2px);
+        }
+        
+        .btn-eliminar {
+            background: linear-gradient(135deg, #e74c3c, #c0392b);
+            color: white;
+        }
+        
+        .btn-eliminar:hover {
+            background: linear-gradient(135deg, #c0392b, #a93226);
+            color: white;
+            transform: translateY(-2px);
+        }
+        
+        .hide-mobile {
+            display: table-cell;
+        }
+        
+        @media (max-width: 767px) {
+            .hide-mobile {
+                display: none !important;
+            }
+        }
+        
+        .total-productos {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+        
+        @media (max-width: 767px) {
+            .total-productos {
+                padding: 15px;
+            }
+        }
+        
+        .total-productos h5 {
+            margin: 0;
+            font-weight: 600;
+            font-size: 18px;
+        }
+        
+        @media (max-width: 767px) {
+            .total-productos h5 {
+                font-size: 14px;
+            }
+        }
+        
+        .total-productos .numero {
+            font-size: 28px;
+            font-weight: 700;
+        }
+        
+        @media (max-width: 767px) {
+            .total-productos .numero {
+                font-size: 20px;
+            }
+        }
+        
+        .header-actions {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        
+        @media (max-width: 767px) {
+            .header-actions {
+                flex-direction: column;
+            }
+            
+            .header-actions .btn, .header-actions .form-control {
+                width: 100%;
+            }
+        }
+        
+        .filtros-container {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        
+        @media (max-width: 767px) {
+            .filtros-container {
+                width: 100%;
+            }
+            
+            .filtros-container .form-select {
+                width: 100%;
+            }
+        }
+        
+        /* Copyright Footer */
+        .copyright-footer {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            text-align: center;
+            margin-top: 30px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            color: #7f8c8d;
+            font-size: 14px;
+        }
+        
+        .copyright-footer strong {
+            color: #2c3e50;
+            display: block;
+            margin-bottom: 5px;
+            font-size: 16px;
+        }
+        
+        @media (max-width: 767px) {
+            .copyright-footer {
+                padding: 15px;
+                font-size: 12px;
+            }
+            
+            .copyright-footer strong {
+                font-size: 14px;
+            }
+        }
+    </style>
 </head>
 <body>
     <!-- Navbar -->
@@ -227,65 +483,71 @@ if (!empty($params)) {
                 <i class="fas fa-box"></i> Gestión de Productos
             </h1>
             
-            <?php if ($mensaje): ?>
-                <div class="alert alert-<?php echo $tipo_mensaje; ?> alert-custom alert-dismissible fade show" id="mensajeAlerta">
-                    <i class="fas fa-<?php echo $tipo_mensaje == 'success' ? 'check-circle' : 'exclamation-triangle'; ?>"></i>
+            <div class="alert alert-info alert-custom">
+                <i class="fas fa-info-circle"></i>
+                <strong>Instrucciones:</strong> Administre los productos del catálogo. Puede agregar, editar precios, configurar etiquetas de propietario y declaración, o desactivar productos. Use los filtros para encontrar productos específicos.
+            </div>
+            
+            <!-- Mensaje de éxito/error -->
+            <?php if (!empty($mensaje)): ?>
+                <div class="alert alert-<?php echo $tipo_mensaje; ?> alert-dismissible fade show" role="alert">
+                    <i class="fas fa-<?php echo $tipo_mensaje == 'success' ? 'check-circle' : 'exclamation-circle'; ?>"></i>
                     <?php echo htmlspecialchars($mensaje); ?>
                     <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
                 </div>
             <?php endif; ?>
-
-            <!-- Instrucciones del sistema -->
-            <div class="alert alert-info">
-                <i class="fas fa-info-circle"></i>
-                <strong>Instrucciones:</strong> Administre los productos disponibles en el sistema. Puede agregar nuevos productos, editar los existentes o desactivarlos según sea necesario.
-            </div><!-- Controles superiores -->
-            <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
-                <button type="button" class="btn btn-custom-primary" data-bs-toggle="modal" data-bs-target="#modalAgregar">
-                    <i class="fas fa-plus-circle"></i> Agregar Producto
+            
+            <!-- Header con botones y filtros -->
+            <div class="header-actions">
+                <button class="btn btn-custom-primary" data-bs-toggle="modal" data-bs-target="#modalAgregar">
+                    <i class="fas fa-plus"></i> Agregar Nuevo Producto
                 </button>
                 
-                <!-- Filtros -->
-                <form method="GET" class="d-flex gap-2 flex-wrap">
-                    <input type="text" 
-                           class="form-control" 
-                           name="busqueda" 
-                           placeholder="Buscar producto..." 
-                           value="<?php echo htmlspecialchars($busqueda); ?>"
-                           style="max-width: 250px;">
-                    
-                    <select class="form-select" name="tipo_filtro" style="max-width: 200px;">
-                        <option value="todos" <?php echo $filtro_tipo == 'todos' ? 'selected' : ''; ?>>Todos los tipos</option>
-                        <option value="Big Cola" <?php echo $filtro_tipo == 'Big Cola' ? 'selected' : ''; ?>>Big Cola</option>
-                        <option value="Varios" <?php echo $filtro_tipo == 'Varios' ? 'selected' : ''; ?>>Varios</option>
-                        <option value="Ambos" <?php echo $filtro_tipo == 'Ambos' ? 'selected' : ''; ?>>Ambos</option>
-                    </select>
-                    
-                    <button type="submit" class="btn btn-secondary">
-                        <i class="fas fa-search"></i> Buscar
-                    </button>
-                    
-                    <?php if (!empty($busqueda) || $filtro_tipo != 'todos'): ?>
-                        <a href="productos.php" class="btn btn-outline-secondary">
-                            <i class="fas fa-times"></i> Limpiar
-                        </a>
-                    <?php endif; ?>
-                </form>
+                <div class="filtros-container">
+                    <form method="GET" class="d-flex gap-2" style="flex-wrap: wrap;">
+                        <input type="text" class="form-control" name="busqueda" placeholder="Buscar producto..." value="<?php echo htmlspecialchars($busqueda); ?>" style="max-width: 250px;">
+                        
+                        <select class="form-select" name="tipo_filtro" style="max-width: 150px;">
+                            <option value="todos" <?php echo $filtro_tipo == 'todos' ? 'selected' : ''; ?>>Todos los tipos</option>
+                            <option value="Big Cola" <?php echo $filtro_tipo == 'Big Cola' ? 'selected' : ''; ?>>Big Cola</option>
+                            <option value="Varios" <?php echo $filtro_tipo == 'Varios' ? 'selected' : ''; ?>>Varios</option>
+                            <option value="Ambos" <?php echo $filtro_tipo == 'Ambos' ? 'selected' : ''; ?>>Ambos</option>
+                        </select>
+                        
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-search"></i> Buscar
+                        </button>
+                        
+                        <?php if (!empty($busqueda) || $filtro_tipo != 'todos'): ?>
+                            <a href="productos.php" class="btn btn-secondary">
+                                <i class="fas fa-redo"></i> Limpiar
+                            </a>
+                        <?php endif; ?>
+                    </form>
+                </div>
             </div>
 
-            <!-- Tabla de productos -->
+            <!-- Total de productos -->
+            <?php if ($productos->num_rows > 0): ?>
+                <div class="total-productos">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5><i class="fas fa-boxes"></i> Total de Productos:</h5>
+                        <span class="numero"><?php echo $productos->num_rows; ?></span>
+                    </div>
+                </div>
+            <?php endif; ?><!-- Tabla de Productos -->
             <div class="table-responsive">
-                <table class="table table-productos table-hover">
+                <table class="table table-productos table-hover mb-0">
                     <thead>
                         <tr>
-                            <th width="5%">#</th>
-                            <th width="25%">Nombre</th>
-                            <th width="10%">Precio Caja</th>
-                            <th width="10%">Precio Unit.</th>
-                            <th width="10%">Tipo</th>
-                            <th width="12%">Propietario</th>
-                            <th width="13%">Declaración</th>
-                            <th width="15%">Acciones</th>
+                            <th width="50" class="text-center">#</th>
+                            <th>Producto</th>
+                            <th width="100" class="text-center">Precio Caja</th>
+                            <th width="100" class="text-center hide-mobile">Precio Unit.</th>
+                            <th width="100" class="text-center hide-mobile">Tipo</th>
+                            <th width="120" class="text-center">Propietario</th>
+                            <th width="130" class="text-center">Declaración</th>
+                            <th width="180" class="text-center">Acciones</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -295,57 +557,61 @@ if (!empty($params)) {
                             while ($producto = $productos->fetch_assoc()): 
                             ?>
                                 <tr>
-                                    <td>
+                                    <td class="text-center">
                                         <span class="numero-orden"><?php echo $contador; ?></span>
                                     </td>
                                     <td>
-                                        <strong><?php echo htmlspecialchars($producto['nombre']); ?></strong>
+                                        <div class="producto-info">
+                                            <h6><?php echo htmlspecialchars($producto['nombre']); ?></h6>
+                                        </div>
                                     </td>
-                                    <td>
-                                        <span class="badge bg-success">$<?php echo number_format($producto['precio_caja'], 2); ?></span>
+                                    <td class="text-center">
+                                        <strong>$<?php echo number_format($producto['precio_caja'], 2); ?></strong>
                                     </td>
-                                    <td>
-                                        <?php if (!empty($producto['precio_unitario']) && $producto['precio_unitario'] > 0): ?>
-                                            <span class="badge bg-info">$<?php echo number_format($producto['precio_unitario'], 2); ?></span>
-                                        <?php else: ?>
-                                            <span class="text-muted">-</span>
-                                        <?php endif; ?>
+                                    <td class="text-center hide-mobile">
+                                        <?php 
+                                        if ($producto['precio_unitario'] !== null) {
+                                            echo '<span class="badge bg-success">$' . number_format($producto['precio_unitario'], 2) . '</span>';
+                                        } else {
+                                            echo '<span class="text-muted">N/A</span>';
+                                        }
+                                        ?>
                                     </td>
-                                    <td>
-                                        <span class="badge <?php 
-                                            echo $producto['tipo'] == 'Big Cola' ? 'bg-primary' : 
-                                                 ($producto['tipo'] == 'Varios' ? 'bg-secondary' : 'bg-dark'); 
+                                    <td class="hide-mobile">
+                                        <span class="badge bg-<?php 
+                                            echo $producto['tipo'] == 'Big Cola' ? 'warning' : 
+                                                ($producto['tipo'] == 'Varios' ? 'info' : 'secondary'); 
                                         ?>">
-                                            <?php echo htmlspecialchars($producto['tipo']); ?>
+                                            <?php echo $producto['tipo']; ?>
                                         </span>
                                     </td>
-                                    <td>
-                                        <span class="badge <?php echo $producto['etiqueta_propietario'] == 'LORENA' ? 'bg-success' : 'bg-warning text-dark'; ?>">
-                                            <?php echo htmlspecialchars($producto['etiqueta_propietario']); ?>
+                                    <td class="text-center">
+                                        <span class="badge bg-<?php echo $producto['etiqueta_propietario'] == 'LORENA' ? 'primary' : 'success'; ?>">
+                                            <i class="fas fa-user"></i> <?php echo $producto['etiqueta_propietario']; ?>
                                         </span>
                                     </td>
-                                    <td>
-                                        <span class="badge <?php echo $producto['etiqueta_declaracion'] == 'SE DECLARA' ? 'bg-primary' : 'bg-danger'; ?>">
-                                            <?php echo htmlspecialchars($producto['etiqueta_declaracion']); ?>
+                                    <td class="text-center">
+                                        <span class="badge bg-<?php echo $producto['etiqueta_declaracion'] == 'SE DECLARA' ? 'success' : 'danger'; ?>">
+                                            <i class="fas fa-file-invoice"></i> <?php echo $producto['etiqueta_declaracion']; ?>
                                         </span>
                                     </td>
-                                    <td>
+                                    <td class="text-center">
                                         <button class="btn btn-action btn-editar" 
                                                 data-id="<?php echo $producto['id']; ?>"
                                                 data-nombre="<?php echo htmlspecialchars($producto['nombre'], ENT_QUOTES); ?>"
                                                 data-precio_caja="<?php echo $producto['precio_caja']; ?>"
-                                                data-precio_unitario="<?php echo !empty($producto['precio_unitario']) ? $producto['precio_unitario'] : ''; ?>"
+                                                data-precio_unitario="<?php echo $producto['precio_unitario'] !== null ? $producto['precio_unitario'] : ''; ?>"
                                                 data-tipo="<?php echo htmlspecialchars($producto['tipo'], ENT_QUOTES); ?>"
                                                 data-etiqueta_propietario="<?php echo htmlspecialchars($producto['etiqueta_propietario'], ENT_QUOTES); ?>"
                                                 data-etiqueta_declaracion="<?php echo htmlspecialchars($producto['etiqueta_declaracion'], ENT_QUOTES); ?>"
                                                 onclick="editarProducto(this)" 
                                                 title="Editar">
-                                            <i class="fas fa-edit"></i> Editar
+                                            <i class="fas fa-edit"></i> <span>Editar</span>
                                         </button>
                                         <button class="btn btn-action btn-eliminar" 
                                                 onclick="confirmarEliminar(<?php echo $producto['id']; ?>, '<?php echo addslashes($producto['nombre']); ?>')" 
                                                 title="Eliminar">
-                                            <i class="fas fa-trash"></i> Eliminar
+                                            <i class="fas fa-trash"></i> <span>Eliminar</span>
                                         </button>
                                     </td>
                                 </tr>
@@ -373,6 +639,17 @@ if (!empty($params)) {
                 </table>
             </div>
         </div>
+
+        <!-- Copyright Footer -->
+        <div class="copyright-footer">
+            <strong>Distribuidora LORENA</strong>
+            <p class="mb-1">Sistema de Gestión de Inventario y Liquidaciones</p>
+            <p class="mb-0">
+                <i class="fas fa-copyright"></i> <?php echo date('Y'); ?> - Todos los derechos reservados
+                <br>
+                <small>Desarrollado por: Cristian Hernandez</small>
+            </p>
+        </div>
     </div>
 
     <!-- Modal Agregar Producto -->
@@ -389,44 +666,58 @@ if (!empty($params)) {
                         
                         <div class="mb-3">
                             <label class="form-label fw-bold">Nombre del Producto *</label>
-                            <input type="text" class="form-control" name="nombre" required placeholder="Ej: BIG COLA 3 LITROS">
-                            <small class="text-muted">El nombre del producto es obligatorio</small>
+                            <input type="text" class="form-control" name="nombre" required placeholder="Ej: Coca-Cola 2.5L (6 Pack)">
+                            <small class="text-muted">Ingrese un nombre descriptivo para el producto</small>
                         </div>
                         
                         <div class="row mb-3">
-                            <div class="col-md-4">
+                            <div class="col-md-6">
                                 <label class="form-label fw-bold">Precio por Caja *</label>
                                 <div class="input-group">
                                     <span class="input-group-text">$</span>
-                                    <input type="number" class="form-control" name="precio_caja" step="0.01" min="0.01" required placeholder="0.00">
+                                    <input type="number" class="form-control" name="precio_caja" step="0.01" min="0" required>
                                 </div>
-                                <small class="text-muted">Precio por caja completa</small>
+                                <small class="text-muted">Precio de venta por caja/pack</small>
                             </div>
-                            <div class="col-md-4">
+                            <div class="col-md-6">
                                 <label class="form-label fw-bold">Tipo de Producto *</label>
                                 <select class="form-select" name="tipo" required>
-                                    <option value="">Seleccione...</option>
+                                    <option value="">Seleccione un tipo...</option>
                                     <option value="Big Cola">Big Cola</option>
                                     <option value="Varios">Varios</option>
                                     <option value="Ambos">Ambos</option>
                                 </select>
                                 <small class="text-muted">Categoría del producto</small>
                             </div>
-                            <div class="col-md-4">
-                                <label class="form-label fw-bold">Precio Unitario?</label>
-                                <div class="form-check form-switch">
-                                    <input class="form-check-input" type="checkbox" id="agregar_precio_unitario" name="tiene_precio_unitario" onchange="togglePrecioUnitarioAgregar()">
+                        </div>
+                        
+                        <div class="row mb-3">
+                            <div class="col-12">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="agregar_precio_unitario" onchange="togglePrecioUnitarioAgregar()">
                                     <label class="form-check-label" for="agregar_precio_unitario">
-                                        Tiene precio unitario
+                                        <i class="fas fa-box-open"></i> Activar Precio Unitario
                                     </label>
                                 </div>
-                                <div id="precio_unitario_agregar_container" style="display: none; margin-top: 10px;">
-                                    <div class="input-group">
-                                        <span class="input-group-text">$</span>
-                                        <input type="number" class="form-control" name="precio_unitario" id="precio_unitario_agregar" step="0.01" min="0.01" placeholder="0.00">
-                                    </div>
-                                </div>
                             </div>
+                        </div>
+                        
+                        <div class="row mb-3">
+                            <div class="col-md-6" id="precio_unitario_agregar_container" style="display: none;">
+                                <label class="form-label fw-bold">Precio Unitario</label>
+                                <div class="input-group">
+                                    <span class="input-group-text">$</span>
+                                    <input type="number" class="form-control" name="precio_unitario" id="precio_unitario_agregar" step="0.01" min="0">
+                                </div>
+                                <small class="text-muted">Opcional - Precio por unidad individual</small>
+                            </div>
+                        </div>
+                        
+                        <hr>
+                        
+                        <!-- ETIQUETAS EN AGREGAR -->
+                        <div class="alert alert-info">
+                            <i class="fas fa-tags"></i> <strong>Etiquetas Internas</strong> (Para uso en reportes y filtros)
                         </div>
                         
                         <div class="row mb-3">
@@ -446,8 +737,13 @@ if (!empty($params)) {
                                     <option value="SE DECLARA">SE DECLARA</option>
                                     <option value="NO SE DECLARA">NO SE DECLARA</option>
                                 </select>
-                                <small class="text-muted">Indica si el producto se facturará</small>
+                                <small class="text-muted">Indica si el producto se factura</small>
                             </div>
+                        </div>
+                        
+                        <div class="alert alert-warning">
+                            <i class="fas fa-info-circle"></i>
+                            <strong>Importante:</strong> Las etiquetas de propietario y declaración son obligatorias y se usarán para generar reportes filtrados.
                         </div>
                     </div>
                     <div class="modal-footer">
@@ -455,7 +751,7 @@ if (!empty($params)) {
                             <i class="fas fa-times"></i> Cancelar
                         </button>
                         <button type="submit" class="btn btn-custom-primary">
-                            <i class="fas fa-save"></i> Guardar
+                            <i class="fas fa-save"></i> Guardar Producto
                         </button>
                     </div>
                 </form>
@@ -478,41 +774,58 @@ if (!empty($params)) {
                         
                         <div class="mb-3">
                             <label class="form-label fw-bold">Nombre del Producto *</label>
-                            <input type="text" class="form-control" name="nombre" id="edit_nombre" required>
+                            <input type="text" class="form-control" name="nombre" id="edit_nombre" required placeholder="Ej: Coca-Cola 2.5L (6 Pack)">
+                            <small class="text-muted">Ingrese un nombre descriptivo para el producto</small>
                         </div>
                         
                         <div class="row mb-3">
-                            <div class="col-md-4">
+                            <div class="col-md-6">
                                 <label class="form-label fw-bold">Precio por Caja *</label>
                                 <div class="input-group">
                                     <span class="input-group-text">$</span>
-                                    <input type="number" class="form-control" name="precio_caja" id="edit_precio_caja" step="0.01" min="0.01" required>
+                                    <input type="number" class="form-control" name="precio_caja" id="edit_precio_caja" step="0.01" min="0" required>
                                 </div>
+                                <small class="text-muted">Precio de venta por caja/pack</small>
                             </div>
-                            <div class="col-md-4">
+                            <div class="col-md-6">
                                 <label class="form-label fw-bold">Tipo de Producto *</label>
                                 <select class="form-select" name="tipo" id="edit_tipo" required>
-                                    <option value="">Seleccione...</option>
+                                    <option value="">Seleccione un tipo...</option>
                                     <option value="Big Cola">Big Cola</option>
                                     <option value="Varios">Varios</option>
                                     <option value="Ambos">Ambos</option>
                                 </select>
+                                <small class="text-muted">Categoría del producto</small>
                             </div>
-                            <div class="col-md-4">
-                                <label class="form-label fw-bold">Precio Unitario?</label>
-                                <div class="form-check form-switch">
-                                    <input class="form-check-input" type="checkbox" id="editar_precio_unitario" name="tiene_precio_unitario" onchange="togglePrecioUnitarioEditar()">
+                        </div>
+                        
+                        <div class="row mb-3">
+                            <div class="col-12">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="editar_precio_unitario" onchange="togglePrecioUnitarioEditar()">
                                     <label class="form-check-label" for="editar_precio_unitario">
-                                        Tiene precio unitario
+                                        <i class="fas fa-box-open"></i> Activar Precio Unitario
                                     </label>
                                 </div>
-                                <div id="precio_unitario_editar_container" style="display: none; margin-top: 10px;">
-                                    <div class="input-group">
-                                        <span class="input-group-text">$</span>
-                                        <input type="number" class="form-control" name="precio_unitario" id="edit_precio_unitario" step="0.01" min="0.01" placeholder="0.00">
-                                    </div>
-                                </div>
                             </div>
+                        </div>
+                        
+                        <div class="row mb-3">
+                            <div class="col-md-6" id="precio_unitario_editar_container" style="display: none;">
+                                <label class="form-label fw-bold">Precio Unitario</label>
+                                <div class="input-group">
+                                    <span class="input-group-text">$</span>
+                                    <input type="number" class="form-control" name="precio_unitario" id="edit_precio_unitario" step="0.01" min="0">
+                                </div>
+                                <small class="text-muted">Opcional - Precio por unidad individual</small>
+                            </div>
+                        </div>
+                        
+                        <hr>
+                        
+                        <!-- ETIQUETAS EN EDITAR -->
+                        <div class="alert alert-info">
+                            <i class="fas fa-tags"></i> <strong>Etiquetas Internas</strong> (Para uso en reportes)
                         </div>
                         
                         <div class="row mb-3">
@@ -532,7 +845,7 @@ if (!empty($params)) {
                                     <option value="SE DECLARA">SE DECLARA</option>
                                     <option value="NO SE DECLARA">NO SE DECLARA</option>
                                 </select>
-                                <small class="text-muted">Indica si el producto se facturará</small>
+                                <small class="text-muted">Indica si el producto se factura</small>
                             </div>
                         </div>
                     </div>
@@ -540,8 +853,8 @@ if (!empty($params)) {
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
                             <i class="fas fa-times"></i> Cancelar
                         </button>
-                        <button type="submit" class="btn btn-warning">
-                            <i class="fas fa-save"></i> Actualizar
+                        <button type="submit" class="btn btn-custom-primary">
+                            <i class="fas fa-save"></i> Actualizar Producto
                         </button>
                     </div>
                 </form>
@@ -549,7 +862,7 @@ if (!empty($params)) {
         </div>
     </div>
 
-    <!-- Modal Eliminar -->
+    <!-- Modal Eliminar Producto -->
     <div class="modal fade" id="modalEliminar" tabindex="-1">
         <div class="modal-dialog">
             <div class="modal-content">
@@ -562,12 +875,14 @@ if (!empty($params)) {
                         <input type="hidden" name="accion" value="eliminar">
                         <input type="hidden" name="id" id="delete_id">
                         
-                        <p>¿Está seguro que desea eliminar el producto?</p>
                         <div class="alert alert-warning">
-                            <strong id="delete_nombre"></strong>
+                            <i class="fas fa-exclamation-triangle"></i>
+                            <strong>¡Advertencia!</strong> Esta acción desactivará el producto del sistema.
                         </div>
-                        <p class="text-muted">
-                            <i class="fas fa-info-circle"></i> El producto será desactivado y no aparecerá en los listados.
+                        
+                        <p class="mb-0">¿Está seguro que desea eliminar el producto <strong id="delete_nombre"></strong>?</p>
+                        <p class="text-muted mt-2 mb-0">
+                            <small>Nota: El producto será desactivado, no eliminado permanentemente. Los registros históricos se mantendrán intactos.</small>
                         </p>
                     </div>
                     <div class="modal-footer">
@@ -618,6 +933,7 @@ if (!empty($params)) {
             }
         }
         
+        // Función para editar producto
         function editarProducto(button) {
             const id = button.getAttribute('data-id');
             const nombre = button.getAttribute('data-nombre');
@@ -634,7 +950,7 @@ if (!empty($params)) {
             document.getElementById('edit_etiqueta_propietario').value = etiquetaPropietario;
             document.getElementById('edit_etiqueta_declaracion').value = etiquetaDeclaracion;
             
-            // Configurar precio unitario
+            // Manejar precio unitario
             if (precioUnitario && precioUnitario !== '') {
                 document.getElementById('editar_precio_unitario').checked = true;
                 document.getElementById('precio_unitario_editar_container').style.display = 'block';
@@ -657,62 +973,7 @@ if (!empty($params)) {
             
             const modal = new bootstrap.Modal(document.getElementById('modalEliminar'));
             modal.show();
-        }
-        
-        // Auto-ocultar alerta
-        window.addEventListener('DOMContentLoaded', function() {
-            const alerta = document.getElementById('mensajeAlerta');
-            if (alerta) {
-                setTimeout(function() {
-                    const bsAlert = new bootstrap.Alert(alerta);
-                    bsAlert.close();
-                }, 5000);
-            }
-        });
-        
-        // Limpiar formularios al cerrar modales
-        document.getElementById('modalAgregar').addEventListener('hidden.bs.modal', function () {
-            document.getElementById('formAgregar').reset();
-            document.getElementById('agregar_precio_unitario').checked = false;
-            document.getElementById('precio_unitario_agregar_container').style.display = 'none';
-        });
-        
-        document.getElementById('modalEliminar').addEventListener('hidden.bs.modal', function () {
-            document.getElementById('formEliminar').reset();
-        });
-        
-        // Validación de formularios con loading
-        document.getElementById('formAgregar').addEventListener('submit', function(e) {
-            const nombre = this.querySelector('[name="nombre"]').value.trim();
-            const precioCaja = parseFloat(this.querySelector('[name="precio_caja"]').value);
-            const tipo = this.querySelector('[name="tipo"]').value;
-            const etiquetaPropietario = this.querySelector('[name="etiqueta_propietario"]').value;
-            const etiquetaDeclaracion = this.querySelector('[name="etiqueta_declaracion"]').value;
-            
-            if (!nombre || precioCaja <= 0 || !tipo || !etiquetaPropietario || !etiquetaDeclaracion) {
-                e.preventDefault();
-                alert('Por favor complete todos los campos obligatorios correctamente');
-                return false;
-            }
-            
-            const submitBtn = this.querySelector('button[type="submit"]');
-            submitBtn.disabled = true;
-            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando...';
-        });
-        
-        document.getElementById('formEditar').addEventListener('submit', function(e) {
-            const submitBtn = this.querySelector('button[type="submit"]');
-            submitBtn.disabled = true;
-            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Actualizando...';
-        });
-        
-        document.getElementById('formEliminar').addEventListener('submit', function(e) {
-            const submitBtn = this.querySelector('button[type="submit"]');
-            submitBtn.disabled = true;
-            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Eliminando...';
-        });
-        
-        // Cerrar menú navbar en móviles al hacer clic en un enlace
+        }// Responsive navbar
         document.addEventListener('DOMContentLoaded', function() {
             const navbarToggler = document.querySelector('.navbar-toggler');
             const navbarCollapse = document.querySelector('.navbar-collapse');
@@ -733,7 +994,7 @@ if (!empty($params)) {
             
             // Mejorar experiencia táctil en dispositivos móviles
             if ('ontouchstart' in window) {
-                document.querySelectorAll('.btn, .table-productos tbody tr').forEach(element => {
+                document.querySelectorAll('.btn').forEach(element => {
                     element.addEventListener('touchstart', function() {
                         this.style.opacity = '0.7';
                     });
@@ -763,6 +1024,249 @@ if (!empty($params)) {
             
             console.log('Productos cargados correctamente');
             console.log('Total de productos:', <?php echo $productos->num_rows; ?>);
+        });
+        
+        // Auto-ocultar alerta después de 5 segundos
+        window.addEventListener('load', function() {
+            const alert = document.querySelector('.alert-dismissible');
+            if (alert) {
+                setTimeout(function() {
+                    const bsAlert = new bootstrap.Alert(alert);
+                    bsAlert.close();
+                }, 5000);
+            }
+        });
+        
+        // Validación de formularios
+        document.getElementById('formAgregar').addEventListener('submit', function(e) {
+            const nombre = this.querySelector('[name="nombre"]').value.trim();
+            const precioCaja = parseFloat(this.querySelector('[name="precio_caja"]').value);
+            const tipo = this.querySelector('[name="tipo"]').value;
+            const propietario = this.querySelector('[name="etiqueta_propietario"]').value;
+            const declaracion = this.querySelector('[name="etiqueta_declaracion"]').value;
+            
+            if (nombre.length < 3) {
+                e.preventDefault();
+                alert('El nombre del producto debe tener al menos 3 caracteres');
+                return false;
+            }
+            
+            if (precioCaja <= 0) {
+                e.preventDefault();
+                alert('El precio por caja debe ser mayor a 0');
+                return false;
+            }
+            
+            if (!tipo) {
+                e.preventDefault();
+                alert('Debe seleccionar un tipo de producto');
+                return false;
+            }
+            
+            if (!propietario || !declaracion) {
+                e.preventDefault();
+                alert('Debe seleccionar las etiquetas de propietario y declaración');
+                return false;
+            }
+            
+            const checkbox = document.getElementById('agregar_precio_unitario');
+            if (checkbox.checked) {
+                const precioUnit = parseFloat(this.querySelector('[name="precio_unitario"]').value);
+                if (precioUnit <= 0 || isNaN(precioUnit)) {
+                    e.preventDefault();
+                    alert('Si activa precio unitario, debe ingresar un valor válido mayor a 0');
+                    return false;
+                }
+            }
+        });
+        
+        document.getElementById('formEditar').addEventListener('submit', function(e) {
+            const nombre = this.querySelector('[name="nombre"]').value.trim();
+            const precioCaja = parseFloat(this.querySelector('[name="precio_caja"]').value);
+            const tipo = this.querySelector('[name="tipo"]').value;
+            const propietario = this.querySelector('[name="etiqueta_propietario"]').value;
+            const declaracion = this.querySelector('[name="etiqueta_declaracion"]').value;
+            
+            if (nombre.length < 3) {
+                e.preventDefault();
+                alert('El nombre del producto debe tener al menos 3 caracteres');
+                return false;
+            }
+            
+            if (precioCaja <= 0) {
+                e.preventDefault();
+                alert('El precio por caja debe ser mayor a 0');
+                return false;
+            }
+            
+            if (!tipo) {
+                e.preventDefault();
+                alert('Debe seleccionar un tipo de producto');
+                return false;
+            }
+            
+            if (!propietario || !declaracion) {
+                e.preventDefault();
+                alert('Debe seleccionar las etiquetas de propietario y declaración');
+                return false;
+            }
+            
+            const checkbox = document.getElementById('editar_precio_unitario');
+            if (checkbox.checked) {
+                const precioUnit = parseFloat(this.querySelector('[name="precio_unitario"]').value);
+                if (precioUnit <= 0 || isNaN(precioUnit)) {
+                    e.preventDefault();
+                    alert('Si activa precio unitario, debe ingresar un valor válido mayor a 0');
+                    return false;
+                }
+            }
+        });
+        
+        // Confirmación adicional antes de eliminar
+        document.getElementById('formEliminar').addEventListener('submit', function(e) {
+            const nombre = document.getElementById('delete_nombre').textContent;
+            
+            if (!confirm(`¿Está COMPLETAMENTE SEGURO que desea eliminar el producto "${nombre}"?`)) {
+                e.preventDefault();
+                return false;
+            }
+        });
+        
+        // Limpiar formularios al cerrar modales
+        document.getElementById('modalAgregar').addEventListener('hidden.bs.modal', function() {
+            document.getElementById('formAgregar').reset();
+            document.getElementById('precio_unitario_agregar_container').style.display = 'none';
+        });
+        
+        document.getElementById('modalEditar').addEventListener('hidden.bs.modal', function() {
+            document.getElementById('formEditar').reset();
+            document.getElementById('precio_unitario_editar_container').style.display = 'none';
+        });
+        
+        // Efecto hover mejorado para filas de tabla en desktop
+        if (window.innerWidth > 768) {
+            document.querySelectorAll('.table-productos tbody tr').forEach(row => {
+                row.addEventListener('mouseenter', function() {
+                    this.style.transform = 'scale(1.01)';
+                });
+                
+                row.addEventListener('mouseleave', function() {
+                    this.style.transform = 'scale(1)';
+                });
+            });
+        }
+        
+        // Prevenir doble submit
+        const forms = document.querySelectorAll('form');
+        forms.forEach(form => {
+            form.addEventListener('submit', function() {
+                const submitBtn = this.querySelector('button[type="submit"]');
+                if (submitBtn) {
+                    submitBtn.disabled = true;
+                    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Procesando...';
+                    
+                    // Re-habilitar después de 3 segundos por si hay error
+                    setTimeout(() => {
+                        submitBtn.disabled = false;
+                        submitBtn.innerHTML = submitBtn.getAttribute('data-original-text') || 'Enviar';
+                    }, 3000);
+                }
+            });
+        });
+        
+        // Guardar texto original de botones
+        document.querySelectorAll('button[type="submit"]').forEach(btn => {
+            btn.setAttribute('data-original-text', btn.innerHTML);
+        });
+        
+        // Auto-focus en campo de búsqueda al hacer clic en buscar
+        const searchInput = document.querySelector('input[name="busqueda"]');
+        if (searchInput && searchInput.value === '') {
+            searchInput.addEventListener('focus', function() {
+                this.select();
+            });
+        }
+        
+        // Resaltar resultados de búsqueda
+        if (searchInput && searchInput.value !== '') {
+            const searchTerm = searchInput.value.toLowerCase();
+            document.querySelectorAll('.producto-info h6').forEach(element => {
+                const text = element.textContent.toLowerCase();
+                if (text.includes(searchTerm)) {
+                    element.style.backgroundColor = '#fff3cd';
+                    element.style.padding = '5px';
+                    element.style.borderRadius = '5px';
+                }
+            });
+        }
+        
+        // Animación de aparición de filas
+        const rows = document.querySelectorAll('.table-productos tbody tr');
+        rows.forEach((row, index) => {
+            row.style.opacity = '0';
+            row.style.transform = 'translateY(20px)';
+            
+            setTimeout(() => {
+                row.style.transition = 'all 0.3s ease';
+                row.style.opacity = '1';
+                row.style.transform = 'translateY(0)';
+            }, index * 50);
+        });
+        
+        // Contador animado en total de productos
+        const totalNumero = document.querySelector('.total-productos .numero');
+        if (totalNumero) {
+            const finalValue = parseInt(totalNumero.textContent);
+            let currentValue = 0;
+            const duration = 1000; // 1 segundo
+            const increment = finalValue / (duration / 16); // 60fps
+            
+            const animate = () => {
+                currentValue += increment;
+                if (currentValue < finalValue) {
+                    totalNumero.textContent = Math.floor(currentValue);
+                    requestAnimationFrame(animate);
+                } else {
+                    totalNumero.textContent = finalValue;
+                }
+            };
+            
+            setTimeout(animate, 300);
+        }
+        
+        // Tooltip para badges en móviles
+        if (window.innerWidth <= 768) {
+            document.querySelectorAll('.badge').forEach(badge => {
+                badge.addEventListener('click', function() {
+                    const text = this.textContent.trim();
+                    const tooltip = document.createElement('div');
+                    tooltip.textContent = text;
+                    tooltip.style.cssText = `
+                        position: fixed;
+                        top: 50%;
+                        left: 50%;
+                        transform: translate(-50%, -50%);
+                        background: #333;
+                        color: white;
+                        padding: 10px 20px;
+                        border-radius: 5px;
+                        z-index: 9999;
+                        font-size: 14px;
+                    `;
+                    document.body.appendChild(tooltip);
+                    
+                    setTimeout(() => {
+                        tooltip.remove();
+                    }, 1500);
+                });
+            });
+        }
+        
+        // Log para debugging
+        console.log('Sistema de productos inicializado correctamente');
+        console.log('Filtros activos:', {
+            tipo: '<?php echo $filtro_tipo; ?>',
+            busqueda: '<?php echo $busqueda; ?>'
         });
     </script>
 </body>
