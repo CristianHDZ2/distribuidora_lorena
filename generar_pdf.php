@@ -168,43 +168,18 @@ if ($generar && $ruta_id > 0) {
         $titulo_filtro .= implode(" + ", $filtros_aplicados);
     }
     
-    // Generar PDF
-    header('Content-Type: text/html; charset=utf-8');
+    // Generar PDF (HTML optimizado para impresión)
     ?>
     <!DOCTYPE html>
     <html lang="es">
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Reporte de Liquidación - <?php echo htmlspecialchars($ruta['nombre']); ?></title>
+        <title>Reporte de Liquidación - <?php echo htmlspecialchars($ruta['nombre']); ?> - <?php echo date('d/m/Y', strtotime($fecha)); ?></title>
         <style>
             @page {
                 size: letter;
-                margin: 0.5cm;
-            }
-            
-            @media print {
-                .no-print {
-                    display: none;
-                }
-                
-                body {
-                    width: 100%;
-                    height: 100%;
-                }
-                
-                .container {
-                    page-break-inside: avoid;
-                }
-                
-                table {
-                    page-break-inside: auto;
-                }
-                
-                tr {
-                    page-break-inside: avoid;
-                    page-break-after: auto;
-                }
+                margin: 15mm;
             }
             
             * {
@@ -214,15 +189,15 @@ if ($generar && $ruta_id > 0) {
             }
             
             body {
-                font-family: 'Arial', sans-serif;
+                font-family: Arial, sans-serif;
                 font-size: 11px;
                 line-height: 1.4;
-                color: #333;
-                background: white;
+                color: #2c3e50;
             }
             
             .container {
-                max-width: 100%;
+                width: 100%;
+                max-width: 210mm;
                 margin: 0 auto;
                 padding: 10px;
             }
@@ -230,21 +205,62 @@ if ($generar && $ruta_id > 0) {
             .header {
                 text-align: center;
                 margin-bottom: 15px;
-                border-bottom: 3px solid #2c3e50;
                 padding-bottom: 10px;
+                border-bottom: 3px solid #2c3e50;
             }
             
             .header h1 {
-                font-size: 20px;
+                font-size: 18px;
                 color: #2c3e50;
                 margin-bottom: 5px;
             }
             
             .header h2 {
                 font-size: 14px;
-                color: #34495e;
-                font-weight: normal;
+                color: #3498db;
                 margin-bottom: 3px;
+            }
+            
+            .header p {
+                font-size: 10px;
+                color: #7f8c8d;
+            }
+            
+            .etiquetas-badge {
+                display: inline-block;
+                padding: 2px 6px;
+                border-radius: 3px;
+                font-size: 8px;
+                font-weight: bold;
+                margin: 1px;
+            }
+            
+            .badge-lorena {
+                background: #27ae60;
+                color: white;
+            }
+            
+            .badge-francisco {
+                background: #f39c12;
+                color: white;
+            }
+            
+            .badge-declara {
+                background: #3498db;
+                color: white;
+            }
+            
+            .badge-no-declara {
+                background: #e74c3c;
+                color: white;
+            }
+            
+            .filtro-info {
+                background: #fff3cd;
+                border-left: 4px solid #f39c12;
+                padding: 8px;
+                margin-bottom: 12px;
+                border-radius: 5px;
             }
             
             .info-section {
@@ -344,66 +360,41 @@ if ($generar && $ruta_id > 0) {
                 background: #229954;
             }
             
-            .etiquetas-badge {
-                display: inline-block;
-                padding: 2px 6px;
-                border-radius: 3px;
-                font-size: 8px;
-                font-weight: bold;
-                margin-left: 5px;
-            }
-            
-            .badge-lorena {
-                background: #3498db;
-                color: white;
-            }
-            
-            .badge-francisco {
-                background: #27ae60;
-                color: white;
-            }
-            
-            .badge-declara {
-                background: #2ecc71;
-                color: white;
-            }
-            
-            .badge-no-declara {
-                background: #e74c3c;
-                color: white;
-            }
-            
-            .filtro-aplicado {
-                background: #fff3cd;
-                border: 2px solid #ffc107;
-                padding: 8px;
-                margin-bottom: 10px;
-                border-radius: 5px;
-                text-align: center;
-                font-weight: bold;
-                color: #856404;
+            @media print {
+                .btn-print {
+                    display: none;
+                }
+                
+                body {
+                    print-color-adjust: exact;
+                    -webkit-print-color-adjust: exact;
+                }
             }
         </style>
     </head>
     <body>
-        <button class="btn-print no-print" onclick="window.print()">
-            🖨️ Imprimir / Guardar PDF
+        <button class="btn-print" onclick="window.print()">
+            <i class="fas fa-print"></i> Imprimir / Guardar PDF
         </button>
         
         <div class="container">
             <div class="header">
-                <h1>🚚 DISTRIBUIDORA LORENA</h1>
-                <h2>Reporte de Liquidación<?php echo $titulo_filtro; ?></h2>
+                <h1>📋 REPORTE DE LIQUIDACIÓN<?php echo $titulo_filtro; ?></h1>
+                <h2><?php echo htmlspecialchars($ruta['nombre']); ?></h2>
+                <p>Fecha de Operación: <?php echo date('d/m/Y', strtotime($fecha)); ?> | 
+                   Liquidación: <?php echo date('d/m/Y H:i', strtotime($fecha_liquidacion)); ?></p>
             </div>
             
             <?php if ($filtro_propietario != 'todos' || $filtro_declaracion != 'todos'): ?>
-                <div class="filtro-aplicado">
-                    ⚠️ REPORTE FILTRADO - 
+                <div class="filtro-info">
+                    <strong>🔍 FILTROS APLICADOS:</strong> 
                     <?php if ($filtro_propietario != 'todos'): ?>
                         PROPIETARIO: <?php echo $filtro_propietario; ?>
                     <?php endif; ?>
+                    <?php if ($filtro_propietario != 'todos' && $filtro_declaracion != 'todos'): ?>
+                        | 
+                    <?php endif; ?>
                     <?php if ($filtro_declaracion != 'todos'): ?>
-                        <?php echo $filtro_propietario != 'todos' ? ' | ' : ''; ?>
                         DECLARACIÓN: <?php echo $filtro_declaracion; ?>
                     <?php endif; ?>
                 </div>
@@ -419,7 +410,9 @@ if ($generar && $ruta_id > 0) {
                 <div class="info-item">
                     <strong>Liquidación:</strong> <?php echo date('d/m/Y H:i', strtotime($fecha_liquidacion)); ?>
                 </div>
-            </div><?php if (!empty($productos_vendidos)): ?>
+            </div>
+
+            <?php if (!empty($productos_vendidos)): ?>
                 <table>
                     <thead>
                         <tr>
@@ -495,48 +488,13 @@ if ($generar && $ruta_id > 0) {
                                 <strong>$<?php echo number_format($total_filtrado, 2); ?></strong>
                             </td>
                         </tr>
-                        <?php if ($filtro_propietario != 'todos' || $filtro_declaracion != 'todos'): ?>
-                            <tr style="background: #e8f5e9;">
-                                <td colspan="9" class="text-right">
-                                    <strong>TOTAL GENERAL DE LA LIQUIDACIÓN (SIN FILTROS):</strong>
-                                </td>
-                                <td class="text-right">
-                                    <strong>$<?php echo number_format($total_general, 2); ?></strong>
-                                </td>
-                            </tr>
-                        <?php endif; ?>
                     </tbody>
                 </table>
                 
-                <div style="padding: 10px; background: #e8f5e9; border-left: 4px solid #27ae60; margin-bottom: 10px;">
-                    <strong>📊 Resumen:</strong> 
-                    Se procesaron <?php echo count($productos_vendidos); ?> productos
-                    <?php if ($filtro_propietario != 'todos' || $filtro_declaracion != 'todos'): ?>
-                        con los filtros aplicados
-                    <?php endif; ?>
-                    por un total de <strong>$<?php echo number_format($total_filtrado, 2); ?></strong>
-                </div>
-                
-                <div style="padding: 8px; background: #fff3cd; border-left: 4px solid #ffc107; margin-bottom: 10px;">
-                    <strong>🏷️ Información de Etiquetas:</strong><br>
-                    <small>
-                        Las etiquetas de <strong>PROPIETARIO</strong> identifican al dueño del producto (LORENA o FRANCISCO).<br>
-                        Las etiquetas de <strong>DECLARACIÓN</strong> indican si el producto se factura (SE DECLARA) o no (NO SE DECLARA).
-                    </small>
-                </div>
-                
-                <?php 
-                $tiene_ajustes_globales = false;
-                foreach ($productos_vendidos as $producto) {
-                    if (!empty($producto['ajustes'])) {
-                        $tiene_ajustes_globales = true;
-                        break;
-                    }
-                }
-                ?>
-                <?php if ($tiene_ajustes_globales): ?>
-                    <div style="padding: 8px; background: #fff3cd; border-left: 4px solid #e67e22; margin-bottom: 10px;">
-                        <strong>⚠️ NOTA:</strong> Este reporte incluye ajustes de precio. Los totales reflejan precios diferenciados aplicados a ventas específicas.
+                <?php if (!empty($productos_vendidos) && count(array_filter($productos_vendidos, function($p) { return !empty($p['ajustes']); })) > 0): ?>
+                    <div style="padding: 8px; background: #fff3cd; border-left: 4px solid #f39c12; margin-bottom: 10px;">
+                        <strong>⚠️ NOTA IMPORTANTE SOBRE AJUSTES:</strong> 
+                        Los totales reflejan precios diferenciados aplicados a ventas específicas.
                     </div>
                 <?php endif; ?>
                 
@@ -637,6 +595,27 @@ $rutas = $conn->query("SELECT * FROM rutas WHERE activo = 1 ORDER BY id");
                             <li><a class="dropdown-item" href="retornos.php"><i class="fas fa-arrow-down"></i> Retornos</a></li>
                         </ul>
                     </li>
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="navbarDropdownInventario" role="button" data-bs-toggle="dropdown">
+                            <i class="fas fa-warehouse"></i> Inventario
+                        </a>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="inventario.php"><i class="fas fa-boxes"></i> Ver Inventario</a></li>
+                            <li><a class="dropdown-item" href="inventario_ingresos.php"><i class="fas fa-plus-circle"></i> Ingresos</a></li>
+                            <li><a class="dropdown-item" href="inventario_movimientos.php"><i class="fas fa-exchange-alt"></i> Movimientos</a></li>
+                            <li><a class="dropdown-item" href="inventario_danados.php"><i class="fas fa-exclamation-triangle"></i> Productos Dañados</a></li>
+                        </ul>
+                    </li>
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="navbarDropdownVentas" role="button" data-bs-toggle="dropdown">
+                            <i class="fas fa-shopping-cart"></i> Ventas
+                        </a>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="ventas_directas.php"><i class="fas fa-cash-register"></i> Ventas Directas</a></li>
+                            <li><a class="dropdown-item" href="devoluciones_directas.php"><i class="fas fa-undo"></i> Devoluciones</a></li>
+                            <li><a class="dropdown-item" href="consumo_interno.php"><i class="fas fa-utensils"></i> Consumo Interno</a></li>
+                        </ul>
+                    </li>
                     <li class="nav-item">
                         <a class="nav-link active" href="generar_pdf.php">
                             <i class="fas fa-file-pdf"></i> Reportes
@@ -705,24 +684,25 @@ $rutas = $conn->query("SELECT * FROM rutas WHERE activo = 1 ORDER BY id");
                                         <input type="date" class="form-control form-control-lg" name="fecha" value="<?php echo date('Y-m-d'); ?>" required>
                                         <small class="text-muted">Seleccione la fecha del reporte que desea generar</small>
                                     </div>
-                                </div>
-                                
-                                <hr>
-                                
-                                <!-- 🆕 NUEVOS FILTROS DE ETIQUETAS -->
-                                <div class="alert alert-info">
-                                    <i class="fas fa-filter"></i> <strong>Filtros de Etiquetas</strong> (Opcional - Deje en "Todos" para ver todo)
-                                </div>
-                                
+                                </div><!-- 🆕 NUEVOS FILTROS DE ETIQUETAS -->
                                 <div class="row mb-4">
+                                    <div class="col-12">
+                                        <h5 class="fw-bold text-primary mb-3">
+                                            <i class="fas fa-filter"></i> Filtros de Etiquetas (Opcional)
+                                        </h5>
+                                        <p class="text-muted mb-3">
+                                            Seleccione filtros para generar reportes específicos según propietario y tipo de declaración.
+                                        </p>
+                                    </div>
+                                    
                                     <div class="col-md-6">
                                         <label class="form-label fw-bold">
                                             <i class="fas fa-user"></i> Filtrar por Propietario
                                         </label>
-                                        <select class="form-select form-select-lg" name="filtro_propietario">
-                                            <option value="todos">Todos los Propietarios</option>
-                                            <option value="LORENA">LORENA</option>
-                                            <option value="FRANCISCO">FRANCISCO</option>
+                                        <select class="form-select" name="filtro_propietario">
+                                            <option value="todos">Todos los propietarios</option>
+                                            <option value="LORENA">Solo LORENA</option>
+                                            <option value="FRANCISCO">Solo FRANCISCO</option>
                                         </select>
                                         <small class="text-muted">Filtra productos por dueño</small>
                                     </div>
@@ -731,10 +711,10 @@ $rutas = $conn->query("SELECT * FROM rutas WHERE activo = 1 ORDER BY id");
                                         <label class="form-label fw-bold">
                                             <i class="fas fa-file-invoice"></i> Filtrar por Declaración
                                         </label>
-                                        <select class="form-select form-select-lg" name="filtro_declaracion">
-                                            <option value="todos">Todos los Tipos</option>
-                                            <option value="SE DECLARA">SE DECLARA</option>
-                                            <option value="NO SE DECLARA">NO SE DECLARA</option>
+                                        <select class="form-select" name="filtro_declaracion">
+                                            <option value="todos">Todas las declaraciones</option>
+                                            <option value="SE DECLARA">Solo SE DECLARA</option>
+                                            <option value="NO SE DECLARA">Solo NO SE DECLARA</option>
                                         </select>
                                         <small class="text-muted">Filtra productos por tipo de facturación</small>
                                     </div>
@@ -763,28 +743,30 @@ $rutas = $conn->query("SELECT * FROM rutas WHERE activo = 1 ORDER BY id");
                                     </a>
                                 </div>
                             </form>
-                        </div>
-                    </div><!-- Información adicional -->
-                    <div class="card mt-4">
-                        <div class="card-header bg-success text-white">
-                            <h5 class="mb-0"><i class="fas fa-check-circle"></i> Nueva Funcionalidad: Liquidaciones Consolidadas + Filtros por Etiquetas</h5>
-                        </div>
-                        <div class="card-body">
-                            <h6 class="fw-bold">Ventajas del nuevo sistema:</h6>
-                            <ul>
-                                <li><strong>✓ Datos congelados:</strong> Al completar retornos, se guarda automáticamente la liquidación con todos los cálculos</li>
-                                <li><strong>✓ Reportes instantáneos:</strong> El PDF se genera en milisegundos leyendo datos ya calculados</li>
-                                <li><strong>✓ Integridad histórica garantizada:</strong> Los reportes NUNCA cambian aunque modifiques precios en el catálogo</li>
-                                <li><strong>✓ Múltiples ajustes de precio:</strong> Todos los ajustes se guardan en la liquidación</li>
-                                <li><strong>✓ Auditoría completa:</strong> Cada liquidación incluye fecha y hora exacta de registro</li>
-                                <li><strong>🆕 Filtros por etiquetas:</strong> Genera reportes específicos por propietario y tipo de declaración</li>
-                                <li><strong>🆕 Reportes personalizados:</strong> Obtén totales separados para LORENA, FRANCISCO, productos declarados o no declarados</li>
-                            </ul>
                             
-                            <div class="alert alert-success mt-3">
-                                <i class="fas fa-database"></i>
-                                <strong>Base de datos optimizada:</strong> Las liquidaciones se guardan en tablas dedicadas (<code>liquidaciones</code> y <code>liquidaciones_detalle</code>) para máximo rendimiento.
-                            </div>
+                            <hr class="my-4">
+                            
+                            <div class="mt-4">
+                                <h5 class="fw-bold mb-3">
+                                    <i class="fas fa-question-circle text-info"></i> ¿Cómo funciona?
+                                </h5>
+                                
+                                <div class="alert alert-light border">
+                                    <h6 class="fw-bold">📋 Proceso de Liquidación Consolidada:</h6>
+                                    <ol class="mb-0">
+                                        <li>Registre las <strong>salidas</strong> de productos para la ruta</li>
+                                        <li>Registre las <strong>recargas</strong> (si aplica)</li>
+                                        <li>Complete los <strong>retornos</strong> - En este momento el sistema:
+                                            <ul>
+                                                <li>Calcula automáticamente todos los totales</li>
+                                                <li>Guarda la liquidación completa en la base de datos</li>
+                                                <li><strong>Congela los precios</strong> para siempre (aunque cambien en el catálogo)</li>
+                                                <li>Registra la fecha y hora exacta de la liquidación</li>
+                                            </ul>
+                                        </li>
+                                        <li>Genere el reporte PDF desde aquí cuando lo necesite</li>
+                                    </ol>
+                                </div>
                             
                             <h6 class="fw-bold mt-4">El reporte PDF incluirá:</h6>
                             <ul>
@@ -817,41 +799,12 @@ $rutas = $conn->query("SELECT * FROM rutas WHERE activo = 1 ORDER BY id");
                                 <i class="fas fa-exclamation-triangle"></i>
                                 <strong>Nota:</strong> Solo puede generar reportes de rutas que tengan liquidación completada (salidas + retornos registrados).
                             </div>
-                            
-                            <!-- 🆕 NUEVA SECCIÓN: Casos de uso de filtros -->
-                            <div class="card mt-3" style="border-left: 4px solid #17a2b8;">
-                                <div class="card-body">
-                                    <h6 class="fw-bold text-info"><i class="fas fa-chart-pie"></i> Casos de Uso de Filtros por Etiquetas:</h6>
-                                    <div class="row mt-3">
-                                        <div class="col-md-6">
-                                            <h6 class="fw-bold">📊 Reportes Contables:</h6>
-                                            <ul style="font-size: 14px;">
-                                                <li>Filtra "SE DECLARA" para obtener productos facturables</li>
-                                                <li>Filtra "NO SE DECLARA" para productos no facturables</li>
-                                                <li>Combina con propietario para separar por dueño</li>
-                                            </ul>
-                                        </div>
-                                        <div class="col-md-6">
-                                            <h6 class="fw-bold">👥 Reportes por Propietario:</h6>
-                                            <ul style="font-size: 14px;">
-                                                <li>Filtra "LORENA" para ver solo sus productos</li>
-                                                <li>Filtra "FRANCISCO" para ver solo sus productos</li>
-                                                <li>Combina con declaración para análisis detallado</li>
-                                            </ul>
-                                        </div>
-                                    </div>
-                                    <div class="alert alert-success mt-3 mb-0">
-                                        <i class="fas fa-check-circle"></i>
-                                        <strong>Ventaja:</strong> Genera 4 reportes diferentes (LORENA+DECLARA, LORENA+NO DECLARA, FRANCISCO+DECLARA, FRANCISCO+NO DECLARA) 
-                                        desde una misma liquidación sin necesidad de registrar datos múltiples veces.
-                                    </div>
-                                </div>
-                            </div>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
+    </div>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
@@ -924,7 +877,7 @@ $rutas = $conn->query("SELECT * FROM rutas WHERE activo = 1 ORDER BY id");
             
             // Mejorar experiencia táctil en dispositivos móviles
             if ('ontouchstart' in window) {
-                document.querySelectorAll('.btn, .card').forEach(element => {
+                document.querySelectorAll('.btn').forEach(element => {
                     element.addEventListener('touchstart', function() {
                         this.style.opacity = '0.7';
                     });
@@ -951,10 +904,10 @@ $rutas = $conn->query("SELECT * FROM rutas WHERE activo = 1 ORDER BY id");
             if ('ontouchstart' in window || navigator.maxTouchPoints > 0) {
                 document.body.classList.add('touch-device');
             }
-            
-            console.log('Sistema de reportes con filtros cargado correctamente');
         });
     </script>
 </body>
 </html>
-<?php closeConnection($conn); ?>
+<?php
+closeConnection($conn);
+?>

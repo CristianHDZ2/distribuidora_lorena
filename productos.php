@@ -8,23 +8,21 @@ $conn = getConnection();
 $mensaje = '';
 $tipo_mensaje = '';
 
-// Procesar acciones
+// Procesar formularios
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $accion = $_POST['accion'] ?? '';
     
     if ($accion == 'agregar') {
-        $nombre = limpiarInput($_POST['nombre']);
+        $nombre = trim($_POST['nombre']);
         $precio_caja = floatval($_POST['precio_caja']);
-        $precio_unitario = !empty($_POST['precio_unitario']) ? floatval($_POST['precio_unitario']) : NULL;
-        $tipo = limpiarInput($_POST['tipo']);
-        $etiqueta_propietario = limpiarInput($_POST['etiqueta_propietario']);
-        $etiqueta_declaracion = limpiarInput($_POST['etiqueta_declaracion']);
+        $tipo = $_POST['tipo'];
+        $tiene_precio_unitario = isset($_POST['tiene_precio_unitario']) ? 1 : 0;
+        $precio_unitario = $tiene_precio_unitario ? floatval($_POST['precio_unitario']) : null;
+        $etiqueta_propietario = $_POST['etiqueta_propietario'];
+        $etiqueta_declaracion = $_POST['etiqueta_declaracion'];
         
-        if (!empty($nombre) && $precio_caja > 0 && in_array($tipo, ['Big Cola', 'Varios', 'Ambos']) 
-            && in_array($etiqueta_propietario, ['LORENA', 'FRANCISCO']) 
-            && in_array($etiqueta_declaracion, ['SE DECLARA', 'NO SE DECLARA'])) {
-            
-            $stmt = $conn->prepare("INSERT INTO productos (nombre, precio_caja, precio_unitario, tipo, etiqueta_propietario, etiqueta_declaracion) VALUES (?, ?, ?, ?, ?, ?)");
+        if (!empty($nombre) && $precio_caja > 0 && !empty($tipo) && !empty($etiqueta_propietario) && !empty($etiqueta_declaracion)) {
+            $stmt = $conn->prepare("INSERT INTO productos (nombre, precio_caja, precio_unitario, tipo, etiqueta_propietario, etiqueta_declaracion, activo) VALUES (?, ?, ?, ?, ?, ?, 1)");
             $stmt->bind_param("sddsss", $nombre, $precio_caja, $precio_unitario, $tipo, $etiqueta_propietario, $etiqueta_declaracion);
             
             if ($stmt->execute()) {
@@ -46,17 +44,15 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         
     } elseif ($accion == 'editar') {
         $id = intval($_POST['id']);
-        $nombre = limpiarInput($_POST['nombre']);
+        $nombre = trim($_POST['nombre']);
         $precio_caja = floatval($_POST['precio_caja']);
-        $precio_unitario = !empty($_POST['precio_unitario']) ? floatval($_POST['precio_unitario']) : NULL;
-        $tipo = limpiarInput($_POST['tipo']);
-        $etiqueta_propietario = limpiarInput($_POST['etiqueta_propietario']);
-        $etiqueta_declaracion = limpiarInput($_POST['etiqueta_declaracion']);
+        $tipo = $_POST['tipo'];
+        $tiene_precio_unitario = isset($_POST['tiene_precio_unitario']) ? 1 : 0;
+        $precio_unitario = $tiene_precio_unitario ? floatval($_POST['precio_unitario']) : null;
+        $etiqueta_propietario = $_POST['etiqueta_propietario'];
+        $etiqueta_declaracion = $_POST['etiqueta_declaracion'];
         
-        if (!empty($nombre) && $precio_caja > 0 && $id > 0 && in_array($tipo, ['Big Cola', 'Varios', 'Ambos'])
-            && in_array($etiqueta_propietario, ['LORENA', 'FRANCISCO']) 
-            && in_array($etiqueta_declaracion, ['SE DECLARA', 'NO SE DECLARA'])) {
-            
+        if ($id > 0 && !empty($nombre) && $precio_caja > 0 && !empty($tipo) && !empty($etiqueta_propietario) && !empty($etiqueta_declaracion)) {
             $stmt = $conn->prepare("UPDATE productos SET nombre = ?, precio_caja = ?, precio_unitario = ?, tipo = ?, etiqueta_propietario = ?, etiqueta_declaracion = ? WHERE id = ?");
             $stmt->bind_param("sddsssi", $nombre, $precio_caja, $precio_unitario, $tipo, $etiqueta_propietario, $etiqueta_declaracion, $id);
             
@@ -188,8 +184,29 @@ if (!empty($params)) {
                             <li><a class="dropdown-item" href="retornos.php"><i class="fas fa-arrow-down"></i> Retornos</a></li>
                         </ul>
                     </li>
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="navbarDropdownInventario" role="button" data-bs-toggle="dropdown">
+                            <i class="fas fa-warehouse"></i> Inventario
+                        </a>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="inventario.php"><i class="fas fa-boxes"></i> Ver Inventario</a></li>
+                            <li><a class="dropdown-item" href="inventario_ingresos.php"><i class="fas fa-plus-circle"></i> Ingresos</a></li>
+                            <li><a class="dropdown-item" href="inventario_movimientos.php"><i class="fas fa-exchange-alt"></i> Movimientos</a></li>
+                            <li><a class="dropdown-item" href="inventario_danados.php"><i class="fas fa-exclamation-triangle"></i> Productos Dañados</a></li>
+                        </ul>
+                    </li>
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="navbarDropdownVentas" role="button" data-bs-toggle="dropdown">
+                            <i class="fas fa-shopping-cart"></i> Ventas
+                        </a>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="ventas_directas.php"><i class="fas fa-cash-register"></i> Ventas Directas</a></li>
+                            <li><a class="dropdown-item" href="devoluciones_directas.php"><i class="fas fa-undo"></i> Devoluciones</a></li>
+                            <li><a class="dropdown-item" href="consumo_interno.php"><i class="fas fa-utensils"></i> Consumo Interno</a></li>
+                        </ul>
+                    </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="generar_pdf.php" target="_blank">
+                        <a class="nav-link" href="generar_pdf.php">
                             <i class="fas fa-file-pdf"></i> Reportes
                         </a>
                     </li>
@@ -212,71 +229,62 @@ if (!empty($params)) {
             
             <?php if ($mensaje): ?>
                 <div class="alert alert-<?php echo $tipo_mensaje; ?> alert-custom alert-dismissible fade show" id="mensajeAlerta">
-                    <i class="fas fa-<?php echo $tipo_mensaje == 'success' ? 'check-circle' : 'exclamation-circle'; ?>"></i>
+                    <i class="fas fa-<?php echo $tipo_mensaje == 'success' ? 'check-circle' : 'exclamation-triangle'; ?>"></i>
                     <?php echo htmlspecialchars($mensaje); ?>
                     <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
                 </div>
             <?php endif; ?>
-            
-            <!-- Filtros y Búsqueda -->
-            <div class="filtros-container">
-                <form method="GET" action="productos.php" class="mb-0">
-                    <div class="row g-3 align-items-end">
-                        <div class="col-lg-3 col-md-4 col-sm-6">
-                            <label class="form-label fw-bold">Filtrar por Tipo</label>
-                            <select name="tipo_filtro" class="form-select" onchange="this.form.submit()">
-                                <option value="todos" <?php echo $filtro_tipo == 'todos' ? 'selected' : ''; ?>>Todos</option>
-                                <option value="Big Cola" <?php echo $filtro_tipo == 'Big Cola' ? 'selected' : ''; ?>>Big Cola</option>
-                                <option value="Varios" <?php echo $filtro_tipo == 'Varios' ? 'selected' : ''; ?>>Varios</option>
-                                <option value="Ambos" <?php echo $filtro_tipo == 'Ambos' ? 'selected' : ''; ?>>Ambos</option>
-                            </select>
-                        </div>
-                        <div class="col-lg-6 col-md-8 col-sm-12">
-                            <label class="form-label fw-bold">Buscar Producto</label>
-                            <div class="input-group">
-                                <input type="text" class="form-control" name="busqueda" value="<?php echo htmlspecialchars($busqueda); ?>" placeholder="Buscar por nombre...">
-                                <button class="btn btn-outline-primary" type="submit">
-                                    <i class="fas fa-search"></i> Buscar
-                                </button>
-                                <?php if (!empty($busqueda) || $filtro_tipo != 'todos'): ?>
-                                    <a href="productos.php" class="btn btn-outline-secondary">
-                                        <i class="fas fa-times"></i> Limpiar
-                                    </a>
-                                <?php endif; ?>
-                            </div>
-                        </div>
-                        <div class="col-lg-3 col-md-12 col-sm-12">
-                            <button type="button" class="btn btn-custom-primary w-100" data-bs-toggle="modal" data-bs-target="#modalAgregar">
-                                <i class="fas fa-plus"></i> Agregar Producto
-                            </button>
-                        </div>
-                    </div>
+
+            <!-- Instrucciones del sistema -->
+            <div class="alert alert-info">
+                <i class="fas fa-info-circle"></i>
+                <strong>Instrucciones:</strong> Administre los productos disponibles en el sistema. Puede agregar nuevos productos, editar los existentes o desactivarlos según sea necesario.
+            </div><!-- Controles superiores -->
+            <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+                <button type="button" class="btn btn-custom-primary" data-bs-toggle="modal" data-bs-target="#modalAgregar">
+                    <i class="fas fa-plus-circle"></i> Agregar Producto
+                </button>
+                
+                <!-- Filtros -->
+                <form method="GET" class="d-flex gap-2 flex-wrap">
+                    <input type="text" 
+                           class="form-control" 
+                           name="busqueda" 
+                           placeholder="Buscar producto..." 
+                           value="<?php echo htmlspecialchars($busqueda); ?>"
+                           style="max-width: 250px;">
+                    
+                    <select class="form-select" name="tipo_filtro" style="max-width: 200px;">
+                        <option value="todos" <?php echo $filtro_tipo == 'todos' ? 'selected' : ''; ?>>Todos los tipos</option>
+                        <option value="Big Cola" <?php echo $filtro_tipo == 'Big Cola' ? 'selected' : ''; ?>>Big Cola</option>
+                        <option value="Varios" <?php echo $filtro_tipo == 'Varios' ? 'selected' : ''; ?>>Varios</option>
+                        <option value="Ambos" <?php echo $filtro_tipo == 'Ambos' ? 'selected' : ''; ?>>Ambos</option>
+                    </select>
+                    
+                    <button type="submit" class="btn btn-secondary">
+                        <i class="fas fa-search"></i> Buscar
+                    </button>
+                    
+                    <?php if (!empty($busqueda) || $filtro_tipo != 'todos'): ?>
+                        <a href="productos.php" class="btn btn-outline-secondary">
+                            <i class="fas fa-times"></i> Limpiar
+                        </a>
+                    <?php endif; ?>
                 </form>
             </div>
-            
-            <!-- Total de productos -->
-            <?php if ($productos->num_rows > 0): ?>
-                <div class="alert alert-info alert-custom mt-3">
-                    <i class="fas fa-info-circle"></i>
-                    <strong>Total de productos encontrados:</strong> <?php echo $productos->num_rows; ?>
-                    <?php if ($filtro_tipo != 'todos' || !empty($busqueda)): ?>
-                        <span class="ms-2">(Filtrados)</span>
-                    <?php endif; ?>
-                </div>
-            <?php endif; ?>
-            
+
             <!-- Tabla de productos -->
             <div class="table-responsive">
-                <table class="table table-hover table-productos">
+                <table class="table table-productos table-hover">
                     <thead>
                         <tr>
                             <th width="5%">#</th>
-                            <th width="30%">Producto</th>
+                            <th width="25%">Nombre</th>
                             <th width="10%">Precio Caja</th>
                             <th width="10%">Precio Unit.</th>
                             <th width="10%">Tipo</th>
-                            <th width="10%">Propietario</th>
-                            <th width="10%">Declaración</th>
+                            <th width="12%">Propietario</th>
+                            <th width="13%">Declaración</th>
                             <th width="15%">Acciones</th>
                         </tr>
                     </thead>
@@ -284,40 +292,41 @@ if (!empty($params)) {
                         <?php if ($productos->num_rows > 0): ?>
                             <?php 
                             $contador = 1;
-                            while($producto = $productos->fetch_assoc()): 
+                            while ($producto = $productos->fetch_assoc()): 
                             ?>
                                 <tr>
-                                    <td class="fw-bold"><?php echo $contador; ?></td>
                                     <td>
-                                        <i class="fas fa-box text-primary me-2"></i>
-                                        <?php echo htmlspecialchars($producto['nombre']); ?>
-                                    </td>
-                                    <td class="text-success fw-bold">$<?php echo number_format($producto['precio_caja'], 2); ?></td>
-                                    <td>
-                                        <?php 
-                                        if ($producto['precio_unitario']) {
-                                            echo '<span class="text-info fw-bold">$' . number_format($producto['precio_unitario'], 2) . '</span>';
-                                        } else {
-                                            echo '<span class="text-muted">N/A</span>';
-                                        }
-                                        ?>
+                                        <span class="numero-orden"><?php echo $contador; ?></span>
                                     </td>
                                     <td>
-                                        <span class="badge bg-<?php 
-                                            echo $producto['tipo'] == 'Big Cola' ? 'warning' : 
-                                                ($producto['tipo'] == 'Varios' ? 'info' : 'secondary'); 
+                                        <strong><?php echo htmlspecialchars($producto['nombre']); ?></strong>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-success">$<?php echo number_format($producto['precio_caja'], 2); ?></span>
+                                    </td>
+                                    <td>
+                                        <?php if (!empty($producto['precio_unitario']) && $producto['precio_unitario'] > 0): ?>
+                                            <span class="badge bg-info">$<?php echo number_format($producto['precio_unitario'], 2); ?></span>
+                                        <?php else: ?>
+                                            <span class="text-muted">-</span>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td>
+                                        <span class="badge <?php 
+                                            echo $producto['tipo'] == 'Big Cola' ? 'bg-primary' : 
+                                                 ($producto['tipo'] == 'Varios' ? 'bg-secondary' : 'bg-dark'); 
                                         ?>">
-                                            <?php echo $producto['tipo']; ?>
+                                            <?php echo htmlspecialchars($producto['tipo']); ?>
                                         </span>
                                     </td>
                                     <td>
-                                        <span class="badge bg-<?php echo $producto['etiqueta_propietario'] == 'LORENA' ? 'primary' : 'success'; ?>">
-                                            <i class="fas fa-user"></i> <?php echo $producto['etiqueta_propietario']; ?>
+                                        <span class="badge <?php echo $producto['etiqueta_propietario'] == 'LORENA' ? 'bg-success' : 'bg-warning text-dark'; ?>">
+                                            <?php echo htmlspecialchars($producto['etiqueta_propietario']); ?>
                                         </span>
                                     </td>
                                     <td>
-                                        <span class="badge bg-<?php echo $producto['etiqueta_declaracion'] == 'SE DECLARA' ? 'success' : 'danger'; ?>">
-                                            <i class="fas fa-file-invoice"></i> <?php echo $producto['etiqueta_declaracion']; ?>
+                                        <span class="badge <?php echo $producto['etiqueta_declaracion'] == 'SE DECLARA' ? 'bg-primary' : 'bg-danger'; ?>">
+                                            <?php echo htmlspecialchars($producto['etiqueta_declaracion']); ?>
                                         </span>
                                     </td>
                                     <td>
@@ -325,7 +334,7 @@ if (!empty($params)) {
                                                 data-id="<?php echo $producto['id']; ?>"
                                                 data-nombre="<?php echo htmlspecialchars($producto['nombre'], ENT_QUOTES); ?>"
                                                 data-precio_caja="<?php echo $producto['precio_caja']; ?>"
-                                                data-precio_unitario="<?php echo $producto['precio_unitario'] !== null ? $producto['precio_unitario'] : ''; ?>"
+                                                data-precio_unitario="<?php echo !empty($producto['precio_unitario']) ? $producto['precio_unitario'] : ''; ?>"
                                                 data-tipo="<?php echo htmlspecialchars($producto['tipo'], ENT_QUOTES); ?>"
                                                 data-etiqueta_propietario="<?php echo htmlspecialchars($producto['etiqueta_propietario'], ENT_QUOTES); ?>"
                                                 data-etiqueta_declaracion="<?php echo htmlspecialchars($producto['etiqueta_declaracion'], ENT_QUOTES); ?>"
@@ -401,34 +410,23 @@ if (!empty($params)) {
                                     <option value="Varios">Varios</option>
                                     <option value="Ambos">Ambos</option>
                                 </select>
+                                <small class="text-muted">Categoría del producto</small>
                             </div>
                             <div class="col-md-4">
                                 <label class="form-label fw-bold">Precio Unitario?</label>
                                 <div class="form-check form-switch">
-                                    <input class="form-check-input" type="checkbox" id="agregar_precio_unitario" onchange="togglePrecioUnitarioAgregar()">
+                                    <input class="form-check-input" type="checkbox" id="agregar_precio_unitario" name="tiene_precio_unitario" onchange="togglePrecioUnitarioAgregar()">
                                     <label class="form-check-label" for="agregar_precio_unitario">
-                                        Activar Precio Unitario
+                                        Tiene precio unitario
                                     </label>
                                 </div>
-                            </div>
-                        </div>
-                        
-                        <div class="row mb-3">
-                            <div class="col-md-6" id="precio_unitario_agregar_container" style="display: none;">
-                                <label class="form-label fw-bold">Precio Unitario</label>
-                                <div class="input-group">
-                                    <span class="input-group-text">$</span>
-                                    <input type="number" class="form-control" name="precio_unitario" id="precio_unitario_agregar" step="0.01" min="0" placeholder="0.00">
+                                <div id="precio_unitario_agregar_container" style="display: none; margin-top: 10px;">
+                                    <div class="input-group">
+                                        <span class="input-group-text">$</span>
+                                        <input type="number" class="form-control" name="precio_unitario" id="precio_unitario_agregar" step="0.01" min="0.01" placeholder="0.00">
+                                    </div>
                                 </div>
-                                <small class="text-muted">Opcional - Precio por unidad individual</small>
                             </div>
-                        </div>
-                        
-                        <hr>
-                        
-                        <!-- NUEVAS ETIQUETAS -->
-                        <div class="alert alert-info">
-                            <i class="fas fa-tags"></i> <strong>Etiquetas Internas</strong> (Para uso en reportes)
                         </div>
                         
                         <div class="row mb-3">
@@ -503,30 +501,18 @@ if (!empty($params)) {
                             <div class="col-md-4">
                                 <label class="form-label fw-bold">Precio Unitario?</label>
                                 <div class="form-check form-switch">
-                                    <input class="form-check-input" type="checkbox" id="editar_precio_unitario" onchange="togglePrecioUnitarioEditar()">
+                                    <input class="form-check-input" type="checkbox" id="editar_precio_unitario" name="tiene_precio_unitario" onchange="togglePrecioUnitarioEditar()">
                                     <label class="form-check-label" for="editar_precio_unitario">
-                                        Activar Precio Unitario
+                                        Tiene precio unitario
                                     </label>
                                 </div>
-                            </div>
-                        </div>
-                        
-                        <div class="row mb-3">
-                            <div class="col-md-6" id="precio_unitario_editar_container" style="display: none;">
-                                <label class="form-label fw-bold">Precio Unitario</label>
-                                <div class="input-group">
-                                    <span class="input-group-text">$</span>
-                                    <input type="number" class="form-control" name="precio_unitario" id="edit_precio_unitario" step="0.01" min="0">
+                                <div id="precio_unitario_editar_container" style="display: none; margin-top: 10px;">
+                                    <div class="input-group">
+                                        <span class="input-group-text">$</span>
+                                        <input type="number" class="form-control" name="precio_unitario" id="edit_precio_unitario" step="0.01" min="0.01" placeholder="0.00">
+                                    </div>
                                 </div>
-                                <small class="text-muted">Opcional - Precio por unidad individual</small>
                             </div>
-                        </div>
-                        
-                        <hr>
-                        
-                        <!-- NUEVAS ETIQUETAS EN EDITAR -->
-                        <div class="alert alert-info">
-                            <i class="fas fa-tags"></i> <strong>Etiquetas Internas</strong> (Para uso en reportes)
                         </div>
                         
                         <div class="row mb-3">
@@ -561,7 +547,9 @@ if (!empty($params)) {
                 </form>
             </div>
         </div>
-    </div><!-- Modal Eliminar -->
+    </div>
+
+    <!-- Modal Eliminar -->
     <div class="modal fade" id="modalEliminar" tabindex="-1">
         <div class="modal-dialog">
             <div class="modal-content">
@@ -630,7 +618,6 @@ if (!empty($params)) {
             }
         }
         
-        // Función para editar producto
         function editarProducto(button) {
             const id = button.getAttribute('data-id');
             const nombre = button.getAttribute('data-nombre');
@@ -647,7 +634,7 @@ if (!empty($params)) {
             document.getElementById('edit_etiqueta_propietario').value = etiquetaPropietario;
             document.getElementById('edit_etiqueta_declaracion').value = etiquetaDeclaracion;
             
-            // Manejar precio unitario
+            // Configurar precio unitario
             if (precioUnitario && precioUnitario !== '') {
                 document.getElementById('editar_precio_unitario').checked = true;
                 document.getElementById('precio_unitario_editar_container').style.display = 'block';
@@ -702,38 +689,24 @@ if (!empty($params)) {
             const etiquetaPropietario = this.querySelector('[name="etiqueta_propietario"]').value;
             const etiquetaDeclaracion = this.querySelector('[name="etiqueta_declaracion"]').value;
             
-            if (nombre === '' || precioCaja <= 0 || tipo === '' || etiquetaPropietario === '' || etiquetaDeclaracion === '') {
+            if (!nombre || precioCaja <= 0 || !tipo || !etiquetaPropietario || !etiquetaDeclaracion) {
                 e.preventDefault();
                 alert('Por favor complete todos los campos obligatorios correctamente');
                 return false;
             }
             
-            // Mostrar loading
             const submitBtn = this.querySelector('button[type="submit"]');
             submitBtn.disabled = true;
             submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando...';
         });
         
         document.getElementById('formEditar').addEventListener('submit', function(e) {
-            const nombre = this.querySelector('[name="nombre"]').value.trim();
-            const precioCaja = parseFloat(this.querySelector('[name="precio_caja"]').value);
-            const tipo = this.querySelector('[name="tipo"]').value;
-            const etiquetaPropietario = this.querySelector('[name="etiqueta_propietario"]').value;
-            const etiquetaDeclaracion = this.querySelector('[name="etiqueta_declaracion"]').value;
-            
-            if (nombre === '' || precioCaja <= 0 || tipo === '' || etiquetaPropietario === '' || etiquetaDeclaracion === '') {
-                e.preventDefault();
-                alert('Por favor complete todos los campos obligatorios correctamente');
-                return false;
-            }
-            
-            // Mostrar loading
             const submitBtn = this.querySelector('button[type="submit"]');
             submitBtn.disabled = true;
             submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Actualizando...';
         });
         
-        document.getElementById('formEliminar').addEventListener('submit', function() {
+        document.getElementById('formEliminar').addEventListener('submit', function(e) {
             const submitBtn = this.querySelector('button[type="submit"]');
             submitBtn.disabled = true;
             submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Eliminando...';
