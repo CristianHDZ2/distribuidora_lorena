@@ -11,6 +11,44 @@ $tipo_mensaje = '';
 // Obtener ruta seleccionada
 $ruta_id = isset($_GET['ruta']) ? intval($_GET['ruta']) : 0;
 $fecha_hoy = date('Y-m-d');
+$fecha_manana = date('Y-m-d', strtotime('+1 day'));
+
+// Obtener fecha seleccionada (por defecto HOY)
+$fecha_seleccionada = isset($_GET['fecha']) ? $_GET['fecha'] : $fecha_hoy;
+
+// Validar que solo sea hoy o mañana
+if ($fecha_seleccionada != $fecha_hoy && $fecha_seleccionada != $fecha_manana) {
+    $fecha_seleccionada = $fecha_hoy;
+}
+
+// Verificar si se puede registrar salida de MAÑANA
+$puede_registrar_manana = false;
+if ($ruta_id > 0) {
+    // Verificar si HOY tiene salida registrada
+    $stmt = $conn->prepare("SELECT COUNT(*) as tiene_salida FROM salidas WHERE ruta_id = ? AND fecha = ?");
+    $stmt->bind_param("is", $ruta_id, $fecha_hoy);
+    $stmt->execute();
+    $result = $stmt->get_result()->fetch_assoc();
+    $tiene_salida_hoy = $result['tiene_salida'] > 0;
+    $stmt->close();
+    
+    // Verificar si HOY tiene retorno registrado
+    $stmt = $conn->prepare("SELECT COUNT(*) as tiene_retorno FROM retornos WHERE ruta_id = ? AND fecha = ?");
+    $stmt->bind_param("is", $ruta_id, $fecha_hoy);
+    $stmt->execute();
+    $result = $stmt->get_result()->fetch_assoc();
+    $tiene_retorno_hoy = $result['tiene_retorno'] > 0;
+    $stmt->close();
+    
+    // Puede registrar mañana si hoy tiene salida Y retorno
+    $puede_registrar_manana = $tiene_salida_hoy && $tiene_retorno_hoy;
+    
+    // Si intentan acceder a mañana sin completar hoy, redirigir a hoy
+    if ($fecha_seleccionada == $fecha_manana && !$puede_registrar_manana) {
+        header("Location: salidas.php?ruta=$ruta_id&fecha=$fecha_hoy&mensaje=" . urlencode("Debe completar el ciclo de HOY (Salida + Retorno) antes de registrar salida de MAÑANA") . "&tipo=warning");
+        exit();
+    }
+}
 
 // Procesar formulario
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
@@ -19,7 +57,15 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $productos = $_POST['productos'] ?? [];
     $usuario_id = $_SESSION['usuario_id'];
     
-    if ($ruta_id > 0 && !empty($productos)) {
+    // Validar que si es mañana, hoy esté completo
+    if ($fecha == $fecha_manana) {
+        if (!$puede_registrar_manana) {
+            $mensaje = 'No puede registrar salida de mañana. Debe completar primero la salida y retorno de hoy.';
+            $tipo_mensaje = 'danger';
+        }
+    }
+    
+    if (empty($mensaje) && $ruta_id > 0 && !empty($productos)) {
         $conn->begin_transaction();
         
         try {
@@ -79,7 +125,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             $conn->commit();
             
             // Redirigir al index con mensaje de éxito
-            header("Location: index.php?mensaje=" . urlencode("Salida guardada exitosamente e inventario actualizado") . "&tipo=success");
+            $fecha_texto = ($fecha == $fecha_hoy) ? 'hoy' : 'mañana';
+            header("Location: index.php?mensaje=" . urlencode("Salida para $fecha_texto guardada exitosamente e inventario actualizado") . "&tipo=success");
             exit();
             
         } catch (Exception $e) {
@@ -87,7 +134,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             $mensaje = 'Error al guardar la salida: ' . $e->getMessage();
             $tipo_mensaje = 'danger';
         }
-    } else {
+    } elseif (empty($mensaje)) {
         $mensaje = 'Debe seleccionar una ruta y al menos un producto';
         $tipo_mensaje = 'danger';
     }
@@ -137,11 +184,11 @@ if ($ruta_id > 0) {
     $productos_varios = $conn->query("SELECT * FROM productos WHERE activo = 1 AND tipo = 'xxxxxx' ORDER BY nombre ASC");
 }
 
-// Si hay una ruta seleccionada, obtener las salidas existentes
+// Si hay una ruta seleccionada, obtener las salidas existentes para la fecha seleccionada
 $salidas_existentes = [];
 if ($ruta_id > 0) {
     $stmt = $conn->prepare("SELECT producto_id, cantidad, usa_precio_unitario FROM salidas WHERE ruta_id = ? AND fecha = ?");
-    $stmt->bind_param("is", $ruta_id, $fecha_hoy);
+    $stmt->bind_param("is", $ruta_id, $fecha_seleccionada);
     $stmt->execute();
     $result = $stmt->get_result();
     
@@ -199,6 +246,17 @@ if (isset($_GET['mensaje'])) {
         .input-disabled {
             background-color: #e9ecef !important;
             cursor: not-allowed !important;
+        }
+        .btn-fecha {
+            font-size: 16px;
+            font-weight: bold;
+        }
+        .btn-fecha.active {
+            box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.5);
+        }
+        .btn-fecha:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
         }
         
         @media (max-width: 768px) {
@@ -294,7 +352,7 @@ if (isset($_GET['mensaje'])) {
 
             <?php if ($mensaje): ?>
                 <div class="alert alert-<?php echo $tipo_mensaje; ?> alert-dismissible fade show" role="alert">
-                    <i class="fas fa-<?php echo $tipo_mensaje == 'success' ? 'check-circle' : 'exclamation-triangle'; ?>"></i>
+                    <i class="fas fa-<?php echo $tipo_mensaje == 'success' ? 'check-circle' : ($tipo_mensaje == 'warning' ? 'exclamation-triangle' : 'info-circle'); ?>"></i>
                     <?php echo htmlspecialchars($mensaje); ?>
                     <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
                 </div>
@@ -302,7 +360,7 @@ if (isset($_GET['mensaje'])) {
 
             <div class="alert alert-info">
                 <i class="fas fa-info-circle"></i>
-                <strong>Instrucciones:</strong> Seleccione la ruta, luego ingrese las cantidades que salen.
+                <strong>Instrucciones:</strong> Seleccione la ruta y la fecha, luego ingrese las cantidades que salen.
                 <br><strong>Control de Stock:</strong>
                 <ul class="mb-0 mt-2">
                     <li><span class="badge bg-success">Verde</span> = Stock suficiente</li>
@@ -316,10 +374,10 @@ if (isset($_GET['mensaje'])) {
                 </ul>
             </div>
 
-            <!-- Selector de Ruta -->
+            <!-- Selector de Ruta y Fecha -->
             <div class="mb-4">
-                <form method="GET" action="salidas.php" class="row g-3">
-                    <div class="col-md-10">
+                <form method="GET" action="salidas.php" class="row g-3" id="formSelector">
+                    <div class="col-md-8">
                         <label for="ruta" class="form-label fw-bold">
                             <i class="fas fa-route"></i> Seleccione la Ruta *
                         </label>
@@ -332,13 +390,43 @@ if (isset($_GET['mensaje'])) {
                             <?php endwhile; ?>
                         </select>
                     </div>
-                    <div class="col-md-2 d-flex align-items-end">
-                        <?php if ($ruta_id > 0): ?>
-                            <a href="salidas.php" class="btn btn-secondary w-100">
-                                <i class="fas fa-times"></i> Limpiar
+                    
+                    <?php if ($ruta_id > 0): ?>
+                        <div class="col-md-4">
+                            <label class="form-label fw-bold">
+                                <i class="fas fa-calendar"></i> Fecha de Salida *
+                            </label>
+                            <div class="d-grid gap-2">
+                                <a href="salidas.php?ruta=<?php echo $ruta_id; ?>&fecha=<?php echo $fecha_hoy; ?>" 
+                                   class="btn btn-fecha btn-lg <?php echo $fecha_seleccionada == $fecha_hoy ? 'btn-primary active' : 'btn-outline-primary'; ?>">
+                                    <i class="fas fa-calendar-day"></i> HOY - <?php echo date('d/m/Y', strtotime($fecha_hoy)); ?>
+                                </a>
+                                
+                                <?php if ($puede_registrar_manana): ?>
+                                    <a href="salidas.php?ruta=<?php echo $ruta_id; ?>&fecha=<?php echo $fecha_manana; ?>" 
+                                       class="btn btn-fecha btn-lg <?php echo $fecha_seleccionada == $fecha_manana ? 'btn-success active' : 'btn-outline-success'; ?>">
+                                        <i class="fas fa-calendar-plus"></i> MAÑANA - <?php echo date('d/m/Y', strtotime($fecha_manana)); ?>
+                                    </a>
+                                <?php else: ?>
+                                    <button type="button" 
+                                            class="btn btn-fecha btn-lg btn-outline-secondary" 
+                                            disabled
+                                            title="Debe completar primero la salida y retorno de HOY">
+                                        <i class="fas fa-lock"></i> MAÑANA - <?php echo date('d/m/Y', strtotime($fecha_manana)); ?>
+                                        <br><small>🔒 Bloqueado: Complete ciclo de HOY primero</small>
+                                    </button>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+                    <?php endif; ?>
+                    
+                    <?php if ($ruta_id > 0): ?>
+                        <div class="col-12">
+                            <a href="salidas.php" class="btn btn-secondary">
+                                <i class="fas fa-times"></i> Limpiar Selección
                             </a>
-                        <?php endif; ?>
-                    </div>
+                        </div>
+                    <?php endif; ?>
                 </form>
             </div>
 
@@ -350,13 +438,20 @@ if (isset($_GET['mensaje'])) {
                     </h5>
                     <p class="mb-0"><?php echo htmlspecialchars($ruta_info['descripcion']); ?></p>
                     <hr>
-                    <p class="mb-0"><strong>Fecha:</strong> <?php echo date('d/m/Y', strtotime($fecha_hoy)); ?></p>
+                    <p class="mb-0">
+                        <strong>Fecha de salida:</strong> 
+                        <?php if ($fecha_seleccionada == $fecha_hoy): ?>
+                            <span class="badge bg-primary">HOY</span> <?php echo date('d/m/Y', strtotime($fecha_seleccionada)); ?>
+                        <?php else: ?>
+                            <span class="badge bg-success">MAÑANA</span> <?php echo date('d/m/Y', strtotime($fecha_seleccionada)); ?>
+                        <?php endif; ?>
+                    </p>
                 </div>
 
                 <!-- Formulario de Salidas -->
                 <form method="POST" action="salidas.php" id="formSalidas">
                     <input type="hidden" name="ruta_id" value="<?php echo $ruta_id; ?>">
-                    <input type="hidden" name="fecha" value="<?php echo $fecha_hoy; ?>">
+                    <input type="hidden" name="fecha" value="<?php echo $fecha_seleccionada; ?>">
 
                     <!-- Productos Big Cola -->
                     <?php if ($productos_big_cola->num_rows > 0): ?>
