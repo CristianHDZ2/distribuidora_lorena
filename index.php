@@ -10,14 +10,15 @@ $conn = getConnection();
 $total_productos = $conn->query("SELECT COUNT(*) as total FROM productos WHERE activo = 1")->fetch_assoc()['total'];
 $total_rutas = $conn->query("SELECT COUNT(*) as total FROM rutas WHERE activo = 1")->fetch_assoc()['total'];
 
-// Obtener productos con stock bajo
+// Obtener productos con stock bajo - CORREGIDO: Usando tabla inventario
 $productos_stock_bajo = $conn->query("
-    SELECT p.nombre, p.stock_actual, p.stock_minimo, p.tipo
-    FROM productos p
+    SELECT p.nombre, i.stock_actual, i.stock_minimo, p.tipo
+    FROM inventario i
+    INNER JOIN productos p ON i.producto_id = p.id
     WHERE p.activo = 1 
-    AND p.stock_minimo > 0 
-    AND p.stock_actual <= p.stock_minimo
-    ORDER BY (p.stock_actual / NULLIF(p.stock_minimo, 1)) ASC
+    AND i.stock_minimo > 0 
+    AND i.stock_actual <= i.stock_minimo
+    ORDER BY (i.stock_actual / NULLIF(i.stock_minimo, 1)) ASC
     LIMIT 5
 ");
 
@@ -43,11 +44,12 @@ $movimientos_recientes = $conn->query("
     LIMIT 5
 ");
 
-// Obtener total en inventario
+// Obtener total en inventario - CORREGIDO: Usando tabla inventario
 $total_inventario = $conn->query("
-    SELECT SUM(stock_actual * precio_caja) as total
-    FROM productos
-    WHERE activo = 1
+    SELECT SUM(i.stock_actual * p.precio_caja) as total
+    FROM inventario i
+    INNER JOIN productos p ON i.producto_id = p.id
+    WHERE p.activo = 1
 ")->fetch_assoc()['total'];
 
 // Obtener ventas del mes actual
@@ -369,7 +371,11 @@ $productos_mas_vendidos = $conn->query("
         <!-- Banner de Bienvenida -->
         <div class="welcome-banner">
             <h2><i class="fas fa-chart-line"></i> ¡Bienvenido, <?php echo htmlspecialchars($_SESSION['nombre']); ?>!</h2>
-            <p>Hoy es <?php echo date('l, d \d\e F \d\e Y'); ?> - Panel de Control del Sistema</p>
+            <p>Hoy es <?php 
+    $dias = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+    $meses = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+    echo $dias[date('w')] . ', ' . date('d') . ' de ' . $meses[date('n')-1] . ' de ' . date('Y');
+?> - Panel de Control del Sistema</p>
         </div>
 
         <!-- Alertas de Stock Bajo -->
@@ -663,10 +669,12 @@ $productos_mas_vendidos = $conn->query("
                                     <span><i class="fas fa-exclamation-triangle text-warning"></i> Productos con Stock Bajo</span>
                                     <span class="badge bg-warning rounded-pill">
                                         <?php 
+                                        // CORREGIDO: Usando tabla inventario
                                         $stock_bajo_count = $conn->query("
                                             SELECT COUNT(*) as total 
-                                            FROM productos 
-                                            WHERE activo = 1 AND stock_minimo > 0 AND stock_actual <= stock_minimo
+                                            FROM inventario i
+                                            INNER JOIN productos p ON i.producto_id = p.id
+                                            WHERE p.activo = 1 AND i.stock_minimo > 0 AND i.stock_actual <= i.stock_minimo
                                         ")->fetch_assoc()['total'];
                                         echo $stock_bajo_count;
                                         ?>
@@ -722,7 +730,7 @@ $productos_mas_vendidos = $conn->query("
             </div>
         </div>
 
-        <!-- Copyright Footer -->
+        <!-- Copyright Footer - CORREGIDO -->
         <div class="copyright-footer">
             <strong>Distribuidora LORENA</strong>
             <p class="mb-1">Sistema de Gestión de Inventario y Liquidaciones</p>
