@@ -133,19 +133,20 @@ $rutas = $conn->query("SELECT * FROM rutas WHERE activo = 1 ORDER BY nombre ASC"
         }
         
         .table-rutas thead {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        }
-        
-        .table-rutas thead th {
-            color: white;
-            font-weight: 600;
-            text-transform: uppercase;
-            font-size: 13px;
-            letter-spacing: 0.5px;
-            padding: 18px 15px;
-            border: none;
-            vertical-align: middle;
-        }
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.table-rutas thead th {
+    color: white !important;
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 13px;
+    letter-spacing: 0.5px;
+    padding: 18px 15px;
+    border: none !important;
+    vertical-align: middle;
+    background: transparent !important;
+}
         
         @media (max-width: 991px) {
             .table-rutas thead th {

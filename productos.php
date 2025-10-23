@@ -151,100 +151,85 @@ if (!empty($params)) {
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="assets/css/custom.css">
     <style>
-        /* Estilos adicionales específicos para productos */
-        .table-productos {
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-            border-radius: 10px;
-            overflow: hidden;
-            font-size: 14px;
-        }
-        
-        @media (max-width: 991px) {
-            .table-productos {
-                font-size: 12px;
-            }
-        }
-        
-        @media (max-width: 767px) {
-            .table-productos {
-                font-size: 11px;
-            }
-        }
-        
-        .table-productos thead {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        }
-        
-        .table-productos thead th {
-            color: white;
-            font-weight: 600;
-            text-transform: uppercase;
-            font-size: 12px;
-            letter-spacing: 0.5px;
-            padding: 15px 10px;
-            border: none;
-        }
-        
-        @media (max-width: 767px) {
-            .table-productos thead th {
-                padding: 10px 5px;
-                font-size: 10px;
-            }
-        }
-        
-        .table-productos tbody tr {
-            transition: all 0.3s ease;
-        }
-        
-        .table-productos tbody tr:hover {
-            background-color: #f8f9ff;
-            transform: scale(1.01);
-        }
-        
-        .table-productos tbody td {
-            padding: 12px 10px;
-            vertical-align: middle;
-        }
-        
-        @media (max-width: 767px) {
-            .table-productos tbody td {
-                padding: 8px 5px;
-            }
-        }
-        
-        .numero-orden {
-            font-weight: 700;
-            font-size: 14px;
-            color: #667eea;
-            background: #f0f3ff;
-            border-radius: 50%;
-            width: 35px;
-            height: 35px;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-        }
-        
-        @media (max-width: 767px) {
-            .numero-orden {
-                width: 25px;
-                height: 25px;
-                font-size: 11px;
-            }
-        }
-        
-        .producto-info h6 {
-            color: #2c3e50;
-            font-weight: 600;
-            margin-bottom: 5px;
-            font-size: 14px;
-        }
-        
-        @media (max-width: 767px) {
-            .producto-info h6 {
-                font-size: 12px;
-            }
-        }
+        /* Estilos para la tabla de productos */
+.table-productos {
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    border-radius: 10px;
+    overflow: hidden;
+    background: white;
+}
+
+.table-productos thead {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+}
+
+.table-productos thead th {
+    color: white !important;
+    font-weight: 600 !important;
+    text-transform: uppercase;
+    font-size: 13px;
+    letter-spacing: 0.5px;
+    padding: 18px 15px !important;
+    border: none !important;
+    vertical-align: middle;
+}
+
+@media (max-width: 991px) {
+    .table-productos thead th {
+        padding: 15px 12px !important;
+        font-size: 12px;
+    }
+}
+
+@media (max-width: 767px) {
+    .table-productos thead th {
+        padding: 12px 8px !important;
+        font-size: 11px;
+        letter-spacing: 0.3px;
+    }
+}
+
+@media (max-width: 480px) {
+    .table-productos thead th {
+        padding: 10px 5px !important;
+        font-size: 10px;
+    }
+}
+
+.table-productos tbody tr {
+    transition: all 0.3s ease;
+    border-bottom: 1px solid #e9ecef;
+}
+
+.table-productos tbody tr:hover {
+    background-color: #f8f9ff;
+    transform: scale(1.01);
+    box-shadow: 0 3px 10px rgba(0,0,0,0.08);
+}
+
+.table-productos tbody td {
+    padding: 15px;
+    vertical-align: middle;
+}
+
+@media (max-width: 991px) {
+    .table-productos tbody td {
+        padding: 12px 10px;
+    }
+}
+
+@media (max-width: 767px) {
+    .table-productos tbody td {
+        padding: 10px 8px;
+    }
+}
+
+@media (max-width: 480px) {
+    .table-productos tbody td {
+        padding: 8px 5px;
+        font-size: 11px;
+    }
+}
         
         .btn-action {
             padding: 6px 12px;
