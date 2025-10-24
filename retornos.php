@@ -30,21 +30,22 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             $stmt->close();
             
             // Insertar nuevos retornos
-            $stmt = $conn->prepare("INSERT INTO retornos (ruta_id, producto_id, cantidad, usa_precio_unitario, fecha, usuario_id) VALUES (?, ?, ?, ?, ?, ?)");
+            $stmt = $conn->prepare("INSERT INTO retornos (ruta_id, producto_id, cantidad, usa_precio_unitario, precio_usado, fecha, usuario_id) VALUES (?, ?, ?, ?, ?, ?, ?)");
             
             foreach ($productos as $producto_id => $datos) {
                 $cantidad = floatval($datos['cantidad'] ?? 0);
                 
-                // Heredar usa_precio_unitario de la salida
-                $usa_precio_unitario = intval($datos['usa_precio_unitario'] ?? 0);
-                
                 if ($cantidad > 0) {
-                    // Insertar retorno
-                    $stmt->bind_param("iidisi", $ruta_id, $producto_id, $cantidad, $usa_precio_unitario, $fecha, $usuario_id);
-                    $stmt->execute();
-                    $retorno_id = $conn->insert_id;
+                    // Heredar usa_precio_unitario y precio_usado de la salida
+                    $usa_precio_unitario = intval($datos['usa_precio_unitario'] ?? 0);
+                    $precio_usado = floatval($datos['precio_usado'] ?? 0);
                     
-                    // Siempre aumentar inventario (los retornos SIEMPRE son buenos)
+                    // Insertar retorno
+                    $stmt->bind_param("iidiisi", $ruta_id, $producto_id, $cantidad, $usa_precio_unitario, $precio_usado, $fecha, $usuario_id);
+                    $stmt->execute();
+                    $retorno_id = $conn->insert_id();
+                    
+                    // Actualizar inventario - Aumentar stock (los retornos SIEMPRE son buenos)
                     require_once 'api/inventario_api.php';
                     actualizarInventario(
                         $conn,
@@ -89,6 +90,7 @@ if ($ruta_id > 0) {
             s.producto_id,
             s.cantidad as cantidad_salida,
             s.usa_precio_unitario,
+            s.precio_usado,
             COALESCE(r.cantidad, 0) as cantidad_recarga,
             p.nombre,
             p.tipo,
@@ -141,28 +143,379 @@ if (isset($_GET['mensaje'])) {
     $mensaje = $_GET['mensaje'];
     $tipo_mensaje = $_GET['tipo'] ?? 'info';
 }
+
 ?>
 <!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Retornos - Distribuidora LORENA</title>
+    <title>Registrar Retornos - Distribuidora LORENA</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="assets/css/custom.css">
     <style>
-        .badge-tipo {
-            font-size: 11px;
-        }
+        /* ============================================
+           ESTILOS IDÉNTICOS A PRODUCTOS.PHP
+           ============================================ */
         
-        @media (max-width: 768px) {
-            .table-responsive {
+        /* Tabla de retornos mejorada y responsiva */
+        .table-retornos {
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            border-radius: 10px;
+            overflow: hidden;
+            background: white;
+        }
+
+        .table-retornos thead {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+        }
+
+        .table-retornos thead th {
+            color: white !important;
+            font-weight: 600 !important;
+            text-transform: uppercase;
+            font-size: 13px;
+            letter-spacing: 0.5px;
+            padding: 18px 15px !important;
+            border: none !important;
+            vertical-align: middle;
+            background: transparent !important;
+        }
+
+        @media (max-width: 991px) {
+            .table-retornos {
+                font-size: 13px;
+            }
+            
+            .table-retornos thead th {
+                padding: 15px 12px !important;
                 font-size: 12px;
             }
-            .btn {
-                padding: 6px 12px;
+        }
+
+        @media (max-width: 767px) {
+            .table-retornos {
+                border-radius: 8px;
+                font-size: 12px;
+            }
+            
+            .table-retornos thead th {
+                padding: 12px 8px !important;
+                font-size: 11px;
+                letter-spacing: 0.3px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .table-retornos {
+                border-radius: 6px;
+                font-size: 11px;
+            }
+            
+            .table-retornos thead th {
+                padding: 10px 5px !important;
+                font-size: 10px;
+            }
+        }
+
+        .table-retornos tbody tr {
+            transition: all 0.3s ease;
+            border-bottom: 1px solid #e9ecef;
+            background: white;
+        }
+
+        .table-retornos tbody tr:hover {
+            background-color: #f8f9ff !important;
+            transform: scale(1.01);
+            box-shadow: 0 3px 10px rgba(0,0,0,0.08);
+        }
+
+        .table-retornos tbody td {
+            padding: 15px;
+            vertical-align: middle;
+            color: #2c3e50;
+        }
+
+        @media (max-width: 991px) {
+            .table-retornos tbody td {
+                padding: 12px 10px;
+            }
+        }
+
+        @media (max-width: 767px) {
+            .table-retornos tbody td {
+                padding: 10px 8px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .table-retornos tbody td {
+                padding: 8px 5px;
+                font-size: 11px;
+            }
+        }
+        
+        /* Número de orden */
+        .numero-orden {
+            font-weight: 700;
+            font-size: 16px;
+            color: #667eea;
+            background: #f0f3ff;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        @media (max-width: 991px) {
+            .numero-orden {
+                width: 35px;
+                height: 35px;
+                font-size: 14px;
+            }
+        }
+        
+        @media (max-width: 767px) {
+            .numero-orden {
+                width: 30px;
+                height: 30px;
+                font-size: 12px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .numero-orden {
+                width: 25px;
+                height: 25px;
+                font-size: 11px;
+            }
+        }
+        
+        /* Información del producto */
+        .producto-info h6 {
+            color: #2c3e50;
+            font-weight: 700;
+            margin-bottom: 5px;
+            font-size: 15px;
+        }
+        
+        .producto-info p {
+            color: #7f8c8d;
+            margin: 0;
+            font-size: 13px;
+        }
+        
+        @media (max-width: 767px) {
+            .producto-info h6 {
                 font-size: 13px;
+                margin-bottom: 3px;
+            }
+            
+            .producto-info p {
+                font-size: 11px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .producto-info h6 {
+                font-size: 12px;
+            }
+            
+            .producto-info p {
+                font-size: 10px;
+            }
+        }
+        
+        /* Input de cantidad */
+        .input-cantidad {
+            width: 100px;
+            text-align: center;
+            font-weight: 600;
+            border: 2px solid #dfe6e9;
+            border-radius: 8px;
+            padding: 8px;
+            transition: all 0.3s ease;
+        }
+        
+        .input-cantidad:focus {
+            border-color: #667eea;
+            box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+        }
+        
+        @media (max-width: 767px) {
+            .input-cantidad {
+                width: 80px;
+                padding: 6px;
+                font-size: 12px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .input-cantidad {
+                width: 60px;
+                padding: 5px;
+                font-size: 11px;
+            }
+        }
+        
+        /* Badges de tipo */
+        .badge-tipo {
+            font-size: 11px;
+            padding: 5px 10px;
+            border-radius: 20px;
+            font-weight: 600;
+        }
+        
+        @media (max-width: 767px) {
+            .badge-tipo {
+                font-size: 9px;
+                padding: 3px 8px;
+            }
+        }
+        
+        /* Ocultar columnas en móviles */
+        .hide-mobile {
+            display: table-cell;
+        }
+        
+        @media (max-width: 767px) {
+            .hide-mobile {
+                display: none !important;
+            }
+        }
+        
+        /* Info Card Ruta */
+        .info-ruta-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+        
+        .info-ruta-card h4 {
+            margin: 0 0 10px 0;
+            font-weight: 700;
+        }
+        
+        .info-ruta-card p {
+            margin: 0;
+            opacity: 0.9;
+        }
+        
+        @media (max-width: 767px) {
+            .info-ruta-card {
+                padding: 15px;
+                border-radius: 8px;
+            }
+            
+            .info-ruta-card h4 {
+                font-size: 16px;
+            }
+            
+            .info-ruta-card p {
+                font-size: 13px;
+            }
+        }
+        
+        /* Botones */
+        .btn-custom-primary {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            border: none;
+            color: white;
+            padding: 12px 30px;
+            border-radius: 8px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-custom-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+            color: white;
+        }
+        
+        .btn-custom-secondary {
+            background: linear-gradient(135deg, #95a5a6, #7f8c8d);
+            border: none;
+            color: white;
+            padding: 12px 30px;
+            border-radius: 8px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-custom-secondary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(149, 165, 166, 0.4);
+            color: white;
+        }
+        
+        @media (max-width: 767px) {
+            .btn-custom-primary,
+            .btn-custom-secondary {
+                padding: 10px 20px;
+                font-size: 14px;
+                width: 100%;
+                margin-bottom: 10px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .btn-custom-primary,
+            .btn-custom-secondary {
+                padding: 8px 15px;
+                font-size: 13px;
+            }
+        }
+        
+        /* Selector de ruta */
+        .selector-ruta {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        
+        @media (max-width: 767px) {
+            .selector-ruta {
+                padding: 15px;
+                border-radius: 8px;
+            }
+        }
+        
+        /* Copyright Footer */
+        .copyright-footer {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            text-align: center;
+            margin-top: 30px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            color: #7f8c8d;
+            font-size: 14px;
+        }
+        
+        .copyright-footer strong {
+            color: #2c3e50;
+            display: block;
+            margin-bottom: 5px;
+            font-size: 16px;
+        }
+        
+        @media (max-width: 767px) {
+            .copyright-footer {
+                padding: 15px;
+                font-size: 12px;
+            }
+            
+            .copyright-footer strong {
+                font-size: 14px;
             }
         }
     </style>
@@ -246,218 +599,548 @@ if (isset($_GET['mensaje'])) {
             <h1 class="page-title">
                 <i class="fas fa-arrow-down"></i> Registrar Retornos
             </h1>
-
-            <?php if ($mensaje): ?>
+            
+            <div class="alert alert-info alert-custom">
+                <i class="fas fa-info-circle"></i>
+                <strong>Instrucciones:</strong> Seleccione la ruta y registre las cantidades de productos que retornan a bodega. Solo puede registrar retornos para el día de hoy y para productos que salieron en la ruta. Los retornos SIEMPRE son considerados en buen estado y regresan al inventario.
+            </div>
+            
+            <!-- Mensaje de éxito/error -->
+            <?php if (!empty($mensaje)): ?>
                 <div class="alert alert-<?php echo $tipo_mensaje; ?> alert-dismissible fade show" role="alert">
-                    <i class="fas fa-<?php echo $tipo_mensaje == 'success' ? 'check-circle' : 'exclamation-triangle'; ?>"></i>
+                    <i class="fas fa-<?php echo $tipo_mensaje == 'success' ? 'check-circle' : 'exclamation-circle'; ?>"></i>
                     <?php echo htmlspecialchars($mensaje); ?>
                     <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
                 </div>
             <?php endif; ?>
 
-            <div class="alert alert-info">
-                <i class="fas fa-info-circle"></i>
-                <strong>Instrucciones:</strong> Los retornos son productos que regresan a bodega desde las rutas.
-                <br><strong>Importante:</strong> Todos los retornos aumentan automáticamente el inventario. Si un producto está dañado, deberá registrarlo manualmente desde el módulo de <strong>Productos Dañados</strong>.
-            </div>
-
             <!-- Selector de Ruta -->
-            <div class="mb-4">
-                <form method="GET" action="retornos.php" class="row g-3">
-                    <div class="col-md-10">
-                        <label for="ruta" class="form-label fw-bold">
-                            <i class="fas fa-route"></i> Seleccione la Ruta *
-                        </label>
-                        <select class="form-select form-select-lg" id="ruta" name="ruta" required onchange="this.form.submit()">
-                            <option value="">-- Seleccione una ruta --</option>
-                            <?php while ($ruta = $rutas->fetch_assoc()): ?>
-                                <option value="<?php echo $ruta['id']; ?>" <?php echo $ruta_id == $ruta['id'] ? 'selected' : ''; ?>>
-                                    <?php echo htmlspecialchars($ruta['nombre']); ?>
-                                </option>
-                            <?php endwhile; ?>
-                        </select>
-                    </div>
-                    <div class="col-md-2 d-flex align-items-end">
-                        <?php if ($ruta_id > 0): ?>
-                            <a href="retornos.php" class="btn btn-secondary w-100">
-                                <i class="fas fa-times"></i> Limpiar
-                            </a>
-                        <?php endif; ?>
+            <div class="selector-ruta">
+                <form method="GET" action="retornos.php">
+                    <div class="row align-items-end">
+                        <div class="col-md-8 col-sm-12 mb-3 mb-md-0">
+                            <label class="form-label fw-bold">
+                                <i class="fas fa-route"></i> Seleccione la Ruta
+                            </label>
+                            <select class="form-select" name="ruta" required onchange="this.form.submit()">
+                                <option value="">-- Seleccione una ruta --</option>
+                                <?php while ($ruta = $rutas->fetch_assoc()): ?>
+                                    <option value="<?php echo $ruta['id']; ?>" <?php echo ($ruta['id'] == $ruta_id) ? 'selected' : ''; ?>>
+                                        <?php echo htmlspecialchars($ruta['nombre']); ?>
+                                    </option>
+                                <?php endwhile; ?>
+                            </select>
+                        </div>
+                        <div class="col-md-4 col-sm-12">
+                            <button type="submit" class="btn btn-custom-primary w-100">
+                                <i class="fas fa-search"></i> Cargar Productos
+                            </button>
+                        </div>
                     </div>
                 </form>
             </div>
 
-            <?php if ($ruta_id > 0 && $ruta_info): ?>
-                <?php if (empty($productos_disponibles)): ?>
-                    <!-- No hay salida registrada -->
-                    <div class="alert alert-warning text-center">
-                        <i class="fas fa-exclamation-triangle fa-3x mb-3"></i>
-                        <h5>No hay salida registrada para esta ruta hoy</h5>
-                        <p class="mb-3">Debe registrar primero una salida antes de poder registrar retornos.</p>
-                        <a href="salidas.php?ruta=<?php echo $ruta_id; ?>" class="btn btn-primary">
-                            <i class="fas fa-arrow-up"></i> Ir a Registrar Salida
-                        </a>
-                    </div>
-                <?php else: ?>
-                    <!-- Información de la Ruta -->
-                    <div class="alert alert-success">
-                        <h5 class="alert-heading">
-                            <i class="fas fa-route"></i> Ruta Seleccionada: <?php echo htmlspecialchars($ruta_info['nombre']); ?>
-                        </h5>
-                        <p class="mb-0"><?php echo htmlspecialchars($ruta_info['descripcion']); ?></p>
-                        <hr>
-                        <p class="mb-0">
-                            <strong>Fecha:</strong> <?php echo date('d/m/Y', strtotime($fecha_hoy)); ?>
-                            <br>
-                            <strong>Productos disponibles para retorno:</strong> <?php echo count($productos_disponibles); ?>
-                        </p>
-                    </div>
+            <?php if ($ruta_info): ?>
+                <!-- Información de la Ruta -->
+                <div class="info-ruta-card">
+                    <h4><i class="fas fa-map-marker-alt"></i> <?php echo htmlspecialchars($ruta_info['nombre']); ?></h4>
+                    <p><i class="fas fa-calendar"></i> Fecha: <?php echo date('d/m/Y', strtotime($fecha_hoy)); ?></p>
+                    <?php if (!empty($ruta_info['descripcion'])): ?>
+                        <p><i class="fas fa-info-circle"></i> <?php echo htmlspecialchars($ruta_info['descripcion']); ?></p>
+                    <?php endif; ?>
+                </div>
 
+                <?php if (count($productos_disponibles) > 0): ?>
                     <!-- Formulario de Retornos -->
                     <form method="POST" action="retornos.php" id="formRetornos">
                         <input type="hidden" name="ruta_id" value="<?php echo $ruta_id; ?>">
                         <input type="hidden" name="fecha" value="<?php echo $fecha_hoy; ?>">
-
-                        <h3 class="mt-4 mb-3">
-                            <i class="fas fa-arrow-down"></i> Productos Disponibles para Retorno
-                        </h3>
+                        
                         <div class="table-responsive">
-                            <table class="table table-hover">
-                                <thead class="table-dark">
+                            <table class="table table-retornos table-hover mb-0">
+                                <thead>
                                     <tr>
-                                        <th style="width: 40%;">Producto</th>
-                                        <th class="text-center" style="width: 15%;">Salida</th>
-                                        <th class="text-center" style="width: 15%;">Recarga</th>
-                                        <th class="text-center" style="width: 15%;">Total Ruta</th>
-                                        <th class="text-center" style="width: 15%;">Cant. Retorno</th>
+                                        <th width="60" class="text-center">#</th>
+                                        <th>Producto</th>
+                                        <th width="120" class="text-center hide-mobile">Salió + Recarga</th>
+                                        <th width="150" class="text-center">Cantidad Retorno</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    <?php foreach ($productos_disponibles as $producto_id => $producto): ?>
-                                        <?php
-                                        $cantidad_existente = $retornos_existentes[$producto_id] ?? 0;
-                                        $usa_precio_unitario = intval($producto['usa_precio_unitario']);
-                                        $tipo_venta = $usa_precio_unitario ? 'Unidades' : 'Cajas';
-                                        $step = $usa_precio_unitario ? '1' : '0.1';
-                                        ?>
+                                    <?php 
+                                    $contador = 1;
+                                    foreach ($productos_disponibles as $producto_id => $producto): 
+                                        $retorno_existente = $retornos_existentes[$producto_id] ?? 0;
+                                    ?>
                                         <tr>
+                                            <td class="text-center">
+                                                <span class="numero-orden"><?php echo $contador; ?></span>
+                                            </td>
                                             <td>
-                                                <strong><?php echo htmlspecialchars($producto['nombre']); ?></strong>
-                                                <br>
-                                                <small class="text-muted"><?php echo $producto['tipo']; ?></small>
-                                                <br>
-                                                <span class="badge badge-tipo <?php echo $usa_precio_unitario ? 'bg-primary' : 'bg-secondary'; ?>">
-                                                    <?php echo $tipo_venta; ?>
-                                                </span>
+                                                <div class="producto-info">
+                                                    <h6><?php echo htmlspecialchars($producto['nombre']); ?></h6>
+                                                    <p>
+                                                        <span class="badge badge-tipo bg-<?php echo $producto['tipo'] == 'Big Cola' ? 'primary' : ($producto['tipo'] == 'Varios' ? 'success' : 'info'); ?>">
+                                                            <?php echo $producto['tipo']; ?>
+                                                        </span>
+                                                        <?php if ($producto['usa_precio_unitario']): ?>
+                                                            <span class="badge bg-warning text-dark">
+                                                                <i class="fas fa-box-open"></i> Precio Unitario
+                                                            </span>
+                                                        <?php else: ?>
+                                                            <span class="badge bg-info">
+                                                                <i class="fas fa-boxes"></i> Precio Caja
+                                                            </span>
+                                                        <?php endif; ?>
+                                                    </p>
+                                                </div>
                                             </td>
-                                            <td class="text-center">
-                                                <span class="badge bg-primary" style="font-size: 12px;">
-                                                    <?php echo number_format($producto['cantidad_salida'], 1); ?>
-                                                </span>
-                                            </td>
-                                            <td class="text-center">
-                                                <?php if ($producto['cantidad_recarga'] > 0): ?>
-                                                    <span class="badge bg-info" style="font-size: 12px;">
-                                                        <?php echo number_format($producto['cantidad_recarga'], 1); ?>
-                                                    </span>
-                                                <?php else: ?>
-                                                    <span class="text-muted">-</span>
-                                                <?php endif; ?>
-                                            </td>
-                                            <td class="text-center">
-                                                <span class="badge bg-secondary" style="font-size: 13px;">
+                                            <td class="text-center hide-mobile">
+                                                <strong class="text-primary">
                                                     <?php echo number_format($producto['cantidad_total'], 1); ?>
-                                                </span>
+                                                </strong>
                                             </td>
-                                            <td>
+                                            <td class="text-center">
                                                 <input type="number" 
-                                                       class="form-control text-center cantidad-input" 
+                                                       class="input-cantidad" 
                                                        name="productos[<?php echo $producto_id; ?>][cantidad]" 
-                                                       step="<?php echo $step; ?>" 
                                                        min="0" 
                                                        max="<?php echo $producto['cantidad_total']; ?>"
-                                                       value="<?php echo $cantidad_existente > 0 ? $cantidad_existente : ''; ?>"
-                                                       placeholder="<?php echo $tipo_venta; ?>"
-                                                       data-producto-id="<?php echo $producto_id; ?>">
-                                                <!-- Campo oculto para heredar usa_precio_unitario -->
-                                                <input type="hidden" 
-                                                       name="productos[<?php echo $producto_id; ?>][usa_precio_unitario]" 
-                                                       value="<?php echo $usa_precio_unitario; ?>">
+                                                       step="<?php echo $producto['usa_precio_unitario'] ? '1' : '0.5'; ?>" 
+                                                       value="<?php echo $retorno_existente; ?>"
+                                                       placeholder="0">
+                                                <!-- Campos ocultos para heredar información -->
+                                                <input type="hidden" name="productos[<?php echo $producto_id; ?>][usa_precio_unitario]" value="<?php echo $producto['usa_precio_unitario']; ?>">
+                                                <input type="hidden" name="productos[<?php echo $producto_id; ?>][precio_usado]" value="<?php echo $producto['precio_usado']; ?>">
                                             </td>
                                         </tr>
-                                    <?php endforeach; ?>
+                                    <?php 
+                                    $contador++;
+                                    endforeach; 
+                                    ?>
                                 </tbody>
                             </table>
                         </div>
 
-                        <!-- Botones de Acción -->
-                        <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-4">
-                            <button type="submit" class="btn btn-success btn-lg">
-                                <i class="fas fa-save"></i> Guardar Retorno
+                        <div class="text-center mt-4">
+                            <button type="submit" class="btn btn-custom-primary btn-lg me-2">
+                                <i class="fas fa-save"></i> Guardar Retornos
                             </button>
-                            <a href="index.php" class="btn btn-secondary btn-lg">
+                            <a href="retornos.php" class="btn btn-custom-secondary btn-lg">
                                 <i class="fas fa-times"></i> Cancelar
                             </a>
                         </div>
                     </form>
+                <?php else: ?>
+                    <div class="alert alert-warning text-center">
+                        <i class="fas fa-exclamation-triangle fa-3x mb-3 d-block"></i>
+                        <h5>No hay productos disponibles para retorno</h5>
+                        <p>Esta ruta no tiene productos registrados en salidas para el día de hoy.</p>
+                        <a href="salidas.php" class="btn btn-primary mt-2">
+                            <i class="fas fa-arrow-up"></i> Ir a Registrar Salidas
+                        </a>
+                    </div>
                 <?php endif; ?>
-            <?php else: ?>
-                <div class="alert alert-warning text-center">
-                    <i class="fas fa-info-circle fa-3x mb-3"></i>
-                    <h5>Seleccione una ruta para comenzar</h5>
-                    <p class="mb-0">Use el selector de arriba para elegir la ruta que desea gestionar</p>
-                </div>
             <?php endif; ?>
         </div>
-    </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+        <!-- Copyright Footer -->
+        <div class="copyright-footer">
+            <strong>Distribuidora LORENA</strong>
+            <p class="mb-1">Sistema de Gestión de Inventario y Liquidaciones</p>
+            <p class="mb-0">
+                <i class="fas fa-copyright"></i> <?php echo date('Y'); ?> - Todos los derechos reservados
+                <br>
+                <small>Desarrollado por: Cristian Hernandez</small>
+            </p>
+        </div>
+    </div><script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="assets/js/notifications.js"></script>
     <script>
-        // Validación del formulario
-        document.getElementById('formRetornos')?.addEventListener('submit', function(e) {
-            let tieneProductos = false;
-            const inputs = document.querySelectorAll('input.cantidad-input');
+        document.addEventListener('DOMContentLoaded', function() {
+            // Responsive navbar
+            const navbarToggler = document.querySelector('.navbar-toggler');
+            const navbarCollapse = document.querySelector('.navbar-collapse');
             
-            inputs.forEach(function(input) {
-                if (parseFloat(input.value) > 0) {
-                    tieneProductos = true;
-                }
-            });
-            
-            if (!tieneProductos) {
-                e.preventDefault();
-                alert('Debe ingresar al menos un producto con cantidad mayor a 0');
-                return false;
+            if (navbarToggler && navbarCollapse) {
+                const navLinks = navbarCollapse.querySelectorAll('.nav-link, .dropdown-item');
+                navLinks.forEach(link => {
+                    link.addEventListener('click', function() {
+                        if (window.innerWidth < 992) {
+                            const bsCollapse = new bootstrap.Collapse(navbarCollapse, {
+                                toggle: false
+                            });
+                            bsCollapse.hide();
+                        }
+                    });
+                });
             }
             
-            // Confirmación
-            if (!confirm('¿Está seguro de guardar este retorno?\n\nEsta acción aumentará el inventario.')) {
-                e.preventDefault();
-                return false;
+            // Mejorar experiencia táctil en dispositivos móviles
+            if ('ontouchstart' in window) {
+                document.querySelectorAll('.btn, .input-cantidad').forEach(element => {
+                    element.addEventListener('touchstart', function() {
+                        this.style.opacity = '0.8';
+                    });
+                    
+                    element.addEventListener('touchend', function() {
+                        setTimeout(() => {
+                            this.style.opacity = '1';
+                        }, 200);
+                    });
+                });
             }
-        });
-
-        // Validar que no excedan el total de ruta
-        document.querySelectorAll('input[type="number"][max]').forEach(function(input) {
-            input.addEventListener('input', function() {
-                const max = parseFloat(this.getAttribute('max'));
-                const valor = parseFloat(this.value);
+            
+            // Manejar orientación en dispositivos móviles
+            function handleOrientationChange() {
+                const orientation = window.innerHeight > window.innerWidth ? 'portrait' : 'landscape';
+                document.body.setAttribute('data-orientation', orientation);
+            }
+            
+            handleOrientationChange();
+            window.addEventListener('orientationchange', handleOrientationChange);
+            window.addEventListener('resize', handleOrientationChange);
+            
+            // Añadir clase para dispositivos táctiles
+            if ('ontouchstart' in window || navigator.maxTouchPoints > 0) {
+                document.body.classList.add('touch-device');
+            }
+            
+            // Validación del formulario de retornos
+            const formRetornos = document.getElementById('formRetornos');
+            
+            if (formRetornos) {
+                formRetornos.addEventListener('submit', function(e) {
+                    let hayRetornos = false;
+                    let errores = [];
+                    
+                    // Validar que haya al menos un retorno
+                    const inputs = this.querySelectorAll('.input-cantidad');
+                    inputs.forEach(input => {
+                        const valor = parseFloat(input.value) || 0;
+                        if (valor > 0) {
+                            hayRetornos = true;
+                            
+                            // Validar que no exceda el máximo
+                            const max = parseFloat(input.max);
+                            if (valor > max) {
+                                errores.push(`La cantidad de retorno no puede exceder ${max} para el producto`);
+                            }
+                            
+                            // Validar step (enteros o .5)
+                            const step = parseFloat(input.step);
+                            const usaPrecioUnitario = step === 1;
+                            
+                            if (usaPrecioUnitario) {
+                                // Debe ser entero
+                                if (valor !== Math.floor(valor)) {
+                                    errores.push('Los productos con precio unitario solo aceptan cantidades enteras');
+                                }
+                            } else {
+                                // Debe ser entero o con .5
+                                const decimal = valor - Math.floor(valor);
+                                if (decimal !== 0 && decimal !== 0.5) {
+                                    errores.push('Los productos por caja solo aceptan cantidades enteras o con .5');
+                                }
+                            }
+                        }
+                    });
+                    
+                    if (!hayRetornos) {
+                        e.preventDefault();
+                        alert('Debe ingresar al menos un retorno.');
+                        return false;
+                    }
+                    
+                    if (errores.length > 0) {
+                        e.preventDefault();
+                        alert('Errores encontrados:\n\n' + errores.join('\n'));
+                        return false;
+                    }
+                    
+                    // Confirmación antes de enviar
+                    if (!confirm('¿Está seguro de guardar estos retornos?\n\nEsta acción aumentará el stock de inventario de los productos seleccionados.')) {
+                        e.preventDefault();
+                        return false;
+                    }
+                    
+                    // Deshabilitar botón de envío para evitar doble submit
+                    const submitBtn = this.querySelector('button[type="submit"]');
+                    if (submitBtn) {
+                        submitBtn.disabled = true;
+                        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando...';
+                        
+                        // Re-habilitar después de 5 segundos por si hay error
+                        setTimeout(() => {
+                            submitBtn.disabled = false;
+                            submitBtn.innerHTML = '<i class="fas fa-save"></i> Guardar Retornos';
+                        }, 5000);
+                    }
+                });
                 
-                if (valor > max) {
-                    this.value = max;
-                    alert('No puede exceder la cantidad total en ruta: ' + max);
+                // Validación en tiempo real de las cantidades
+                const inputsCantidad = formRetornos.querySelectorAll('.input-cantidad');
+                inputsCantidad.forEach(input => {
+                    input.addEventListener('input', function() {
+                        const valor = parseFloat(this.value) || 0;
+                        const max = parseFloat(this.max);
+                        const step = parseFloat(this.step);
+                        const usaPrecioUnitario = step === 1;
+                        
+                        // Validar máximo
+                        if (valor > max) {
+                            this.setCustomValidity(`No puede exceder ${max}`);
+                            this.style.borderColor = '#e74c3c';
+                        } 
+                        // Validar step
+                        else if (usaPrecioUnitario && valor !== Math.floor(valor)) {
+                            this.setCustomValidity('Solo cantidades enteras para precio unitario');
+                            this.style.borderColor = '#e74c3c';
+                        } 
+                        else if (!usaPrecioUnitario) {
+                            const decimal = valor - Math.floor(valor);
+                            if (decimal !== 0 && decimal !== 0.5) {
+                                this.setCustomValidity('Solo cantidades enteras o con .5 para precio por caja');
+                                this.style.borderColor = '#e74c3c';
+                            } else {
+                                this.setCustomValidity('');
+                                this.style.borderColor = '#dfe6e9';
+                            }
+                        }
+                        else {
+                            this.setCustomValidity('');
+                            this.style.borderColor = '#dfe6e9';
+                        }
+                    });
+                    
+                    // Limpiar validación al enfocarse
+                    input.addEventListener('focus', function() {
+                        this.setCustomValidity('');
+                        if (this.value == 0) {
+                            this.select();
+                        }
+                    });
+                    
+                    // Validar al perder foco
+                    input.addEventListener('blur', function() {
+                        if (this.value === '' || this.value < 0) {
+                            this.value = 0;
+                        }
+                    });
+                });
+                
+                // Atajos de teclado
+                document.addEventListener('keydown', function(e) {
+                    // Ctrl+S o Cmd+S para guardar
+                    if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+                        e.preventDefault();
+                        if (formRetornos) {
+                            formRetornos.requestSubmit();
+                        }
+                    }
+                    
+                    // Escape para cancelar
+                    if (e.key === 'Escape') {
+                        if (confirm('¿Desea cancelar y limpiar el formulario?')) {
+                            window.location.href = 'retornos.php';
+                        }
+                    }
+                });
+            }
+            
+            // Auto-ocultar alertas después de 5 segundos
+            window.addEventListener('load', function() {
+                const alert = document.querySelector('.alert-dismissible');
+                if (alert) {
+                    setTimeout(function() {
+                        const bsAlert = new bootstrap.Alert(alert);
+                        bsAlert.close();
+                    }, 5000);
                 }
             });
+            
+            // Calcular y mostrar total de retornos
+            if (formRetornos) {
+                const inputsCantidad = formRetornos.querySelectorAll('.input-cantidad');
+                
+                function calcularTotal() {
+                    let totalProductos = 0;
+                    let totalCantidad = 0;
+                    
+                    inputsCantidad.forEach(input => {
+                        const valor = parseFloat(input.value) || 0;
+                        if (valor > 0) {
+                            totalProductos++;
+                            totalCantidad += valor;
+                        }
+                    });
+                    
+                    // Mostrar en consola para debug
+                    console.log(`Productos con retorno: ${totalProductos}`);
+                    console.log(`Cantidad total: ${totalCantidad.toFixed(1)}`);
+                }
+                
+                inputsCantidad.forEach(input => {
+                    input.addEventListener('input', calcularTotal);
+                });
+                
+                calcularTotal(); // Calcular al cargar
+            }
+            
+            // Navegación mejorada con teclas
+            if (formRetornos) {
+                const inputs = Array.from(formRetornos.querySelectorAll('.input-cantidad'));
+                
+                inputs.forEach((input, index) => {
+                    input.addEventListener('keydown', function(e) {
+                        // Enter o flecha abajo: ir al siguiente
+                        if (e.key === 'Enter' || e.key === 'ArrowDown') {
+                            e.preventDefault();
+                            if (index < inputs.length - 1) {
+                                inputs[index + 1].focus();
+                                inputs[index + 1].select();
+                            }
+                        }
+                        
+                        // Flecha arriba: ir al anterior
+                        if (e.key === 'ArrowUp') {
+                            e.preventDefault();
+                            if (index > 0) {
+                                inputs[index - 1].focus();
+                                inputs[index - 1].select();
+                            }
+                        }
+                    });
+                });
+            }
+            
+            // Efecto hover mejorado para filas de tabla en desktop
+            if (window.innerWidth > 768) {
+                const filas = document.querySelectorAll('.table-retornos tbody tr');
+                filas.forEach(row => {
+                    row.addEventListener('mouseenter', function() {
+                        this.style.transform = 'scale(1.01)';
+                    });
+                    
+                    row.addEventListener('mouseleave', function() {
+                        this.style.transform = 'scale(1)';
+                    });
+                });
+            }
+            
+            // Mensaje de ayuda para usuarios nuevos
+            const hayProductos = document.querySelectorAll('.input-cantidad').length > 0;
+            if (hayProductos) {
+                console.log('='.repeat(60));
+                console.log('AYUDA - REGISTRO DE RETORNOS');
+                console.log('='.repeat(60));
+                console.log('• Ingrese las cantidades que retornan a bodega');
+                console.log('• Los retornos SIEMPRE son productos en buen estado');
+                console.log('• Use Enter o flechas ↑↓ para navegar entre campos');
+                console.log('• Ctrl+S para guardar | Escape para cancelar');
+                console.log('• Productos con precio unitario: solo enteros');
+                console.log('• Productos por caja: enteros o con .5');
+                console.log('='.repeat(60));
+            }
+            
+            // Verificar si hay retornos guardados
+            const hayRetornosGuardados = <?php echo count($retornos_existentes) > 0 ? 'true' : 'false'; ?>;
+            if (hayRetornosGuardados) {
+                console.log('ℹ️ Esta ruta ya tiene retornos registrados para hoy');
+                console.log('Los valores actuales se cargarán automáticamente');
+            }
+            
+            // Información de la ruta actual
+            <?php if ($ruta_info): ?>
+            console.log('Ruta actual: <?php echo addslashes($ruta_info['nombre']); ?>');
+            console.log('Productos disponibles: <?php echo count($productos_disponibles); ?>');
+            console.log('Fecha: <?php echo date('d/m/Y', strtotime($fecha_hoy)); ?>');
+            <?php endif; ?>
+            
+            // Advertencia sobre edición de retornos existentes
+            if (hayRetornosGuardados && formRetornos) {
+                const alertaEdicion = document.createElement('div');
+                alertaEdicion.className = 'alert alert-warning mt-3';
+                alertaEdicion.innerHTML = '<i class="fas fa-exclamation-triangle"></i> <strong>Nota:</strong> Al guardar nuevamente, los retornos anteriores serán reemplazados por los nuevos valores.';
+                
+                const tabla = document.querySelector('.table-responsive');
+                if (tabla) {
+                    tabla.parentNode.insertBefore(alertaEdicion, tabla);
+                }
+            }
+            
+            // Prevenir pérdida de datos al salir sin guardar
+            let formularioModificado = false;
+            
+            if (formRetornos) {
+                const inputs = formRetornos.querySelectorAll('.input-cantidad');
+                inputs.forEach(input => {
+                    // Guardar valor inicial
+                    input.dataset.valorInicial = input.value;
+                    
+                    input.addEventListener('input', function() {
+                        if (this.value != this.dataset.valorInicial) {
+                            formularioModificado = true;
+                        }
+                    });
+                });
+                
+                // Advertir antes de salir
+                window.addEventListener('beforeunload', function(e) {
+                    if (formularioModificado) {
+                        e.preventDefault();
+                        e.returnValue = '¿Está seguro de salir? Los cambios no guardados se perderán.';
+                        return e.returnValue;
+                    }
+                });
+                
+                // No advertir si se está enviando el formulario
+                formRetornos.addEventListener('submit', function() {
+                    formularioModificado = false;
+                });
+            }
+            
+            // Auto-focus en primer input si hay productos
+            if (formRetornos) {
+                const primerInput = formRetornos.querySelector('.input-cantidad');
+                if (primerInput) {
+                    setTimeout(() => {
+                        primerInput.focus();
+                        primerInput.select();
+                    }, 300);
+                }
+            }
+            
+            console.log('Sistema de retornos cargado correctamente');
         });
-
-        // Auto-cerrar alertas después de 5 segundos
-        setTimeout(function() {
-            var alerts = document.querySelectorAll('.alert-dismissible');
-            alerts.forEach(function(alert) {
-                var bsAlert = new bootstrap.Alert(alert);
-                bsAlert.close();
-            });
-        }, 5000);
+        
+        // Función para limpiar formulario
+        function limpiarFormulario() {
+            if (confirm('¿Está seguro de limpiar todas las cantidades?')) {
+                const inputs = document.querySelectorAll('.input-cantidad');
+                inputs.forEach(input => {
+                    input.value = 0;
+                });
+                
+                const primerInput = inputs[0];
+                if (primerInput) {
+                    primerInput.focus();
+                    primerInput.select();
+                }
+            }
+        }
+        
+        // Función para llenar con máximos (retornar todo)
+        function retornarTodo() {
+            if (confirm('¿Desea marcar TODOS los productos para retorno completo?')) {
+                const inputs = document.querySelectorAll('.input-cantidad');
+                inputs.forEach(input => {
+                    input.value = input.max;
+                });
+                
+                alert('Se ha marcado el retorno completo de todos los productos.');
+            }
+        }
     </script>
 </body>
 </html>

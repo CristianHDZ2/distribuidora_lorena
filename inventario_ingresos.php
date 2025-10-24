@@ -86,6 +86,7 @@ $ultimos_ingresos = $conn->query($query_ultimos);
             padding: 18px 15px !important;
             border: none !important;
             vertical-align: middle;
+            background: transparent !important;
         }
         
         @media (max-width: 991px) {
@@ -113,10 +114,11 @@ $ultimos_ingresos = $conn->query($query_ultimos);
         .table-ingresos tbody tr {
             transition: all 0.3s ease;
             border-bottom: 1px solid #e9ecef;
+            background: white;
         }
         
         .table-ingresos tbody tr:hover {
-            background-color: #f8f9ff;
+            background-color: #f8f9ff !important;
             transform: scale(1.01);
             box-shadow: 0 3px 10px rgba(0,0,0,0.08);
         }
@@ -124,6 +126,7 @@ $ultimos_ingresos = $conn->query($query_ultimos);
         .table-ingresos tbody td {
             padding: 15px;
             vertical-align: middle;
+            color: #2c3e50;
         }
         
         @media (max-width: 991px) {
@@ -141,6 +144,7 @@ $ultimos_ingresos = $conn->query($query_ultimos);
         @media (max-width: 480px) {
             .table-ingresos tbody td {
                 padding: 8px 5px;
+                font-size: 11px;
             }
         }
         
@@ -185,31 +189,11 @@ $ultimos_ingresos = $conn->query($query_ultimos);
         @media (max-width: 480px) {
             .form-section h4 {
                 font-size: 16px;
-                margin-bottom: 12px;
+                margin-bottom: 10px;
             }
         }
         
-        /* Inputs grandes y responsivos */
-        .form-control-lg, .form-select-lg {
-            font-size: 16px;
-            padding: 12px 15px;
-        }
-        
-        @media (max-width: 767px) {
-            .form-control-lg, .form-select-lg {
-                font-size: 14px;
-                padding: 10px 12px;
-            }
-        }
-        
-        @media (max-width: 480px) {
-            .form-control-lg, .form-select-lg {
-                font-size: 13px;
-                padding: 8px 10px;
-            }
-        }
-        
-        /* Botones de acción */
+        /* Botones del formulario */
         .btn-action-form {
             padding: 12px 30px;
             font-size: 16px;
@@ -220,17 +204,16 @@ $ultimos_ingresos = $conn->query($query_ultimos);
         
         @media (max-width: 767px) {
             .btn-action-form {
-                padding: 10px 25px;
+                padding: 10px 20px;
                 font-size: 14px;
-                width: 100%;
-                margin-bottom: 10px;
             }
         }
         
         @media (max-width: 480px) {
             .btn-action-form {
-                padding: 8px 20px;
+                padding: 8px 15px;
                 font-size: 13px;
+                width: 100%;
             }
         }
         
@@ -239,21 +222,13 @@ $ultimos_ingresos = $conn->query($query_ultimos);
             box-shadow: 0 4px 12px rgba(0,0,0,0.2);
         }
         
-        /* Ocultar columnas en móviles */
-        @media (max-width: 767px) {
-            .hide-mobile {
-                display: none !important;
-            }
-        }
-        
-        /* Header con botón */
+        /* Header actions */
         .header-actions {
-            margin-bottom: 20px;
             display: flex;
             justify-content: space-between;
             align-items: center;
+            margin-bottom: 20px;
             gap: 15px;
-            flex-wrap: wrap;
         }
         
         @media (max-width: 767px) {
@@ -264,6 +239,33 @@ $ultimos_ingresos = $conn->query($query_ultimos);
             
             .header-actions .btn {
                 width: 100%;
+            }
+        }
+        
+        /* Ocultar columnas en móviles */
+        @media (max-width: 767px) {
+            .hide-mobile {
+                display: none !important;
+            }
+        }
+        
+        /* Badges responsivos */
+        .badge {
+            font-size: 12px;
+            padding: 6px 12px;
+        }
+        
+        @media (max-width: 767px) {
+            .badge {
+                font-size: 11px;
+                padding: 5px 10px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .badge {
+                font-size: 10px;
+                padding: 4px 8px;
             }
         }
         
@@ -444,7 +446,7 @@ $ultimos_ingresos = $conn->query($query_ultimos);
                         <small class="text-muted">Agregue detalles opcionales sobre este ingreso</small>
                     </div>
 
-                    <div class="d-flex gap-2 justify-content-end">
+                    <div class="d-flex gap-2 justify-content-end flex-wrap">
                         <button type="reset" class="btn btn-secondary btn-action-form">
                             <i class="fas fa-redo"></i> Limpiar
                         </button>
@@ -494,31 +496,36 @@ $ultimos_ingresos = $conn->query($query_ultimos);
                                             </span>
                                         </td>
                                         <td class="text-center hide-mobile">
-                                            <?php echo number_format($ingreso['stock_anterior'], 1); ?>
+                                            <small class="text-muted">
+                                                <?php echo number_format($ingreso['stock_anterior'], 1); ?>
+                                            </small>
                                         </td>
                                         <td class="text-center">
-                                            <strong class="text-success"><?php echo number_format($ingreso['stock_nuevo'], 1); ?></strong>
+                                            <strong class="text-success">
+                                                <?php echo number_format($ingreso['stock_nuevo'], 1); ?>
+                                            </strong>
                                         </td>
                                         <td class="hide-mobile">
-                                            <?php echo htmlspecialchars($ingreso['descripcion'] ?: 'Sin descripción'); ?>
+                                            <small class="text-muted">
+                                                <?php echo !empty($ingreso['descripcion']) ? htmlspecialchars($ingreso['descripcion']) : '<em>Sin descripción</em>'; ?>
+                                            </small>
                                         </td>
                                         <td class="hide-mobile">
-                                            <small><?php echo htmlspecialchars($ingreso['usuario_nombre']); ?></small>
+                                            <small>
+                                                <i class="fas fa-user"></i> 
+                                                <?php echo htmlspecialchars($ingreso['usuario_nombre']); ?>
+                                            </small>
                                         </td>
                                     </tr>
                                 <?php endwhile; ?>
                             </tbody>
                         </table>
-                    </div><div class="text-center mt-3">
-                        <a href="inventario_movimientos.php?tipo=INGRESO" class="btn btn-primary">
-                            <i class="fas fa-list"></i> Ver Todos los Ingresos
-                        </a>
                     </div>
                 <?php else: ?>
-                    <div class="alert alert-warning text-center">
-                        <i class="fas fa-info-circle fa-3x mb-3 d-block"></i>
-                        <h5>No hay ingresos registrados todavía</h5>
-                        <p class="mb-0">Los ingresos que registre aparecerán aquí.</p>
+                    <div class="text-center py-5 text-muted">
+                        <i class="fas fa-inbox fa-3x mb-3"></i>
+                        <p>No hay ingresos registrados aún</p>
+                        <small>Los ingresos aparecerán aquí una vez que se registren</small>
                     </div>
                 <?php endif; ?>
             </div>
@@ -588,69 +595,7 @@ $ultimos_ingresos = $conn->query($query_ultimos);
                 document.body.classList.add('touch-device');
             }
             
-            // Focus automático en el select de producto
-            const productoSelect = document.getElementById('producto_id');
-            if (productoSelect) {
-                productoSelect.focus();
-            }
-            
-            console.log('Inventario Ingresos cargado correctamente');
-        });
-        
-        // Validación del formulario
-        document.getElementById('formIngreso').addEventListener('submit', function(e) {
-            const productoId = document.getElementById('producto_id').value;
-            const cantidad = parseFloat(document.getElementById('cantidad').value);
-            
-            // Validar que se seleccionó un producto
-            if (!productoId || productoId === '') {
-                e.preventDefault();
-                alert('Debe seleccionar un producto');
-                document.getElementById('producto_id').focus();
-                return false;
-            }
-            
-            // Validar cantidad
-            if (isNaN(cantidad) || cantidad <= 0) {
-                e.preventDefault();
-                alert('La cantidad debe ser mayor a 0');
-                document.getElementById('cantidad').focus();
-                return false;
-            }
-            
-            // Validar que la cantidad no sea excesivamente grande
-            if (cantidad > 10000) {
-                e.preventDefault();
-                if (!confirm('La cantidad ingresada es muy grande (' + cantidad + '). ¿Está seguro de continuar?')) {
-                    return false;
-                }
-            }
-            
-            // Confirmación antes de enviar
-            const productoNombre = document.getElementById('producto_id').selectedOptions[0].text;
-            const mensaje = '¿Está seguro de registrar el ingreso de ' + cantidad + ' unidades de:\n\n' + productoNombre + '?';
-            
-            if (!confirm(mensaje)) {
-                e.preventDefault();
-                return false;
-            }
-            
-            // Deshabilitar botón de envío para evitar doble submit
-            const submitBtn = this.querySelector('button[type="submit"]');
-            if (submitBtn) {
-                submitBtn.disabled = true;
-                submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Registrando...';
-                
-                // Re-habilitar después de 5 segundos por si hay error
-                setTimeout(() => {
-                    submitBtn.disabled = false;
-                    submitBtn.innerHTML = '<i class="fas fa-save"></i> Registrar Ingreso';
-                }, 5000);
-            }
-        });
-
-        // Auto-cerrar alertas después de 5 segundos
-        window.addEventListener('load', function() {
+            // Auto-ocultar alerta después de 5 segundos
             const alert = document.querySelector('.alert-dismissible');
             if (alert) {
                 setTimeout(function() {
@@ -658,147 +603,57 @@ $ultimos_ingresos = $conn->query($query_ultimos);
                     bsAlert.close();
                 }, 5000);
             }
-        });
-
-        // Limpiar formulario con botón reset
-        document.querySelector('button[type="reset"]').addEventListener('click', function(e) {
-            e.preventDefault();
             
-            if (confirm('¿Está seguro de limpiar el formulario?')) {
-                document.getElementById('formIngreso').reset();
-                document.getElementById('producto_id').focus();
-            }
-        });
-        
-        // Validación en tiempo real de la cantidad
-        document.getElementById('cantidad').addEventListener('input', function() {
-            const valor = parseFloat(this.value);
-            
-            if (isNaN(valor) || valor < 0) {
-                this.setCustomValidity('La cantidad debe ser un número positivo');
-            } else if (valor === 0) {
-                this.setCustomValidity('La cantidad debe ser mayor a 0');
-            } else if (valor > 10000) {
-                this.setCustomValidity('La cantidad parece excesivamente grande. Verifique el valor.');
-            } else {
-                this.setCustomValidity('');
-            }
-        });
-        
-        // Formatear cantidad al perder el foco
-        document.getElementById('cantidad').addEventListener('blur', function() {
-            const valor = parseFloat(this.value);
-            
-            if (!isNaN(valor) && valor > 0) {
-                // Redondear a 1 decimal
-                this.value = valor.toFixed(1);
-            }
-        });
-        
-        // Prevenir envío con Enter en campos de texto (excepto textarea)
-        document.getElementById('formIngreso').addEventListener('keydown', function(e) {
-            if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA' && e.target.tagName !== 'BUTTON') {
-                e.preventDefault();
-                
-                // Mover al siguiente campo
-                const campos = Array.from(this.querySelectorAll('input, select, textarea, button'));
-                const index = campos.indexOf(e.target);
-                
-                if (index > -1 && index < campos.length - 1) {
-                    campos[index + 1].focus();
-                }
-            }
-        });
-        
-        // Animación de hover en filas de tabla (solo desktop)
-        if (window.innerWidth > 768) {
-            document.querySelectorAll('.table-ingresos tbody tr').forEach(row => {
-                row.addEventListener('mouseenter', function() {
-                    this.style.transform = 'scale(1.01)';
-                });
-                
-                row.addEventListener('mouseleave', function() {
-                    this.style.transform = 'scale(1)';
-                });
-            });
-        }
-        
-        // Mostrar contador de caracteres en descripción
-        const descripcionTextarea = document.getElementById('descripcion');
-        if (descripcionTextarea) {
-            const maxLength = 500;
-            descripcionTextarea.setAttribute('maxlength', maxLength);
-            
-            // Crear elemento contador
-            const contadorDiv = document.createElement('small');
-            contadorDiv.className = 'text-muted float-end';
-            contadorDiv.textContent = '0 / ' + maxLength + ' caracteres';
-            descripcionTextarea.parentElement.appendChild(contadorDiv);
-            
-            // Actualizar contador
-            descripcionTextarea.addEventListener('input', function() {
-                const length = this.value.length;
-                contadorDiv.textContent = length + ' / ' + maxLength + ' caracteres';
-                
-                if (length > maxLength * 0.9) {
-                    contadorDiv.className = 'text-danger float-end';
-                } else if (length > maxLength * 0.7) {
-                    contadorDiv.className = 'text-warning float-end';
-                } else {
-                    contadorDiv.className = 'text-muted float-end';
-                }
-            });
-        }
-        
-        // Resaltar producto seleccionado
-        document.getElementById('producto_id').addEventListener('change', function() {
-            if (this.value) {
-                this.style.borderColor = '#28a745';
-                this.style.borderWidth = '2px';
-                
-                // Mover focus a cantidad
-                setTimeout(() => {
-                    document.getElementById('cantidad').focus();
-                }, 100);
-            } else {
-                this.style.borderColor = '';
-                this.style.borderWidth = '';
-            }
-        });
-        
-        // Efecto visual al registrar exitosamente
-        const urlParams = new URLSearchParams(window.location.search);
-        if (urlParams.get('tipo') === 'success') {
-            // Hacer scroll al mensaje de éxito
-            const alertElement = document.querySelector('.alert-success');
-            if (alertElement) {
-                alertElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                
-                // Efecto de parpadeo
-                let count = 0;
-                const interval = setInterval(() => {
-                    alertElement.style.opacity = alertElement.style.opacity === '0.7' ? '1' : '0.7';
-                    count++;
+            // Validación del formulario
+            const formIngreso = document.getElementById('formIngreso');
+            if (formIngreso) {
+                formIngreso.addEventListener('submit', function(e) {
+                    const producto = document.getElementById('producto_id').value;
+                    const cantidad = parseFloat(document.getElementById('cantidad').value);
                     
-                    if (count >= 6) {
-                        clearInterval(interval);
-                        alertElement.style.opacity = '1';
+                    if (!producto) {
+                        e.preventDefault();
+                        alert('Por favor seleccione un producto');
+                        return false;
                     }
-                }, 200);
+                    
+                    if (isNaN(cantidad) || cantidad <= 0) {
+                        e.preventDefault();
+                        alert('Por favor ingrese una cantidad válida mayor a 0');
+                        return false;
+                    }
+                    
+                    // Confirmar el ingreso
+                    const productoNombre = document.getElementById('producto_id').options[document.getElementById('producto_id').selectedIndex].text;
+                    
+                    if (!confirm(`¿Confirma el ingreso de ${cantidad} unidades de ${productoNombre}?`)) {
+                        e.preventDefault();
+                        return false;
+                    }
+                    
+                    // Deshabilitar botón para evitar doble envío
+                    const submitBtn = this.querySelector('button[type="submit"]');
+                    if (submitBtn) {
+                        submitBtn.disabled = true;
+                        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Procesando...';
+                    }
+                });
             }
-        }
-        
-        // Log para debug
-        console.log('Formulario de ingresos inicializado');
-        console.log('Total de productos disponibles:', document.querySelectorAll('#producto_id option').length - 1);
-        
-        // Verificar si hay ingresos previos
-        const tablaIngresos = document.querySelector('.table-ingresos tbody tr');
-        if (tablaIngresos) {
-            console.log('Hay ingresos registrados previamente');
-        } else {
-            console.log('No hay ingresos registrados');
-        }
+            
+            // Prevenir números negativos en el campo cantidad
+            const cantidadInput = document.getElementById('cantidad');
+            if (cantidadInput) {
+                cantidadInput.addEventListener('input', function() {
+                    if (this.value < 0) {
+                        this.value = 0;
+                    }
+                });
+            }
+            
+            console.log('Inventario Ingresos cargado correctamente');
+            console.log('Total de productos activos:', <?php echo $productos->num_rows; ?>);
+            console.log('Sistema de notificaciones activo');
+        });
     </script>
 </body>
 </html>

@@ -76,7 +76,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             $stmt->close();
             
             // Insertar nuevas salidas
-            $stmt = $conn->prepare("INSERT INTO salidas (ruta_id, producto_id, cantidad, usa_precio_unitario, fecha, usuario_id) VALUES (?, ?, ?, ?, ?, ?)");
+            $stmt = $conn->prepare("INSERT INTO salidas (ruta_id, producto_id, cantidad, usa_precio_unitario, precio_usado, fecha, usuario_id) VALUES (?, ?, ?, ?, ?, ?, ?)");
             
             foreach ($productos as $producto_id => $datos) {
                 $cantidad = floatval($datos['cantidad'] ?? 0);
@@ -98,33 +98,47 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                         if ($cantidad > $stock_disponible) {
                             throw new Exception("No hay suficiente stock para el producto ID: $producto_id. Stock disponible: $stock_disponible");
                         }
+                        
+                        $stmt_stock->close();
+                    } else {
+                        throw new Exception("No existe inventario para el producto ID: $producto_id");
                     }
-                    $stmt_stock->close();
                     
-                    // Insertar salida
-                    $stmt->bind_param("iidisi", $ruta_id, $producto_id, $cantidad, $usa_precio_unitario, $fecha, $usuario_id);
+                    // Obtener el precio usado
+                    $stmt_precio = $conn->prepare("SELECT precio_caja, precio_unitario FROM productos WHERE id = ?");
+                    $stmt_precio->bind_param("i", $producto_id);
+                    $stmt_precio->execute();
+                    $result_precio = $stmt_precio->get_result();
+                    $producto_info = $result_precio->fetch_assoc();
+                    $stmt_precio->close();
+                    
+                    $precio_usado = $usa_precio_unitario ? $producto_info['precio_unitario'] : $producto_info['precio_caja'];
+                    
+                    // Insertar la salida
+                    $stmt->bind_param("iididsi", $ruta_id, $producto_id, $cantidad, $usa_precio_unitario, $precio_usado, $fecha, $usuario_id);
                     $stmt->execute();
-                    $salida_id = $conn->insert_id;
                     
-                    // Actualizar inventario - Disminuir stock
-                    require_once 'api/inventario_api.php';
-                    actualizarInventario(
-                        $conn,
-                        $producto_id,
-                        -$cantidad, // Negativo porque es salida
-                        'SALIDA_RUTA',
-                        $salida_id,
-                        'salidas',
-                        "Salida a ruta - Fecha: $fecha",
-                        $usuario_id
-                    );
+                    // Descontar del inventario
+                    $stmt_update = $conn->prepare("UPDATE inventario SET stock_actual = stock_actual - ? WHERE producto_id = ?");
+                    $stmt_update->bind_param("di", $cantidad, $producto_id);
+                    $stmt_update->execute();
+                    $stmt_update->close();
+                    
+                    // Registrar movimiento de inventario
+                    $stmt_mov = $conn->prepare("
+                        INSERT INTO movimientos_inventario (producto_id, tipo_movimiento, cantidad, stock_anterior, stock_nuevo, usuario_id, descripcion)
+                        SELECT ?, 'SALIDA', ?, stock_actual + ?, stock_actual, ?, CONCAT('Salida - Ruta ID: ', ?)
+                        FROM inventario WHERE producto_id = ?
+                    ");
+                    $stmt_mov->bind_param("iddiis", $producto_id, $cantidad, $cantidad, $usuario_id, $ruta_id, $producto_id);
+                    $stmt_mov->execute();
+                    $stmt_mov->close();
                 }
             }
             
             $stmt->close();
             $conn->commit();
             
-            // Redirigir al index con mensaje de éxito
             $fecha_texto = ($fecha == $fecha_hoy) ? 'hoy' : 'mañana';
             header("Location: index.php?mensaje=" . urlencode("Salida para $fecha_texto guardada exitosamente e inventario actualizado") . "&tipo=success");
             exit();
@@ -217,61 +231,274 @@ if (isset($_GET['mensaje'])) {
     $mensaje = $_GET['mensaje'];
     $tipo_mensaje = $_GET['tipo'] ?? 'info';
 }
+
 ?>
 <!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Salidas - Distribuidora LORENA</title>
+    <title>Registrar Salidas - Distribuidora LORENA</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="assets/css/custom.css">
     <style>
-        .producto-sin-stock {
-            background-color: #f8d7da !important;
-            pointer-events: none;
-            opacity: 0.6;
-        }
-        .producto-stock-bajo {
-            background-color: #fff3cd !important;
-        }
-        .producto-stock-ok {
-            background-color: #d4edda !important;
-        }
-        .stock-badge {
-            font-size: 12px;
-            padding: 5px 10px;
-        }
-        .input-disabled {
-            background-color: #e9ecef !important;
-            cursor: not-allowed !important;
-        }
-        .btn-fecha {
-            font-size: 16px;
-            font-weight: bold;
-        }
-        .btn-fecha.active {
-            box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.5);
-        }
-        .btn-fecha:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-        }
+        /* ============================================
+           ESTILOS IDÉNTICOS A PRODUCTOS.PHP
+           ============================================ */
         
-        @media (max-width: 768px) {
-            .table-responsive {
+        /* Tabla de salidas con el mismo diseño que productos */
+        .table-salidas {
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            border-radius: 10px;
+            overflow: hidden;
+            background: white;
+        }
+
+        /* IDÉNTICO A PRODUCTOS: Encabezados con fondo degradado */
+        .table-salidas thead {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+        }
+
+        .table-salidas thead th {
+            color: white !important;
+            font-weight: 600 !important;
+            text-transform: uppercase;
+            font-size: 13px;
+            letter-spacing: 0.5px;
+            padding: 18px 15px !important;
+            border: none !important;
+            vertical-align: middle;
+            background: transparent !important;
+        }
+
+        @media (max-width: 991px) {
+            .table-salidas thead th {
+                padding: 15px 12px !important;
                 font-size: 12px;
             }
-            .btn {
-                padding: 6px 12px;
+        }
+
+        @media (max-width: 767px) {
+            .table-salidas thead th {
+                padding: 12px 8px !important;
+                font-size: 11px;
+                letter-spacing: 0.3px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .table-salidas thead th {
+                padding: 10px 5px !important;
+                font-size: 10px;
+            }
+        }
+
+        .table-salidas tbody tr {
+            transition: all 0.3s ease;
+            border-bottom: 1px solid #e9ecef;
+            background: white;
+        }
+
+        .table-salidas tbody tr:hover {
+            background-color: #f8f9ff !important;
+            transform: scale(1.01);
+            box-shadow: 0 3px 10px rgba(0,0,0,0.08);
+        }
+
+        .table-salidas tbody td {
+            padding: 15px;
+            vertical-align: middle;
+            color: #2c3e50;
+        }
+
+        @media (max-width: 991px) {
+            .table-salidas tbody td {
+                padding: 12px 10px;
+            }
+        }
+
+        @media (max-width: 767px) {
+            .table-salidas tbody td {
+                padding: 10px 8px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .table-salidas tbody td {
+                padding: 8px 5px;
+                font-size: 11px;
+            }
+        }
+        
+        /* Número de orden idéntico a productos.php */
+        .numero-orden {
+            font-weight: 700;
+            font-size: 16px;
+            color: #667eea;
+            background: #f0f3ff;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        @media (max-width: 991px) {
+            .numero-orden {
+                width: 35px;
+                height: 35px;
+                font-size: 14px;
+            }
+        }
+        
+        @media (max-width: 767px) {
+            .numero-orden {
+                width: 30px;
+                height: 30px;
+                font-size: 12px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .numero-orden {
+                width: 25px;
+                height: 25px;
+                font-size: 11px;
+            }
+        }
+        
+        /* Botones de fecha */
+        .btn-fecha {
+            border-radius: 8px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-fecha.active {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+        }
+        
+        .btn-fecha:not(.active) {
+            background: white;
+            color: #2c3e50;
+            border: 2px solid #e0e0e0;
+        }
+        
+        .btn-fecha:not(.active):hover {
+            background: #f8f9fa;
+            border-color: #667eea;
+        }
+        
+        @media (max-width: 767px) {
+            .btn-fecha {
                 font-size: 13px;
+                padding: 10px;
+            }
+        }
+        
+        /* Badges de stock idénticos a productos */
+        .badge-stock {
+            font-size: 11px;
+            padding: 5px 10px;
+            border-radius: 5px;
+            font-weight: 600;
+        }
+        
+        .badge-stock-ok {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .badge-stock-bajo {
+            background: #fff3cd;
+            color: #856404;
+        }
+        
+        .badge-stock-critico {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        
+        /* Input de cantidad */
+        .input-cantidad {
+            width: 100%;
+            max-width: 120px;
+            text-align: center;
+            font-weight: 600;
+            font-size: 15px;
+        }
+        
+        @media (max-width: 767px) {
+            .input-cantidad {
+                max-width: 100px;
+                font-size: 13px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .input-cantidad {
+                max-width: 80px;
+                font-size: 12px;
+            }
+        }
+        
+        /* Checkbox de precio unitario */
+        .form-check-input {
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
+        }
+        
+        @media (max-width: 767px) {
+            .form-check-input {
+                width: 18px;
+                height: 18px;
+            }
+        }
+        
+        /* Ocultar columnas en móviles */
+        @media (max-width: 767px) {
+            .hide-mobile {
+                display: none !important;
+            }
+        }
+        
+        /* Copyright Footer */
+        .copyright-footer {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            text-align: center;
+            margin-top: 30px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            color: #7f8c8d;
+            font-size: 14px;
+        }
+        
+        .copyright-footer strong {
+            color: #2c3e50;
+            display: block;
+            margin-bottom: 5px;
+            font-size: 16px;
+        }
+        
+        @media (max-width: 767px) {
+            .copyright-footer {
+                padding: 15px;
+                font-size: 12px;
+            }
+            
+            .copyright-footer strong {
+                font-size: 14px;
             }
         }
     </style>
 </head>
-<body>
-    <!-- Navbar -->
+<body><!-- Navbar -->
     <nav class="navbar navbar-expand-lg navbar-light navbar-custom">
         <div class="container-fluid">
             <a class="navbar-brand" href="index.php">
@@ -350,7 +577,8 @@ if (isset($_GET['mensaje'])) {
                 <i class="fas fa-arrow-up"></i> Registrar Salidas
             </h1>
 
-            <?php if ($mensaje): ?>
+            <!-- Mensaje de éxito/error -->
+            <?php if (!empty($mensaje)): ?>
                 <div class="alert alert-<?php echo $tipo_mensaje; ?> alert-dismissible fade show" role="alert">
                     <i class="fas fa-<?php echo $tipo_mensaje == 'success' ? 'check-circle' : ($tipo_mensaje == 'warning' ? 'exclamation-triangle' : 'info-circle'); ?>"></i>
                     <?php echo htmlspecialchars($mensaje); ?>
@@ -358,7 +586,7 @@ if (isset($_GET['mensaje'])) {
                 </div>
             <?php endif; ?>
 
-            <div class="alert alert-info">
+            <div class="alert alert-info alert-custom">
                 <i class="fas fa-info-circle"></i>
                 <strong>Instrucciones:</strong> Seleccione la ruta y la fecha, luego ingrese las cantidades que salen.
                 <br><strong>Control de Stock:</strong>
@@ -383,7 +611,10 @@ if (isset($_GET['mensaje'])) {
                         </label>
                         <select class="form-select form-select-lg" id="ruta" name="ruta" required onchange="this.form.submit()">
                             <option value="">-- Seleccione una ruta --</option>
-                            <?php while ($ruta = $rutas->fetch_assoc()): ?>
+                            <?php 
+                            $rutas->data_seek(0); // Reset pointer
+                            while ($ruta = $rutas->fetch_assoc()): 
+                            ?>
                                 <option value="<?php echo $ruta['id']; ?>" <?php echo $ruta_id == $ruta['id'] ? 'selected' : ''; ?>>
                                     <?php echo htmlspecialchars($ruta['nombre']); ?>
                                 </option>
@@ -398,52 +629,40 @@ if (isset($_GET['mensaje'])) {
                             </label>
                             <div class="d-grid gap-2">
                                 <a href="salidas.php?ruta=<?php echo $ruta_id; ?>&fecha=<?php echo $fecha_hoy; ?>" 
-                                   class="btn btn-fecha btn-lg <?php echo $fecha_seleccionada == $fecha_hoy ? 'btn-primary active' : 'btn-outline-primary'; ?>">
-                                    <i class="fas fa-calendar-day"></i> HOY - <?php echo date('d/m/Y', strtotime($fecha_hoy)); ?>
+                                   class="btn btn-fecha btn-lg <?php echo $fecha_seleccionada == $fecha_hoy ? 'active' : ''; ?>">
+                                    <i class="fas fa-calendar-day"></i> HOY (<?php echo date('d/m/Y', strtotime($fecha_hoy)); ?>)
                                 </a>
                                 
                                 <?php if ($puede_registrar_manana): ?>
                                     <a href="salidas.php?ruta=<?php echo $ruta_id; ?>&fecha=<?php echo $fecha_manana; ?>" 
-                                       class="btn btn-fecha btn-lg <?php echo $fecha_seleccionada == $fecha_manana ? 'btn-success active' : 'btn-outline-success'; ?>">
-                                        <i class="fas fa-calendar-plus"></i> MAÑANA - <?php echo date('d/m/Y', strtotime($fecha_manana)); ?>
+                                       class="btn btn-fecha btn-lg <?php echo $fecha_seleccionada == $fecha_manana ? 'active' : ''; ?>">
+                                        <i class="fas fa-calendar-plus"></i> MAÑANA (<?php echo date('d/m/Y', strtotime($fecha_manana)); ?>)
                                     </a>
                                 <?php else: ?>
-                                    <button type="button" 
-                                            class="btn btn-fecha btn-lg btn-outline-secondary" 
-                                            disabled
-                                            title="Debe completar primero la salida y retorno de HOY">
-                                        <i class="fas fa-lock"></i> MAÑANA - <?php echo date('d/m/Y', strtotime($fecha_manana)); ?>
-                                        <br><small>🔒 Bloqueado: Complete ciclo de HOY primero</small>
+                                    <button type="button" class="btn btn-fecha btn-lg" disabled title="Complete primero el ciclo de hoy (Salida + Retorno)">
+                                        <i class="fas fa-lock"></i> MAÑANA (Bloqueado)
                                     </button>
                                 <?php endif; ?>
                             </div>
                         </div>
                     <?php endif; ?>
-                    
-                    <?php if ($ruta_id > 0): ?>
-                        <div class="col-12">
-                            <a href="salidas.php" class="btn btn-secondary">
-                                <i class="fas fa-times"></i> Limpiar Selección
-                            </a>
-                        </div>
-                    <?php endif; ?>
                 </form>
             </div>
 
-            <?php if ($ruta_id > 0 && $ruta_info): ?>
-                <!-- Información de la Ruta -->
-                <div class="alert alert-primary">
+            <?php if ($ruta_id > 0): ?>
+                <!-- Información de la Ruta Seleccionada -->
+                <div class="alert alert-success">
                     <h5 class="alert-heading">
                         <i class="fas fa-route"></i> Ruta Seleccionada: <?php echo htmlspecialchars($ruta_info['nombre']); ?>
                     </h5>
                     <p class="mb-0"><?php echo htmlspecialchars($ruta_info['descripcion']); ?></p>
                     <hr>
                     <p class="mb-0">
-                        <strong>Fecha de salida:</strong> 
+                        <strong>Fecha:</strong> <?php echo date('d/m/Y', strtotime($fecha_seleccionada)); ?>
                         <?php if ($fecha_seleccionada == $fecha_hoy): ?>
-                            <span class="badge bg-primary">HOY</span> <?php echo date('d/m/Y', strtotime($fecha_seleccionada)); ?>
+                            <span class="badge bg-primary">HOY</span>
                         <?php else: ?>
-                            <span class="badge bg-success">MAÑANA</span> <?php echo date('d/m/Y', strtotime($fecha_seleccionada)); ?>
+                            <span class="badge bg-info">MAÑANA</span>
                         <?php endif; ?>
                     </p>
                 </div>
@@ -453,262 +672,586 @@ if (isset($_GET['mensaje'])) {
                     <input type="hidden" name="ruta_id" value="<?php echo $ruta_id; ?>">
                     <input type="hidden" name="fecha" value="<?php echo $fecha_seleccionada; ?>">
 
-                    <!-- Productos Big Cola -->
-                    <?php if ($productos_big_cola->num_rows > 0): ?>
+                    <?php if ($ruta_id == 5): ?>
+                        <!-- RUTA #5: Productos Big Cola -->
                         <h3 class="mt-4 mb-3">
                             <i class="fas fa-box"></i> Productos Big Cola
                         </h3>
                         <div class="table-responsive">
-                            <table class="table table-hover">
-                                <thead class="table-dark">
+                            <table class="table table-salidas table-hover mb-0">
+                                <thead>
                                     <tr>
-                                        <th style="width: 50%;">Producto</th>
-                                        <th class="text-center" style="width: 20%;">Stock Disponible</th>
-                                        <th class="text-center" style="width: 20%;">Cantidad</th>
-                                        <th class="text-center" style="width: 10%;">Precio Unit.</th>
+                                        <th width="60" class="text-center">#</th>
+                                        <th>Producto</th>
+                                        <th width="120" class="text-center">Stock Disponible</th>
+                                        <th width="120" class="text-center hide-mobile">Precio Caja</th>
+                                        <th width="120" class="text-center hide-mobile">Precio Unit.</th>
+                                        <th width="150" class="text-center">Cantidad</th>
+                                        <th width="120" class="text-center">Precio Unit.?</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    <?php while ($producto = $productos_big_cola->fetch_assoc()): ?>
-                                        <?php
-                                        $stock_actual = floatval($producto['stock_actual']);
-                                        $stock_minimo = floatval($producto['stock_minimo']);
-                                        $tiene_stock = $stock_actual > 0;
-                                        $stock_bajo = $stock_actual > 0 && $stock_actual <= $stock_minimo && $stock_minimo > 0;
-                                        
-                                        // Determinar clase de fila
-                                        $clase_fila = '';
-                                        $badge_color = '';
-                                        if (!$tiene_stock) {
-                                            $clase_fila = 'producto-sin-stock';
-                                            $badge_color = 'bg-danger';
-                                        } elseif ($stock_bajo) {
-                                            $clase_fila = 'producto-stock-bajo';
-                                            $badge_color = 'bg-warning text-dark';
-                                        } else {
-                                            $clase_fila = 'producto-stock-ok';
-                                            $badge_color = 'bg-success';
-                                        }
-                                        
-                                        $cantidad_existente = $salidas_existentes[$producto['id']]['cantidad'] ?? 0;
-                                        $usa_precio_unitario_existente = $salidas_existentes[$producto['id']]['usa_precio_unitario'] ?? 0;
+                                    <?php if ($productos_big_cola->num_rows > 0): ?>
+                                        <?php 
+                                        $contador = 1;
+                                        while ($producto = $productos_big_cola->fetch_assoc()): 
+                                            $stock_actual = floatval($producto['stock_actual']);
+                                            $stock_minimo = floatval($producto['stock_minimo']);
+                                            $cantidad_existente = $salidas_existentes[$producto['id']]['cantidad'] ?? 0;
+                                            $usa_precio_unit_existente = $salidas_existentes[$producto['id']]['usa_precio_unitario'] ?? 0;
+                                            
+                                            // Determinar clase de stock
+                                            $stock_clase = '';
+                                            $stock_texto = '';
+                                            $puede_registrar = true;
+                                            
+                                            if ($stock_actual <= 0) {
+                                                $stock_clase = 'badge-stock-critico';
+                                                $stock_texto = 'Sin Stock';
+                                                $puede_registrar = false;
+                                            } elseif ($stock_minimo > 0 && $stock_actual <= $stock_minimo) {
+                                                $stock_clase = 'badge-stock-bajo';
+                                                $stock_texto = 'Stock Bajo';
+                                            } else {
+                                                $stock_clase = 'badge-stock-ok';
+                                                $stock_texto = 'Stock OK';
+                                            }
                                         ?>
-                                        <tr class="<?php echo $clase_fila; ?>">
-                                            <td>
-                                                <strong><?php echo htmlspecialchars($producto['nombre']); ?></strong>
-                                                <?php if (!$tiene_stock): ?>
-                                                    <br><small class="text-danger"><i class="fas fa-ban"></i> Sin stock disponible</small>
-                                                <?php endif; ?>
-                                            </td>
-                                            <td class="text-center">
-                                                <span class="badge stock-badge <?php echo $badge_color; ?>">
-                                                    <?php echo number_format($stock_actual, 1); ?>
-                                                </span>
-                                            </td>
-                                            <td>
-                                                <input type="number" 
-                                                       class="form-control text-center cantidad-input" 
-                                                       name="productos[<?php echo $producto['id']; ?>][cantidad]" 
-                                                       step="0.1" 
-                                                       min="0" 
-                                                       max="<?php echo $stock_actual; ?>"
-                                                       value="<?php echo $cantidad_existente > 0 ? $cantidad_existente : ''; ?>"
-                                                       placeholder="<?php echo $tiene_stock ? 'Cajas' : 'Sin stock'; ?>"
-                                                       data-producto-id="<?php echo $producto['id']; ?>"
-                                                       <?php echo !$tiene_stock ? 'disabled class="form-control text-center cantidad-input input-disabled"' : ''; ?>>
-                                            </td>
-                                            <td class="text-center">
-                                                <?php if ($producto['precio_unitario']): ?>
-                                                    <input type="checkbox" 
-                                                           class="form-check-input precio-unitario-check" 
-                                                           name="productos[<?php echo $producto['id']; ?>][precio_unitario]" 
-                                                           value="1"
-                                                           data-producto-id="<?php echo $producto['id']; ?>"
-                                                           <?php echo $usa_precio_unitario_existente ? 'checked' : ''; ?>
-                                                           <?php echo !$tiene_stock ? 'disabled' : ''; ?>>
-                                                <?php else: ?>
-                                                    <span class="text-muted">N/A</span>
-                                                <?php endif; ?>
+                                            <tr>
+                                                <td class="text-center">
+                                                    <span class="numero-orden"><?php echo $contador; ?></span>
+                                                </td>
+                                                <td>
+                                                    <strong><?php echo htmlspecialchars($producto['nombre']); ?></strong>
+                                                </td>
+                                                <td class="text-center">
+                                                    <span class="badge badge-stock <?php echo $stock_clase; ?>">
+                                                        <?php echo number_format($stock_actual, 1); ?>
+                                                    </span>
+                                                    <br>
+                                                    <small class="text-muted"><?php echo $stock_texto; ?></small>
+                                                </td>
+                                                <td class="text-center hide-mobile">
+                                                    <strong>$<?php echo number_format($producto['precio_caja'], 2); ?></strong>
+                                                </td>
+                                                <td class="text-center hide-mobile">
+                                                    <?php if (!empty($producto['precio_unitario'])): ?>
+                                                        <strong>$<?php echo number_format($producto['precio_unitario'], 2); ?></strong>
+                                                    <?php else: ?>
+                                                        <span class="text-muted">N/A</span>
+                                                    <?php endif; ?>
+                                                </td>
+                                                <td class="text-center">
+                                                    <?php if ($puede_registrar): ?>
+                                                        <input type="number" 
+                                                               class="form-control input-cantidad" 
+                                                               name="productos[<?php echo $producto['id']; ?>][cantidad]" 
+                                                               value="<?php echo $cantidad_existente > 0 ? number_format($cantidad_existente, 1, '.', '') : ''; ?>"
+                                                               min="0" 
+                                                               max="<?php echo $stock_actual; ?>"
+                                                               step="<?php echo !empty($producto['precio_unitario']) ? '1' : '0.5'; ?>" 
+                                                               placeholder="0">
+                                                    <?php else: ?>
+                                                        <input type="number" class="form-control input-cantidad" value="0" disabled>
+                                                    <?php endif; ?>
+                                                </td>
+                                                <td class="text-center">
+                                                    <?php if ($puede_registrar && !empty($producto['precio_unitario'])): ?>
+                                                        <div class="form-check d-flex justify-content-center">
+                                                            <input class="form-check-input" 
+                                                                   type="checkbox" 
+                                                                   name="productos[<?php echo $producto['id']; ?>][precio_unitario]" 
+                                                                   value="1"
+                                                                   <?php echo $usa_precio_unit_existente == 1 ? 'checked' : ''; ?>>
+                                                        </div>
+                                                    <?php else: ?>
+                                                        <span class="text-muted">N/A</span>
+                                                    <?php endif; ?>
+                                                </td>
+                                            </tr>
+                                        <?php 
+                                        $contador++;
+                                        endwhile; 
+                                        ?>
+                                    <?php else: ?>
+                                        <tr>
+                                            <td colspan="7" class="text-center text-muted py-4">
+                                                <i class="fas fa-inbox fa-2x mb-2 d-block"></i>
+                                                No hay productos Big Cola disponibles
                                             </td>
                                         </tr>
-                                    <?php endwhile; ?>
+                                    <?php endif; ?>
                                 </tbody>
                             </table>
                         </div>
-                    <?php endif; ?>
-
-                    <!-- Productos Varios -->
-                    <?php if ($productos_varios->num_rows > 0): ?>
+                    <?php else: ?>
+                        <!-- RUTAS 1-4: Productos Varios -->
                         <h3 class="mt-4 mb-3">
-                            <i class="fas fa-boxes"></i> Productos Varios
+                            <i class="fas fa-box"></i> Productos Varios
                         </h3>
                         <div class="table-responsive">
-                            <table class="table table-hover">
-                                <thead class="table-dark">
+                            <table class="table table-salidas table-hover mb-0">
+                                <thead>
                                     <tr>
-                                        <th style="width: 50%;">Producto</th>
-                                        <th class="text-center" style="width: 20%;">Stock Disponible</th>
-                                        <th class="text-center" style="width: 20%;">Cantidad</th>
-                                        <th class="text-center" style="width: 10%;">Precio Unit.</th>
+                                        <th width="60" class="text-center">#</th>
+                                        <th>Producto</th>
+                                        <th width="120" class="text-center">Stock Disponible</th>
+                                        <th width="120" class="text-center hide-mobile">Precio Caja</th>
+                                        <th width="120" class="text-center hide-mobile">Precio Unit.</th>
+                                        <th width="150" class="text-center">Cantidad</th>
+                                        <th width="120" class="text-center">Precio Unit.?</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    <?php while ($producto = $productos_varios->fetch_assoc()): ?>
-                                        <?php
-                                        $stock_actual = floatval($producto['stock_actual']);
-                                        $stock_minimo = floatval($producto['stock_minimo']);
-                                        $tiene_stock = $stock_actual > 0;
-                                        $stock_bajo = $stock_actual > 0 && $stock_actual <= $stock_minimo && $stock_minimo > 0;
-                                        
-                                        // Determinar clase de fila
-                                        $clase_fila = '';
-                                        $badge_color = '';
-                                        if (!$tiene_stock) {
-                                            $clase_fila = 'producto-sin-stock';
-                                            $badge_color = 'bg-danger';
-                                        } elseif ($stock_bajo) {
-                                            $clase_fila = 'producto-stock-bajo';
-                                            $badge_color = 'bg-warning text-dark';
-                                        } else {
-                                            $clase_fila = 'producto-stock-ok';
-                                            $badge_color = 'bg-success';
-                                        }
-                                        
-                                        $cantidad_existente = $salidas_existentes[$producto['id']]['cantidad'] ?? 0;
-                                        $usa_precio_unitario_existente = $salidas_existentes[$producto['id']]['usa_precio_unitario'] ?? 0;
+                                    <?php if ($productos_varios->num_rows > 0): ?>
+                                        <?php 
+                                        $contador = 1;
+                                        while ($producto = $productos_varios->fetch_assoc()): 
+                                            $stock_actual = floatval($producto['stock_actual']);
+                                            $stock_minimo = floatval($producto['stock_minimo']);
+                                            $cantidad_existente = $salidas_existentes[$producto['id']]['cantidad'] ?? 0;
+                                            $usa_precio_unit_existente = $salidas_existentes[$producto['id']]['usa_precio_unitario'] ?? 0;
+                                            
+                                            // Determinar clase de stock
+                                            $stock_clase = '';
+                                            $stock_texto = '';
+                                            $puede_registrar = true;
+                                            
+                                            if ($stock_actual <= 0) {
+                                                $stock_clase = 'badge-stock-critico';
+                                                $stock_texto = 'Sin Stock';
+                                                $puede_registrar = false;
+                                            } elseif ($stock_minimo > 0 && $stock_actual <= $stock_minimo) {
+                                                $stock_clase = 'badge-stock-bajo';
+                                                $stock_texto = 'Stock Bajo';
+                                            } else {
+                                                $stock_clase = 'badge-stock-ok';
+                                                $stock_texto = 'Stock OK';
+                                            }
                                         ?>
-                                        <tr class="<?php echo $clase_fila; ?>">
-                                            <td>
-                                                <strong><?php echo htmlspecialchars($producto['nombre']); ?></strong>
-                                                <?php if (!$tiene_stock): ?>
-                                                    <br><small class="text-danger"><i class="fas fa-ban"></i> Sin stock disponible</small>
-                                                <?php endif; ?>
-                                            </td>
-                                            <td class="text-center">
-                                                <span class="badge stock-badge <?php echo $badge_color; ?>">
-                                                    <?php echo number_format($stock_actual, 1); ?>
-                                                </span>
-                                            </td>
-                                            <td>
-                                                <input type="number" 
-                                                       class="form-control text-center cantidad-input" 
-                                                       name="productos[<?php echo $producto['id']; ?>][cantidad]" 
-                                                       step="0.1" 
-                                                       min="0" 
-                                                       max="<?php echo $stock_actual; ?>"
-                                                       value="<?php echo $cantidad_existente > 0 ? $cantidad_existente : ''; ?>"
-                                                       placeholder="<?php echo $tiene_stock ? 'Cajas' : 'Sin stock'; ?>"
-                                                       data-producto-id="<?php echo $producto['id']; ?>"
-                                                       <?php echo !$tiene_stock ? 'disabled class="form-control text-center cantidad-input input-disabled"' : ''; ?>>
-                                            </td>
-                                            <td class="text-center">
-                                                <?php if ($producto['precio_unitario']): ?>
-                                                    <input type="checkbox" 
-                                                           class="form-check-input precio-unitario-check" 
-                                                           name="productos[<?php echo $producto['id']; ?>][precio_unitario]" 
-                                                           value="1"
-                                                           data-producto-id="<?php echo $producto['id']; ?>"
-                                                           <?php echo $usa_precio_unitario_existente ? 'checked' : ''; ?>
-                                                           <?php echo !$tiene_stock ? 'disabled' : ''; ?>>
-                                                <?php else: ?>
-                                                    <span class="text-muted">N/A</span>
-                                                <?php endif; ?>
+                                            <tr>
+                                                <td class="text-center">
+                                                    <span class="numero-orden"><?php echo $contador; ?></span>
+                                                </td>
+                                                <td>
+                                                    <strong><?php echo htmlspecialchars($producto['nombre']); ?></strong>
+                                                </td>
+                                                <td class="text-center">
+                                                    <span class="badge badge-stock <?php echo $stock_clase; ?>">
+                                                        <?php echo number_format($stock_actual, 1); ?>
+                                                    </span>
+                                                    <br>
+                                                    <small class="text-muted"><?php echo $stock_texto; ?></small>
+                                                </td>
+                                                <td class="text-center hide-mobile">
+                                                    <strong>$<?php echo number_format($producto['precio_caja'], 2); ?></strong>
+                                                </td>
+                                                <td class="text-center hide-mobile">
+                                                    <?php if (!empty($producto['precio_unitario'])): ?>
+                                                        <strong>$<?php echo number_format($producto['precio_unitario'], 2); ?></strong>
+                                                    <?php else: ?>
+                                                        <span class="text-muted">N/A</span>
+                                                    <?php endif; ?>
+                                                </td>
+                                                <td class="text-center">
+                                                    <?php if ($puede_registrar): ?>
+                                                        <input type="number" 
+                                                               class="form-control input-cantidad" 
+                                                               name="productos[<?php echo $producto['id']; ?>][cantidad]" 
+                                                               value="<?php echo $cantidad_existente > 0 ? number_format($cantidad_existente, 1, '.', '') : ''; ?>"
+                                                               min="0" 
+                                                               max="<?php echo $stock_actual; ?>"
+                                                               step="<?php echo !empty($producto['precio_unitario']) ? '1' : '0.5'; ?>" 
+                                                               placeholder="0">
+                                                    <?php else: ?>
+                                                        <input type="number" class="form-control input-cantidad" value="0" disabled>
+                                                    <?php endif; ?>
+                                                </td>
+                                                <td class="text-center">
+                                                    <?php if ($puede_registrar && !empty($producto['precio_unitario'])): ?>
+                                                        <div class="form-check d-flex justify-content-center">
+                                                            <input class="form-check-input" 
+                                                                   type="checkbox" 
+                                                                   name="productos[<?php echo $producto['id']; ?>][precio_unitario]" 
+                                                                   value="1"
+                                                                   <?php echo $usa_precio_unit_existente == 1 ? 'checked' : ''; ?>>
+                                                        </div>
+                                                    <?php else: ?>
+                                                        <span class="text-muted">N/A</span>
+                                                    <?php endif; ?>
+                                                </td>
+                                            </tr>
+                                        <?php 
+                                        $contador++;
+                                        endwhile; 
+                                        ?>
+                                    <?php else: ?>
+                                        <tr>
+                                            <td colspan="7" class="text-center text-muted py-4">
+                                                <i class="fas fa-inbox fa-2x mb-2 d-block"></i>
+                                                No hay productos disponibles
                                             </td>
                                         </tr>
-                                    <?php endwhile; ?>
+                                    <?php endif; ?>
                                 </tbody>
                             </table>
                         </div>
                     <?php endif; ?>
 
-                    <!-- Botones de Acción -->
+                    <!-- Botones de acción -->
                     <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-4">
-                        <button type="submit" class="btn btn-success btn-lg">
-                            <i class="fas fa-save"></i> Guardar Salida
-                        </button>
                         <a href="index.php" class="btn btn-secondary btn-lg">
                             <i class="fas fa-times"></i> Cancelar
                         </a>
+                        <button type="submit" class="btn btn-custom-primary btn-lg">
+                            <i class="fas fa-save"></i> Guardar Salida
+                        </button>
                     </div>
                 </form>
             <?php else: ?>
-                <div class="alert alert-warning text-center">
-                    <i class="fas fa-info-circle fa-3x mb-3"></i>
-                    <h5>Seleccione una ruta para comenzar</h5>
-                    <p class="mb-0">Use el selector de arriba para elegir la ruta que desea gestionar</p>
+                <!-- Mensaje cuando no hay ruta seleccionada -->
+                <div class="text-center py-5">
+                    <i class="fas fa-route fa-4x text-muted mb-3"></i>
+                    <h4 class="text-muted">Seleccione una ruta para comenzar</h4>
+                    <p class="text-muted">Use el selector de arriba para elegir la ruta de distribución</p>
                 </div>
             <?php endif; ?>
         </div>
-    </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+        <!-- Copyright Footer -->
+        <div class="copyright-footer">
+            <strong>Distribuidora LORENA</strong>
+            <p class="mb-1">Sistema de Gestión de Inventario y Liquidaciones</p>
+            <p class="mb-0">
+                <i class="fas fa-copyright"></i> <?php echo date('Y'); ?> - Todos los derechos reservados
+                <br>
+                <small>Desarrollado por: Cristian Hernandez</small>
+            </p>
+        </div>
+    </div><script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="assets/js/notifications.js"></script>
     <script>
-        // Cambiar placeholder según checkbox de precio unitario
-        document.querySelectorAll('.precio-unitario-check').forEach(function(checkbox) {
-            checkbox.addEventListener('change', function() {
-                const productoId = this.getAttribute('data-producto-id');
-                const input = document.querySelector('.cantidad-input[data-producto-id="' + productoId + '"]');
+        document.addEventListener('DOMContentLoaded', function() {
+            // Responsive navbar
+            const navbarToggler = document.querySelector('.navbar-toggler');
+            const navbarCollapse = document.querySelector('.navbar-collapse');
+            
+            if (navbarToggler && navbarCollapse) {
+                const navLinks = navbarCollapse.querySelectorAll('.nav-link, .dropdown-item');
+                navLinks.forEach(link => {
+                    link.addEventListener('click', function() {
+                        if (window.innerWidth < 992) {
+                            const bsCollapse = new bootstrap.Collapse(navbarCollapse, {
+                                toggle: false
+                            });
+                            bsCollapse.hide();
+                        }
+                    });
+                });
+            }
+            
+            // Mejorar experiencia táctil en dispositivos móviles
+            if ('ontouchstart' in window) {
+                document.querySelectorAll('.btn').forEach(element => {
+                    element.addEventListener('touchstart', function() {
+                        this.style.opacity = '0.7';
+                    });
+                    
+                    element.addEventListener('touchend', function() {
+                        setTimeout(() => {
+                            this.style.opacity = '1';
+                        }, 200);
+                    });
+                });
+            }
+            
+            // Manejar orientación en dispositivos móviles
+            function handleOrientationChange() {
+                const orientation = window.innerHeight > window.innerWidth ? 'portrait' : 'landscape';
+                document.body.setAttribute('data-orientation', orientation);
+            }
+            
+            handleOrientationChange();
+            window.addEventListener('orientationchange', handleOrientationChange);
+            window.addEventListener('resize', handleOrientationChange);
+            
+            // Añadir clase para dispositivos táctiles
+            if ('ontouchstart' in window || navigator.maxTouchPoints > 0) {
+                document.body.classList.add('touch-device');
+            }
+            
+            // Auto-ocultar alerta después de 5 segundos
+            const alert = document.querySelector('.alert-dismissible');
+            if (alert) {
+                setTimeout(function() {
+                    const bsAlert = new bootstrap.Alert(alert);
+                    bsAlert.close();
+                }, 5000);
+            }
+            
+            // Validación del formulario de salidas
+            const formSalidas = document.getElementById('formSalidas');
+            if (formSalidas) {
+                formSalidas.addEventListener('submit', function(e) {
+                    // Verificar que al menos un producto tenga cantidad
+                    const inputs = formSalidas.querySelectorAll('input[type="number"][name*="cantidad"]');
+                    let tieneCantidad = false;
+                    let errorStock = false;
+                    let errorMessage = '';
+                    
+                    inputs.forEach(input => {
+                        const cantidad = parseFloat(input.value) || 0;
+                        const max = parseFloat(input.getAttribute('max')) || 0;
+                        
+                        if (cantidad > 0) {
+                            tieneCantidad = true;
+                            
+                            // Verificar que no exceda el stock
+                            if (cantidad > max) {
+                                errorStock = true;
+                                const productoNombre = input.closest('tr').querySelector('strong').textContent;
+                                errorMessage += `\n- ${productoNombre}: Cantidad ingresada (${cantidad}) excede el stock disponible (${max})`;
+                            }
+                        }
+                    });
+                    
+                    if (!tieneCantidad) {
+                        e.preventDefault();
+                        alert('Debe ingresar al menos una cantidad para un producto');
+                        return false;
+                    }
+                    
+                    if (errorStock) {
+                        e.preventDefault();
+                        alert('ERROR: Las siguientes cantidades exceden el stock disponible:' + errorMessage);
+                        return false;
+                    }
+                    
+                    // Confirmar antes de guardar
+                    if (!confirm('¿Está seguro que desea guardar esta salida? Esta acción afectará el inventario.')) {
+                        e.preventDefault();
+                        return false;
+                    }
+                    
+                    // Deshabilitar botón de envío para evitar doble click
+                    const submitBtn = formSalidas.querySelector('button[type="submit"]');
+                    if (submitBtn) {
+                        submitBtn.disabled = true;
+                        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando...';
+                    }
+                });
+            }
+            
+            // Validar cantidades en tiempo real
+            document.querySelectorAll('input[type="number"][name*="cantidad"]').forEach(input => {
+                input.addEventListener('input', function() {
+                    const valor = parseFloat(this.value) || 0;
+                    const max = parseFloat(this.getAttribute('max')) || 0;
+                    const min = parseFloat(this.getAttribute('min')) || 0;
+                    
+                    // Validar que no sea negativo
+                    if (valor < min) {
+                        this.value = min;
+                    }
+                    
+                    // Validar que no exceda el stock
+                    if (valor > max) {
+                        this.value = max;
+                        
+                        // Mostrar alerta temporal
+                        const row = this.closest('tr');
+                        const productoNombre = row.querySelector('strong').textContent;
+                        
+                        // Crear tooltip temporal
+                        const tooltip = document.createElement('div');
+                        tooltip.className = 'alert alert-warning position-fixed top-0 start-50 translate-middle-x mt-3';
+                        tooltip.style.zIndex = '9999';
+                        tooltip.innerHTML = `<i class="fas fa-exclamation-triangle"></i> <strong>${productoNombre}:</strong> Stock máximo: ${max}`;
+                        document.body.appendChild(tooltip);
+                        
+                        setTimeout(() => {
+                            tooltip.remove();
+                        }, 3000);
+                    }
+                });
                 
-                if (input && !input.disabled) {
-                    if (this.checked) {
-                        input.placeholder = 'Unidades';
-                        input.step = '1'; // Unidades son enteros
+                // Validar al perder el foco
+                input.addEventListener('blur', function() {
+                    if (this.value === '' || parseFloat(this.value) === 0) {
+                        this.value = '';
                     } else {
-                        input.placeholder = 'Cajas';
-                        input.step = '0.1'; // Cajas pueden ser decimales
+                        // Formatear a un decimal
+                        const step = parseFloat(this.getAttribute('step')) || 1;
+                        const valor = parseFloat(this.value);
+                        
+                        if (step === 1) {
+                            this.value = Math.round(valor);
+                        } else {
+                            this.value = valor.toFixed(1);
+                        }
+                    }
+                });
+            });
+            
+            // Resaltar fila cuando se ingresa cantidad
+            document.querySelectorAll('input[type="number"][name*="cantidad"]').forEach(input => {
+                input.addEventListener('input', function() {
+                    const row = this.closest('tr');
+                    const valor = parseFloat(this.value) || 0;
+                    
+                    if (valor > 0) {
+                        row.style.backgroundColor = '#e8f5e9';
+                        row.style.borderLeft = '4px solid #4caf50';
+                    } else {
+                        row.style.backgroundColor = '';
+                        row.style.borderLeft = '';
+                    }
+                });
+            });
+            
+            // Manejar checkboxes de precio unitario
+            document.querySelectorAll('input[type="checkbox"][name*="precio_unitario"]').forEach(checkbox => {
+                checkbox.addEventListener('change', function() {
+                    const row = this.closest('tr');
+                    const cantidadInput = row.querySelector('input[type="number"][name*="cantidad"]');
+                    
+                    if (this.checked) {
+                        // Cambiar step a 1 para unidades
+                        cantidadInput.setAttribute('step', '1');
+                        
+                        // Redondear cantidad actual si existe
+                        if (cantidadInput.value) {
+                            cantidadInput.value = Math.round(parseFloat(cantidadInput.value));
+                        }
+                        
+                        // Resaltar que está en modo unitario
+                        const badge = document.createElement('span');
+                        badge.className = 'badge bg-info ms-2';
+                        badge.id = 'badge-unitario-' + row.rowIndex;
+                        badge.textContent = 'Modo: Unidades';
+                        
+                        const productoCell = row.querySelector('td:nth-child(2)');
+                        const existingBadge = document.getElementById('badge-unitario-' + row.rowIndex);
+                        if (existingBadge) {
+                            existingBadge.remove();
+                        }
+                        productoCell.appendChild(badge);
+                    } else {
+                        // Cambiar step a 0.5 para cajas
+                        cantidadInput.setAttribute('step', '0.5');
+                        
+                        // Remover badge
+                        const badge = document.getElementById('badge-unitario-' + row.rowIndex);
+                        if (badge) {
+                            badge.remove();
+                        }
+                    }
+                });
+                
+                // Inicializar badges para checkboxes ya marcados
+                if (checkbox.checked) {
+                    checkbox.dispatchEvent(new Event('change'));
+                }
+            });
+            
+            // Calcular total de productos y cantidades
+            function calcularTotales() {
+                const inputs = document.querySelectorAll('input[type="number"][name*="cantidad"]');
+                let totalProductos = 0;
+                let totalCantidad = 0;
+                
+                inputs.forEach(input => {
+                    const cantidad = parseFloat(input.value) || 0;
+                    if (cantidad > 0) {
+                        totalProductos++;
+                        totalCantidad += cantidad;
+                    }
+                });
+                
+                // Mostrar totales en consola para debug
+                console.log('Total productos con cantidad:', totalProductos);
+                console.log('Total cantidad:', totalCantidad.toFixed(1));
+            }
+            
+            // Actualizar totales cuando cambian las cantidades
+            document.querySelectorAll('input[type="number"][name*="cantidad"]').forEach(input => {
+                input.addEventListener('input', calcularTotales);
+            });
+            
+            // Atajos de teclado
+            document.addEventListener('keydown', function(e) {
+                // Ctrl + S para guardar (prevenir el comportamiento por defecto del navegador)
+                if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+                    e.preventDefault();
+                    const formSalidas = document.getElementById('formSalidas');
+                    if (formSalidas) {
+                        formSalidas.requestSubmit();
+                    }
+                }
+                
+                // ESC para cancelar
+                if (e.key === 'Escape') {
+                    if (confirm('¿Desea cancelar y volver al inicio?')) {
+                        window.location.href = 'index.php';
                     }
                 }
             });
             
-            // Disparar el evento al cargar para setear el placeholder correcto
-            checkbox.dispatchEvent(new Event('change'));
-        });
-
-        // Validación del formulario
-        document.getElementById('formSalidas')?.addEventListener('submit', function(e) {
-            let tieneProductos = false;
-            const inputs = document.querySelectorAll('input[type="number"]:not([disabled])');
+            // Advertencia si hay cambios sin guardar
+            let formModificado = false;
             
-            inputs.forEach(function(input) {
-                if (parseFloat(input.value) > 0) {
-                    tieneProductos = true;
+            document.querySelectorAll('input[type="number"][name*="cantidad"], input[type="checkbox"][name*="precio_unitario"]').forEach(input => {
+                input.addEventListener('change', function() {
+                    formModificado = true;
+                });
+            });
+            
+            window.addEventListener('beforeunload', function(e) {
+                if (formModificado) {
+                    e.preventDefault();
+                    e.returnValue = '¿Está seguro que desea salir? Los cambios no guardados se perderán.';
+                    return e.returnValue;
                 }
             });
             
-            if (!tieneProductos) {
-                e.preventDefault();
-                alert('Debe ingresar al menos un producto con cantidad mayor a 0');
-                return false;
+            // Limpiar flag cuando se envía el formulario
+            const formSalidas = document.getElementById('formSalidas');
+            if (formSalidas) {
+                formSalidas.addEventListener('submit', function() {
+                    formModificado = false;
+                });
             }
             
-            // Confirmación
-            if (!confirm('¿Está seguro de guardar esta salida?\n\nEsta acción actualizará el inventario.')) {
-                e.preventDefault();
-                return false;
+            // Efecto hover mejorado para filas de tabla en desktop
+            if (window.innerWidth > 768) {
+                document.querySelectorAll('.table-salidas tbody tr').forEach(row => {
+                    row.addEventListener('mouseenter', function() {
+                        if (!this.style.backgroundColor || this.style.backgroundColor === '') {
+                            this.style.transform = 'scale(1.01)';
+                        }
+                    });
+                    
+                    row.addEventListener('mouseleave', function() {
+                        if (!this.style.backgroundColor || this.style.backgroundColor === '') {
+                            this.style.transform = 'scale(1)';
+                        }
+                    });
+                });
             }
+            
+            // Focus automático en el primer input de cantidad visible
+            const primerInput = document.querySelector('input[type="number"][name*="cantidad"]:not([disabled])');
+            if (primerInput && window.innerWidth > 768) {
+                setTimeout(() => {
+                    primerInput.focus();
+                }, 500);
+            }
+            
+            console.log('Salidas cargadas correctamente');
+            console.log('Ruta seleccionada:', <?php echo $ruta_id; ?>);
+            console.log('Fecha seleccionada:', '<?php echo $fecha_seleccionada; ?>');
+            console.log('Puede registrar mañana:', <?php echo $puede_registrar_manana ? 'true' : 'false'; ?>);
         });
-
-        // Validar que no excedan el stock disponible
-        document.querySelectorAll('input[type="number"][max]').forEach(function(input) {
-            input.addEventListener('input', function() {
-                const max = parseFloat(this.getAttribute('max'));
-                const valor = parseFloat(this.value);
-                
-                if (valor > max) {
-                    this.value = max;
-                    alert('No puede exceder el stock disponible: ' + max);
-                }
-            });
-        });
-
-        // Auto-cerrar alertas después de 5 segundos
-        setTimeout(function() {
-            var alerts = document.querySelectorAll('.alert-dismissible');
-            alerts.forEach(function(alert) {
-                var bsAlert = new bootstrap.Alert(alert);
-                bsAlert.close();
-            });
-        }, 5000);
     </script>
 </body>
 </html>

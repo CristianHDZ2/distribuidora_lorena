@@ -87,39 +87,302 @@ $areas_top = $conn->query($query_areas);
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="assets/css/custom.css">
     <style>
+        /* ============================================
+           ESTILOS IDÉNTICOS A PRODUCTOS.PHP
+           ============================================ */
+        
+        /* Tabla de consumos con diseño idéntico a productos */
+        .table-consumos {
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            border-radius: 10px;
+            overflow: hidden;
+            background: white;
+        }
+        
+        @media (max-width: 767px) {
+            .table-consumos {
+                border-radius: 8px;
+                font-size: 12px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .table-consumos {
+                border-radius: 6px;
+                font-size: 11px;
+            }
+        }
+        
+        /* IDÉNTICO: Encabezados con fondo degradado y texto blanco */
+        .table-consumos thead {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+        }
+        
+        .table-consumos thead th {
+            color: white !important;
+            font-weight: 600 !important;
+            text-transform: uppercase;
+            font-size: 13px;
+            letter-spacing: 0.5px;
+            padding: 18px 15px !important;
+            border: none !important;
+            vertical-align: middle;
+            background: transparent !important;
+        }
+        
+        @media (max-width: 991px) {
+            .table-consumos thead th {
+                padding: 15px 12px !important;
+                font-size: 12px;
+            }
+        }
+        
+        @media (max-width: 767px) {
+            .table-consumos thead th {
+                padding: 12px 8px !important;
+                font-size: 11px;
+                letter-spacing: 0.3px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .table-consumos thead th {
+                padding: 10px 5px !important;
+                font-size: 10px;
+            }
+        }
+        
+        .table-consumos tbody tr {
+            transition: all 0.3s ease;
+            border-bottom: 1px solid #e9ecef;
+            background: white;
+        }
+        
+        .table-consumos tbody tr:hover {
+            background-color: #f8f9ff !important;
+            transform: scale(1.01);
+            box-shadow: 0 3px 10px rgba(0,0,0,0.08);
+        }
+        
+        .table-consumos tbody td {
+            padding: 15px;
+            vertical-align: middle;
+            color: #2c3e50;
+        }
+        
+        @media (max-width: 991px) {
+            .table-consumos tbody td {
+                padding: 12px 10px;
+            }
+        }
+        
+        @media (max-width: 767px) {
+            .table-consumos tbody td {
+                padding: 10px 8px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .table-consumos tbody td {
+                padding: 8px 5px;
+                font-size: 11px;
+            }
+        }
+        
+        /* Número de orden */
+        .numero-orden {
+            font-weight: 700;
+            font-size: 16px;
+            color: #667eea;
+            background: #f0f3ff;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        @media (max-width: 991px) {
+            .numero-orden {
+                width: 35px;
+                height: 35px;
+                font-size: 14px;
+            }
+        }
+        
+        @media (max-width: 767px) {
+            .numero-orden {
+                width: 30px;
+                height: 30px;
+                font-size: 12px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .numero-orden {
+                width: 25px;
+                height: 25px;
+                font-size: 11px;
+            }
+        }
+        
+        /* Formulario de consumo */
         .form-section {
             background: #f8f9fa;
-            padding: 20px;
-            border-radius: 8px;
-            margin-bottom: 20px;
+            padding: 25px;
+            border-radius: 15px;
+            margin-bottom: 25px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
         }
+        
+        @media (max-width: 767px) {
+            .form-section {
+                padding: 20px;
+                border-radius: 12px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .form-section {
+                padding: 15px;
+                border-radius: 10px;
+            }
+        }
+        
+        /* Tarjetas de estadísticas */
         .stat-card {
             border-left: 4px solid;
-            transition: transform 0.2s;
+            transition: all 0.3s ease;
+            border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
         }
+        
         .stat-card:hover {
             transform: translateY(-5px);
-            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            box-shadow: 0 6px 15px rgba(0,0,0,0.15);
         }
+        
         .stat-card.primary {
             border-left-color: #007bff;
         }
+        
         .stat-card.warning {
             border-left-color: #ffc107;
         }
+        
         .stat-card.info {
             border-left-color: #17a2b8;
         }
         
-        @media (max-width: 768px) {
-            .form-section {
-                padding: 15px;
-            }
-            .table-responsive {
-                font-size: 12px;
-            }
+        .stat-card.success {
+            border-left-color: #28a745;
+        }
+        
+        @media (max-width: 767px) {
             .stat-card h3 {
                 font-size: 1.5rem;
+            }
+            
+            .stat-card i {
+                font-size: 2rem !important;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .stat-card h3 {
+                font-size: 1.3rem;
+            }
+            
+            .stat-card i {
+                font-size: 1.5rem !important;
+            }
+            
+            .stat-card .card-body {
+                padding: 15px;
+            }
+        }
+        
+        /* Ocultar columnas en móviles */
+        @media (max-width: 767px) {
+            .hide-mobile {
+                display: none !important;
+            }
+        }
+        
+        /* Ajustes responsivos para formularios */
+        @media (max-width: 767px) {
+            .form-control-lg, .form-select-lg {
+                font-size: 14px;
+                padding: 10px;
+            }
+            
+            .form-label {
+                font-size: 13px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .form-control-lg, .form-select-lg {
+                font-size: 12px;
+                padding: 8px;
+            }
+            
+            .form-label {
+                font-size: 12px;
+            }
+        }
+        
+        /* Resumen de áreas */
+        .area-card {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+        
+        @media (max-width: 767px) {
+            .area-card {
+                padding: 15px;
+                border-radius: 8px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .area-card {
+                padding: 12px;
+                border-radius: 6px;
+            }
+        }
+        
+        /* Copyright Footer */
+        .copyright-footer {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            text-align: center;
+            margin-top: 30px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            color: #7f8c8d;
+            font-size: 14px;
+        }
+        
+        .copyright-footer strong {
+            color: #2c3e50;
+            display: block;
+            margin-bottom: 5px;
+            font-size: 16px;
+        }
+        
+        @media (max-width: 767px) {
+            .copyright-footer {
+                padding: 15px;
+                font-size: 12px;
+            }
+            
+            .copyright-footer strong {
+                font-size: 14px;
             }
         }
     </style>
@@ -152,7 +415,7 @@ $areas_top = $conn->query($query_areas);
                         </a>
                     </li>
                     <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle" href="#" id="navbarDropdownOperaciones" role="button" data-bs-toggle="dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown">
                             <i class="fas fa-clipboard-list"></i> Operaciones
                         </a>
                         <ul class="dropdown-menu">
@@ -218,7 +481,7 @@ $areas_top = $conn->query($query_areas);
                 </div>
             <?php endif; ?>
 
-            <div class="alert alert-info">
+            <div class="alert alert-info alert-custom">
                 <i class="fas fa-info-circle"></i>
                 <strong>Consumo Interno:</strong> Registre aquí los productos que se utilizan internamente en la empresa 
                 (reuniones, eventos, muestras, uso del personal, etc.). Cada registro disminuirá automáticamente el inventario.
@@ -268,7 +531,7 @@ $areas_top = $conn->query($query_areas);
                     
                     <div class="row">
                         <div class="col-md-6 mb-3">
-                            <label for="producto_id" class="form-label">
+                            <label for="producto_id" class="form-label fw-bold">
                                 <i class="fas fa-box"></i> Producto *
                             </label>
                             <select class="form-select form-select-lg" id="producto_id" name="producto_id" required>
@@ -286,7 +549,7 @@ $areas_top = $conn->query($query_areas);
                         </div>
 
                         <div class="col-md-3 mb-3">
-                            <label for="cantidad" class="form-label">
+                            <label for="cantidad" class="form-label fw-bold">
                                 <i class="fas fa-sort-numeric-up"></i> Cantidad *
                             </label>
                             <input type="number" class="form-control form-control-lg" id="cantidad" 
@@ -295,7 +558,7 @@ $areas_top = $conn->query($query_areas);
                         </div>
 
                         <div class="col-md-3 mb-3">
-                            <label for="fecha" class="form-label">
+                            <label for="fecha" class="form-label fw-bold">
                                 <i class="fas fa-calendar"></i> Fecha *
                             </label>
                             <input type="date" class="form-control" id="fecha" 
@@ -305,7 +568,7 @@ $areas_top = $conn->query($query_areas);
 
                     <div class="row">
                         <div class="col-md-6 mb-3">
-                            <label for="area_departamento" class="form-label">
+                            <label for="area_departamento" class="form-label fw-bold">
                                 <i class="fas fa-building"></i> Área / Departamento
                             </label>
                             <input type="text" class="form-control" id="area_departamento" 
@@ -315,7 +578,7 @@ $areas_top = $conn->query($query_areas);
                         </div>
 
                         <div class="col-md-6 mb-3">
-                            <label for="motivo" class="form-label">
+                            <label for="motivo" class="form-label fw-bold">
                                 <i class="fas fa-comment"></i> Motivo del Consumo *
                             </label>
                             <input type="text" class="form-control" id="motivo" 
@@ -324,38 +587,43 @@ $areas_top = $conn->query($query_areas);
                         </div>
                     </div>
 
-                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
-                        <button type="reset" class="btn btn-secondary btn-lg me-md-2">
-                            <i class="fas fa-eraser"></i> Limpiar
-                        </button>
-                        <button type="submit" class="btn btn-warning btn-lg">
+                    <div class="text-end">
+                        <button type="submit" class="btn btn-custom-primary btn-lg">
                             <i class="fas fa-save"></i> Registrar Consumo
                         </button>
                     </div>
                 </form>
-            </div>
-
-            <!-- Top Áreas/Departamentos -->
+            </div><!-- Resumen por Áreas/Departamentos -->
             <?php if ($areas_top->num_rows > 0): ?>
-                <div class="mt-5 mb-4">
-                    <h3 class="mb-3">
-                        <i class="fas fa-chart-bar"></i> Top 5 Áreas con Mayor Consumo
-                    </h3>
-                    
+                <div class="area-card">
+                    <h4 class="mb-3">
+                        <i class="fas fa-chart-pie text-success"></i> Top 5 Áreas con Mayor Consumo
+                    </h4>
                     <div class="table-responsive">
-                        <table class="table table-hover table-striped">
-                            <thead class="table-dark">
+                        <table class="table table-sm table-hover">
+                            <thead class="table-light">
                                 <tr>
+                                    <th width="50" class="text-center">#</th>
                                     <th>Área / Departamento</th>
-                                    <th class="text-center">Total Consumido</th>
-                                    <th class="text-center">Número de Consumos</th>
+                                    <th class="text-center" width="120">Cantidad</th>
+                                    <th class="text-center hide-mobile" width="120">Registros</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                <?php while ($area = $areas_top->fetch_assoc()): ?>
+                                <?php 
+                                $pos = 1;
+                                while ($area = $areas_top->fetch_assoc()): 
+                                ?>
                                     <tr>
+                                        <td class="text-center">
+                                            <span class="badge bg-<?php 
+                                                echo $pos == 1 ? 'warning' : 
+                                                     ($pos == 2 ? 'secondary' : 
+                                                     ($pos == 3 ? 'danger' : 'primary')); 
+                                            ?>"><?php echo $pos; ?></span>
+                                        </td>
                                         <td>
-                                            <i class="fas fa-building text-info me-2"></i>
+                                            <i class="fas fa-building text-info me-1"></i>
                                             <strong><?php echo htmlspecialchars($area['area_departamento']); ?></strong>
                                         </td>
                                         <td class="text-center">
@@ -363,11 +631,16 @@ $areas_top = $conn->query($query_areas);
                                                 <?php echo number_format($area['total_cantidad'], 1); ?>
                                             </span>
                                         </td>
-                                        <td class="text-center">
-                                            <?php echo $area['num_consumos']; ?>
+                                        <td class="text-center hide-mobile">
+                                            <span class="badge bg-info" style="font-size: 12px;">
+                                                <?php echo $area['num_consumos']; ?> consumos
+                                            </span>
                                         </td>
                                     </tr>
-                                <?php endwhile; ?>
+                                <?php 
+                                $pos++;
+                                endwhile; 
+                                ?>
                             </tbody>
                         </table>
                     </div>
@@ -375,56 +648,79 @@ $areas_top = $conn->query($query_areas);
             <?php endif; ?>
 
             <!-- Consumos Recientes -->
-            <div class="mt-5">
-                <h3 class="mb-3">
-                    <i class="fas fa-history"></i> Consumos Internos Recientes (Últimos 20)
-                </h3>
+            <div class="area-card">
+                <h4 class="mb-3">
+                    <i class="fas fa-history text-primary"></i> Consumos Recientes (Últimos 20)
+                </h4>
                 
                 <?php if ($consumos_recientes->num_rows > 0): ?>
                     <div class="table-responsive">
-                        <table class="table table-hover table-striped">
-                            <thead class="table-dark">
+                        <table class="table table-consumos table-hover mb-0">
+                            <thead>
                                 <tr>
-                                    <th>Fecha</th>
+                                    <th width="50" class="text-center">#</th>
+                                    <th width="120" class="text-center">Fecha</th>
                                     <th>Producto</th>
-                                    <th class="text-center">Cantidad</th>
-                                    <th>Motivo</th>
-                                    <th>Área</th>
-                                    <th>Usuario</th>
+                                    <th width="100" class="text-center">Cantidad</th>
+                                    <th class="hide-mobile">Motivo</th>
+                                    <th width="150" class="text-center hide-mobile">Área</th>
+                                    <th width="120" class="text-center hide-mobile">Usuario</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                <?php while ($consumo = $consumos_recientes->fetch_assoc()): ?>
+                                <?php 
+                                $contador = 1;
+                                $consumos_recientes->data_seek(0);
+                                while ($consumo = $consumos_recientes->fetch_assoc()): 
+                                ?>
                                     <tr>
-                                        <td>
-                                            <strong><?php echo date('d/m/Y', strtotime($consumo['fecha'])); ?></strong>
-                                            <br>
-                                            <small class="text-muted"><?php echo date('H:i', strtotime($consumo['fecha_registro'])); ?></small>
+                                        <td class="text-center">
+                                            <span class="numero-orden"><?php echo $contador; ?></span>
+                                        </td>
+                                        <td class="text-center">
+                                            <small>
+                                                <i class="fas fa-calendar text-muted"></i>
+                                                <?php echo date('d/m/Y', strtotime($consumo['fecha'])); ?>
+                                            </small>
                                         </td>
                                         <td>
                                             <strong><?php echo htmlspecialchars($consumo['producto_nombre']); ?></strong>
                                             <br>
-                                            <small class="text-muted"><?php echo $consumo['producto_tipo']; ?></small>
+                                            <small class="text-muted">
+                                                <i class="fas fa-tag"></i> 
+                                                <?php echo htmlspecialchars($consumo['producto_tipo']); ?>
+                                            </small>
                                         </td>
                                         <td class="text-center">
                                             <span class="badge bg-warning text-dark" style="font-size: 13px;">
                                                 <?php echo number_format($consumo['cantidad'], 1); ?>
                                             </span>
                                         </td>
-                                        <td><?php echo htmlspecialchars($consumo['motivo']); ?></td>
-                                        <td>
+                                        <td class="hide-mobile">
+                                            <i class="fas fa-comment-dots text-info me-1"></i>
+                                            <?php echo htmlspecialchars($consumo['motivo']); ?>
+                                        </td>
+                                        <td class="text-center hide-mobile">
                                             <?php if ($consumo['area_departamento']): ?>
-                                                <i class="fas fa-building text-info me-1"></i>
-                                                <?php echo htmlspecialchars($consumo['area_departamento']); ?>
+                                                <span class="badge bg-info" style="font-size: 12px;">
+                                                    <i class="fas fa-building"></i>
+                                                    <?php echo htmlspecialchars($consumo['area_departamento']); ?>
+                                                </span>
                                             <?php else: ?>
                                                 <span class="text-muted">N/A</span>
                                             <?php endif; ?>
                                         </td>
-                                        <td>
-                                            <small><?php echo htmlspecialchars($consumo['usuario_nombre']); ?></small>
+                                        <td class="text-center hide-mobile">
+                                            <small>
+                                                <i class="fas fa-user text-muted"></i>
+                                                <?php echo htmlspecialchars($consumo['usuario_nombre']); ?>
+                                            </small>
                                         </td>
                                     </tr>
-                                <?php endwhile; ?>
+                                <?php 
+                                $contador++;
+                                endwhile; 
+                                ?>
                             </tbody>
                         </table>
                     </div>
@@ -436,24 +732,101 @@ $areas_top = $conn->query($query_areas);
                 <?php endif; ?>
             </div>
         </div>
+
+        <!-- Copyright Footer -->
+        <div class="copyright-footer">
+            <strong>Distribuidora LORENA</strong>
+            <p class="mb-1">Sistema de Gestión de Inventario y Liquidaciones</p>
+            <p class="mb-0">
+                <i class="fas fa-copyright"></i> <?php echo date('Y'); ?> - Todos los derechos reservados
+                <br>
+                <small>Desarrollado por: Cristian Hernandez</small>
+            </p>
+        </div>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="assets/js/notifications.js"></script>
     <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Responsive navbar
+            const navbarToggler = document.querySelector('.navbar-toggler');
+            const navbarCollapse = document.querySelector('.navbar-collapse');
+            
+            if (navbarToggler && navbarCollapse) {
+                const navLinks = navbarCollapse.querySelectorAll('.nav-link, .dropdown-item');
+                navLinks.forEach(link => {
+                    link.addEventListener('click', function() {
+                        if (window.innerWidth < 992) {
+                            const bsCollapse = new bootstrap.Collapse(navbarCollapse, {
+                                toggle: false
+                            });
+                            bsCollapse.hide();
+                        }
+                    });
+                });
+            }
+            
+            // Mejorar experiencia táctil en dispositivos móviles
+            if ('ontouchstart' in window) {
+                document.querySelectorAll('.btn, .table-consumos tbody tr').forEach(element => {
+                    element.addEventListener('touchstart', function() {
+                        this.style.opacity = '0.7';
+                    });
+                    
+                    element.addEventListener('touchend', function() {
+                        setTimeout(() => {
+                            this.style.opacity = '1';
+                        }, 200);
+                    });
+                });
+            }
+            
+            // Manejar orientación en dispositivos móviles
+            function handleOrientationChange() {
+                const orientation = window.innerHeight > window.innerWidth ? 'portrait' : 'landscape';
+                document.body.setAttribute('data-orientation', orientation);
+            }
+            
+            handleOrientationChange();
+            window.addEventListener('orientationchange', handleOrientationChange);
+            window.addEventListener('resize', handleOrientationChange);
+            
+            // Añadir clase para dispositivos táctiles
+            if ('ontouchstart' in window || navigator.maxTouchPoints > 0) {
+                document.body.classList.add('touch-device');
+            }
+            
+            console.log('Consumo Interno cargado correctamente');
+        });
+        
         // Validación del formulario
         document.getElementById('formConsumo').addEventListener('submit', function(e) {
+            const producto_id = document.getElementById('producto_id').value;
             const cantidad = parseFloat(document.getElementById('cantidad').value);
             const motivo = document.getElementById('motivo').value.trim();
             
-            if (cantidad <= 0) {
+            // Validar producto seleccionado
+            if (!producto_id || producto_id === '') {
                 e.preventDefault();
-                alert('La cantidad debe ser mayor a 0');
+                alert('Debe seleccionar un producto');
+                document.getElementById('producto_id').focus();
                 return false;
             }
             
+            // Validar cantidad
+            if (isNaN(cantidad) || cantidad <= 0) {
+                e.preventDefault();
+                alert('La cantidad debe ser mayor a 0');
+                document.getElementById('cantidad').focus();
+                return false;
+            }
+            
+            // Validar motivo
             if (motivo.length < 3) {
                 e.preventDefault();
                 alert('Debe especificar un motivo válido (mínimo 3 caracteres)');
+                document.getElementById('motivo').focus();
                 return false;
             }
             
@@ -462,21 +835,151 @@ $areas_top = $conn->query($query_areas);
                 e.preventDefault();
                 return false;
             }
+            
+            // Deshabilitar botón para evitar doble envío
+            const submitBtn = this.querySelector('button[type="submit"]');
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Procesando...';
+                
+                // Re-habilitar después de 3 segundos por si hay error
+                setTimeout(() => {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = '<i class="fas fa-save"></i> Registrar Consumo';
+                }, 3000);
+            }
         });
-
-        // Limpiar formulario
-        document.querySelector('button[type="reset"]').addEventListener('click', function() {
-            document.getElementById('producto_id').focus();
+        
+        // Auto-ocultar alerta después de 5 segundos
+        window.addEventListener('load', function() {
+            const alert = document.querySelector('.alert-dismissible');
+            if (alert) {
+                setTimeout(function() {
+                    const bsAlert = new bootstrap.Alert(alert);
+                    bsAlert.close();
+                }, 5000);
+            }
         });
-
-        // Auto-cerrar alertas después de 5 segundos
-        setTimeout(function() {
-            var alerts = document.querySelectorAll('.alert-dismissible');
-            alerts.forEach(function(alert) {
-                var bsAlert = new bootstrap.Alert(alert);
-                bsAlert.close();
+        
+        // Limpiar formulario después de envío exitoso
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('tipo') === 'success') {
+            document.getElementById('formConsumo').reset();
+            document.getElementById('fecha').value = '<?php echo $fecha_hoy; ?>';
+        }
+        
+        // Validación en tiempo real de la cantidad
+        document.getElementById('cantidad').addEventListener('input', function() {
+            const valor = parseFloat(this.value);
+            
+            if (isNaN(valor) || valor <= 0) {
+                this.classList.add('is-invalid');
+            } else {
+                this.classList.remove('is-invalid');
+            }
+        });
+        
+        // Validación en tiempo real del motivo
+        document.getElementById('motivo').addEventListener('input', function() {
+            const valor = this.value.trim();
+            
+            if (valor.length < 3) {
+                this.classList.add('is-invalid');
+            } else {
+                this.classList.remove('is-invalid');
+            }
+        });
+        
+        // Autocompletar sugerencias de área/departamento (opcional)
+        const areasSugeridas = [
+            'Administración',
+            'Ventas',
+            'Bodega',
+            'Distribución',
+            'Recursos Humanos',
+            'Contabilidad',
+            'Marketing',
+            'Producción',
+            'Logística',
+            'Servicio al Cliente'
+        ];
+        
+        const areaInput = document.getElementById('area_departamento');
+        
+        areaInput.addEventListener('focus', function() {
+            // Crear datalist si no existe
+            let datalist = document.getElementById('areas-list');
+            if (!datalist) {
+                datalist = document.createElement('datalist');
+                datalist.id = 'areas-list';
+                areasSugeridas.forEach(area => {
+                    const option = document.createElement('option');
+                    option.value = area;
+                    datalist.appendChild(option);
+                });
+                document.body.appendChild(datalist);
+                areaInput.setAttribute('list', 'areas-list');
+            }
+        });
+        
+        // Efecto hover mejorado para filas de tabla en desktop
+        if (window.innerWidth > 768) {
+            document.querySelectorAll('.table-consumos tbody tr').forEach(row => {
+                row.addEventListener('mouseenter', function() {
+                    this.style.transform = 'scale(1.01)';
+                });
+                
+                row.addEventListener('mouseleave', function() {
+                    this.style.transform = 'scale(1)';
+                });
             });
-        }, 5000);
+        }
+        
+        // Formatear cantidad automáticamente
+        document.getElementById('cantidad').addEventListener('blur', function() {
+            const valor = parseFloat(this.value);
+            if (!isNaN(valor) && valor > 0) {
+                this.value = valor.toFixed(1);
+            }
+        });
+        
+        // Prevenir valores negativos en cantidad
+        document.getElementById('cantidad').addEventListener('keypress', function(e) {
+            // Permitir solo números y punto decimal
+            if (!/[\d.]/.test(e.key) && e.key !== 'Backspace' && e.key !== 'Delete' && e.key !== 'Tab') {
+                e.preventDefault();
+            }
+        });
+        
+        // Limitar fecha máxima a hoy
+        document.getElementById('fecha').setAttribute('max', '<?php echo $fecha_hoy; ?>');
+        
+        // Advertencia si se intenta poner fecha futura
+        document.getElementById('fecha').addEventListener('change', function() {
+            const fechaSeleccionada = new Date(this.value);
+            const fechaHoy = new Date('<?php echo $fecha_hoy; ?>');
+            
+            if (fechaSeleccionada > fechaHoy) {
+                alert('No se puede registrar consumo con fecha futura');
+                this.value = '<?php echo $fecha_hoy; ?>';
+            }
+        });
+        
+        // Capitalizar primera letra del motivo
+        document.getElementById('motivo').addEventListener('blur', function() {
+            if (this.value.trim()) {
+                this.value = this.value.charAt(0).toUpperCase() + this.value.slice(1);
+            }
+        });
+        
+        // Capitalizar primera letra del área
+        document.getElementById('area_departamento').addEventListener('blur', function() {
+            if (this.value.trim()) {
+                this.value = this.value.charAt(0).toUpperCase() + this.value.slice(1);
+            }
+        });
+        
+        console.log('Todas las validaciones y funcionalidades cargadas correctamente');
     </script>
 </body>
 </html>

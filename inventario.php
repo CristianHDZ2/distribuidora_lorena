@@ -25,6 +25,7 @@ $query = "
         p.id,
         p.nombre,
         p.tipo,
+        p.precio_caja,
         p.activo,
         COALESCE(i.stock_actual, 0) as stock_actual,
         COALESCE(i.stock_minimo, 0) as stock_minimo,
@@ -117,7 +118,11 @@ $stats['productos_criticos'] = intval($stats['productos_criticos'] ?? 0);
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="assets/css/custom.css">
     <style>
-        /* Copiar estilos de productos.php y rutas.php */
+        /* ============================================
+           ESTILOS IDÉNTICOS A PRODUCTOS.PHP Y RUTAS.PHP
+           ============================================ */
+        
+        /* Tabla de inventario mejorada y responsiva */
         .table-inventario {
             box-shadow: 0 2px 8px rgba(0,0,0,0.1);
             border-radius: 10px;
@@ -139,6 +144,7 @@ $stats['productos_criticos'] = intval($stats['productos_criticos'] ?? 0);
             }
         }
         
+        /* CORREGIDO: Encabezados con fondo degradado y texto blanco */
         .table-inventario thead {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
         }
@@ -152,6 +158,7 @@ $stats['productos_criticos'] = intval($stats['productos_criticos'] ?? 0);
             padding: 18px 15px !important;
             border: none !important;
             vertical-align: middle;
+            background: transparent !important;
         }
         
         @media (max-width: 991px) {
@@ -179,10 +186,11 @@ $stats['productos_criticos'] = intval($stats['productos_criticos'] ?? 0);
         .table-inventario tbody tr {
             transition: all 0.3s ease;
             border-bottom: 1px solid #e9ecef;
+            background: white;
         }
         
         .table-inventario tbody tr:hover {
-            background-color: #f8f9ff;
+            background-color: #f8f9ff !important;
             transform: scale(1.01);
             box-shadow: 0 3px 10px rgba(0,0,0,0.08);
         }
@@ -190,6 +198,7 @@ $stats['productos_criticos'] = intval($stats['productos_criticos'] ?? 0);
         .table-inventario tbody td {
             padding: 15px;
             vertical-align: middle;
+            color: #2c3e50;
         }
         
         @media (max-width: 991px) {
@@ -270,6 +279,39 @@ $stats['productos_criticos'] = intval($stats['productos_criticos'] ?? 0);
             }
         }
         
+        .producto-info .badge {
+            font-size: 11px;
+            padding: 4px 8px;
+        }
+        
+        @media (max-width: 480px) {
+            .producto-info .badge {
+                font-size: 10px;
+                padding: 3px 6px;
+            }
+        }
+        
+        /* Badges de stock */
+        .badge-stock {
+            font-size: 13px;
+            padding: 6px 12px;
+            font-weight: 600;
+        }
+        
+        @media (max-width: 767px) {
+            .badge-stock {
+                font-size: 11px;
+                padding: 5px 10px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .badge-stock {
+                font-size: 10px;
+                padding: 4px 8px;
+            }
+        }
+        
         /* Botones de acción */
         .btn-action {
             padding: 6px 12px;
@@ -281,10 +323,29 @@ $stats['productos_criticos'] = intval($stats['productos_criticos'] ?? 0);
             margin: 2px;
         }
         
+        @media (max-width: 991px) {
+            .btn-action {
+                padding: 5px 10px;
+                font-size: 11px;
+            }
+        }
+        
         @media (max-width: 767px) {
             .btn-action {
-                padding: 5px 8px;
+                padding: 4px 8px;
                 font-size: 10px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .btn-action {
+                padding: 3px 6px;
+                font-size: 9px;
+                margin: 1px;
+            }
+            
+            .btn-action i {
+                font-size: 9px;
             }
             
             .btn-action span {
@@ -301,117 +362,105 @@ $stats['productos_criticos'] = intval($stats['productos_criticos'] ?? 0);
             background: linear-gradient(135deg, #2980b9, #21618c);
             color: white;
             transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(52, 152, 219, 0.4);
         }
         
-        /* Estadísticas */
-        .stat-card {
-            border-left: 4px solid;
-            transition: all 0.3s ease;
-        }
-        
-        .stat-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 8px 25px rgba(0,0,0,0.15);
-        }
-        
-        .stat-card.info {
-            border-left-color: #3498db;
-        }
-        
-        .stat-card.success {
-            border-left-color: #27ae60;
-        }
-        
-        .stat-card.danger {
-            border-left-color: #e74c3c;
-        }
-        
-        .stat-card.warning {
-            border-left-color: #f39c12;
-        }
-        
-        .hide-mobile {
-            display: table-cell;
-        }
-        
+        /* Ocultar columnas en móviles */
         @media (max-width: 767px) {
             .hide-mobile {
                 display: none !important;
             }
         }
         
-        /* Total de productos */
-        .total-productos {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 20px;
+        /* Estadísticas de inventario */
+        .stat-inventario {
+            background: white;
             border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
             margin-bottom: 20px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            border-left: 4px solid;
+            transition: transform 0.3s ease;
+        }
+        
+        .stat-inventario:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+        }
+        
+        .stat-inventario.primary {
+            border-left-color: #3498db;
+        }
+        
+        .stat-inventario.success {
+            border-left-color: #27ae60;
+        }
+        
+        .stat-inventario.danger {
+            border-left-color: #e74c3c;
+        }
+        
+        .stat-inventario h3 {
+            font-size: 2rem;
+            font-weight: 700;
+            margin: 10px 0;
+            color: #2c3e50;
+        }
+        
+        .stat-inventario p {
+            margin: 0;
+            color: #7f8c8d;
+            font-size: 14px;
         }
         
         @media (max-width: 767px) {
-            .total-productos {
+            .stat-inventario {
                 padding: 15px;
             }
-        }
-        
-        .total-productos h5 {
-            margin: 0;
-            font-weight: 600;
-            font-size: 18px;
-        }
-        
-        @media (max-width: 767px) {
-            .total-productos h5 {
-                font-size: 14px;
+            
+            .stat-inventario h3 {
+                font-size: 1.5rem;
+            }
+            
+            .stat-inventario p {
+                font-size: 12px;
             }
         }
         
-        .total-productos .numero {
-            font-size: 28px;
-            font-weight: 700;
-        }
-        
-        @media (max-width: 767px) {
-            .total-productos .numero {
-                font-size: 24px;
-            }
-        }
-        
-        /* Header Actions */
-        .header-actions {
+        /* Filtros responsivos */
+        .filtros-container {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
             margin-bottom: 20px;
+        }
+        
+        @media (max-width: 767px) {
+            .filtros-container {
+                flex-direction: column;
+            }
+            
+            .filtros-container .form-control,
+            .filtros-container .form-select,
+            .filtros-container .btn {
+                width: 100% !important;
+                max-width: 100% !important;
+            }
+        }
+        
+        /* Header actions responsivo */
+        .header-actions {
             display: flex;
             justify-content: space-between;
             align-items: center;
+            margin-bottom: 20px;
             gap: 10px;
-            flex-wrap: wrap;
         }
         
         @media (max-width: 767px) {
             .header-actions {
                 flex-direction: column;
-            }
-            
-            .header-actions .btn {
-                width: 100%;
-            }
-        }
-        
-        .filtros-container {
-            display: flex;
-            gap: 10px;
-            flex-wrap: wrap;
-        }
-        
-        @media (max-width: 767px) {
-            .filtros-container {
-                width: 100%;
-            }
-            
-            .filtros-container form {
-                width: 100%;
+                align-items: stretch;
             }
         }
         
@@ -446,7 +495,8 @@ $stats['productos_criticos'] = intval($stats['productos_criticos'] ?? 0);
         }
     </style>
 </head>
-<body><!-- Navbar -->
+<body>
+    <!-- Navbar -->
     <nav class="navbar navbar-expand-lg navbar-light navbar-custom">
         <div class="container-fluid">
             <a class="navbar-brand" href="index.php">
@@ -527,68 +577,62 @@ $stats['productos_criticos'] = intval($stats['productos_criticos'] ?? 0);
             
             <div class="alert alert-info alert-custom">
                 <i class="fas fa-info-circle"></i>
-                <strong>Instrucciones:</strong> Administre el inventario de productos. Puede ver el stock actual, configurar stock mínimo, y recibir alertas cuando los productos estén en nivel crítico. Use los botones de acciones rápidas para registrar ingresos, ver movimientos o gestionar productos dañados.
-            </div>
-            
-            <!-- Mensaje de éxito/error -->
+                <strong>Instrucciones:</strong> Monitorea el stock actual de todos los productos. Puedes configurar stock mínimo, registrar ingresos y ver el historial de movimientos. Los productos con stock bajo se resaltan automáticamente.
+            </div><!-- Mensaje de éxito/error -->
             <?php if (!empty($mensaje)): ?>
                 <div class="alert alert-<?php echo $tipo_mensaje; ?> alert-dismissible fade show" role="alert">
-                    <i class="fas fa-<?php echo $tipo_mensaje == 'success' ? 'check-circle' : 'info-circle'; ?>"></i>
+                    <i class="fas fa-<?php echo $tipo_mensaje == 'success' ? 'check-circle' : 'exclamation-circle'; ?>"></i>
                     <?php echo htmlspecialchars($mensaje); ?>
                     <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
                 </div>
             <?php endif; ?>
 
-            <!-- Estadísticas -->
+            <!-- Alerta de Stock Bajo -->
+            <?php if ($total_alertas > 0): ?>
+                <div class="alert alert-warning alert-dismissible fade show" role="alert">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <strong>¡Atención! Productos con Stock Bajo</strong>
+                    <p class="mb-0">Hay <strong><?php echo $total_alertas; ?></strong> producto(s) con stock igual o menor al mínimo establecido. Revisa la tabla para ver los detalles.</p>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            <?php endif; ?>
+
+            <!-- Estadísticas del Inventario -->
             <div class="row mb-4">
-                <div class="col-md-3 col-sm-6 mb-3">
-                    <div class="card stat-card info">
-                        <div class="card-body text-center">
-                            <i class="fas fa-boxes fa-3x text-info mb-3"></i>
-                            <h3 class="mb-0"><?php echo number_format($stats['total_productos']); ?></h3>
-                            <p class="text-muted mb-0">Total Productos</p>
+                <div class="col-md-4">
+                    <div class="stat-inventario primary">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <p class="mb-1">Total Productos</p>
+                                <h3><?php echo $stats['total_productos']; ?></h3>
+                            </div>
+                            <i class="fas fa-boxes fa-3x text-primary" style="opacity: 0.3;"></i>
                         </div>
                     </div>
                 </div>
-                <div class="col-md-3 col-sm-6 mb-3">
-                    <div class="card stat-card success">
-                        <div class="card-body text-center">
-                            <i class="fas fa-cubes fa-3x text-success mb-3"></i>
-                            <h3 class="mb-0"><?php echo number_format($stats['stock_total'], 1); ?></h3>
-                            <p class="text-muted mb-0">Stock Total</p>
+                <div class="col-md-4">
+                    <div class="stat-inventario success">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <p class="mb-1">Stock Total</p>
+                                <h3><?php echo number_format($stats['stock_total'], 1); ?></h3>
+                            </div>
+                            <i class="fas fa-cubes fa-3x text-success" style="opacity: 0.3;"></i>
                         </div>
                     </div>
                 </div>
-                <div class="col-md-3 col-sm-6 mb-3">
-                    <div class="card stat-card danger">
-                        <div class="card-body text-center">
-                            <i class="fas fa-exclamation-triangle fa-3x text-danger mb-3"></i>
-                            <h3 class="mb-0"><?php echo number_format($stats['productos_criticos']); ?></h3>
-                            <p class="text-muted mb-0">Stock Crítico</p>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-3 col-sm-6 mb-3">
-                    <div class="card stat-card warning">
-                        <div class="card-body text-center">
-                            <i class="fas fa-bell fa-3x text-warning mb-3"></i>
-                            <h3 class="mb-0"><?php echo number_format($total_alertas); ?></h3>
-                            <p class="text-muted mb-0">Alertas Activas</p>
+                <div class="col-md-4">
+                    <div class="stat-inventario danger">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <p class="mb-1">Productos Críticos</p>
+                                <h3><?php echo $stats['productos_criticos']; ?></h3>
+                            </div>
+                            <i class="fas fa-exclamation-triangle fa-3x text-danger" style="opacity: 0.3;"></i>
                         </div>
                     </div>
                 </div>
             </div>
-
-            <!-- Alertas de Stock Bajo -->
-            <?php if ($total_alertas > 0): ?>
-                <div class="alert alert-warning alert-dismissible fade show" role="alert">
-                    <h5 class="alert-heading">
-                        <i class="fas fa-exclamation-triangle"></i> ¡Atención! Productos con Stock Bajo
-                    </h5>
-                    <p>Hay <strong><?php echo $total_alertas; ?></strong> producto(s) con stock igual o menor al mínimo establecido. Revisa la tabla para ver los detalles.</p>
-                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                </div>
-            <?php endif; ?>
 
             <!-- Botones de Acciones Rápidas -->
             <div class="row mb-4">
@@ -605,7 +649,7 @@ $stats['productos_criticos'] = intval($stats['productos_criticos'] ?? 0);
                 </div>
             </div>
 
-            <!-- Header con filtros -->
+            <!-- Filtros -->
             <div class="header-actions">
                 <div class="filtros-container">
                     <form method="GET" class="d-flex gap-2" style="flex-wrap: wrap;">
@@ -626,59 +670,55 @@ $stats['productos_criticos'] = intval($stats['productos_criticos'] ?? 0);
                         </select>
                         
                         <button type="submit" class="btn btn-primary">
-                            <i class="fas fa-search"></i> Buscar
+                            <i class="fas fa-search"></i> <span class="d-none d-md-inline">Filtrar</span>
                         </button>
                         
-                        <?php if (!empty($busqueda) || $filtro_tipo != 'todos' || $filtro_estado != 'todos'): ?>
-                            <a href="inventario.php" class="btn btn-secondary">
-                                <i class="fas fa-redo"></i> Limpiar
-                            </a>
-                        <?php endif; ?>
+                        <a href="inventario.php" class="btn btn-secondary">
+                            <i class="fas fa-times"></i> <span class="d-none d-md-inline">Limpiar</span>
+                        </a>
                     </form>
                 </div>
             </div>
-
-            <!-- Total de productos -->
-            <?php if ($productos->num_rows > 0): ?>
-                <div class="total-productos">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <h5><i class="fas fa-cubes"></i> Total de Productos en Inventario:</h5>
-                        <span class="numero"><?php echo $productos->num_rows; ?></span>
-                    </div>
-                </div>
-            <?php endif; ?>
 
             <!-- Tabla de Inventario -->
             <div class="table-responsive">
                 <table class="table table-inventario table-hover mb-0">
                     <thead>
                         <tr>
-                            <th width="50" class="text-center">#</th>
+                            <th width="60" class="text-center">#</th>
                             <th>Producto</th>
-                            <th width="100" class="text-center hide-mobile">Tipo</th>
                             <th width="120" class="text-center">Stock Actual</th>
                             <th width="120" class="text-center">Stock Mínimo</th>
-                            <th width="130" class="text-center">Estado</th>
-                            <th width="140" class="text-center hide-mobile">Última Actualización</th>
-                            <th width="120" class="text-center">Acciones</th>
+                            <th width="120" class="text-center hide-mobile">Precio Caja</th>
+                            <th width="140" class="text-center hide-mobile">Valor Stock</th>
+                            <th width="100" class="text-center">Estado</th>
+                            <th width="140" class="text-center">Acciones</th>
                         </tr>
                     </thead>
                     <tbody>
                         <?php if ($productos->num_rows > 0): ?>
                             <?php 
                             $contador = 1;
+                            $productos->data_seek(0);
                             while ($producto = $productos->fetch_assoc()): 
-                                // Determinar estado y color
-                                $estado_badge = 'bg-success';
-                                $estado_texto = 'Normal';
+                                // Determinar estado del stock
+                                $stock_actual = floatval($producto['stock_actual']);
+                                $stock_minimo = floatval($producto['stock_minimo']);
+                                $valor_stock = $stock_actual * floatval($producto['precio_caja']);
                                 
-                                if ($producto['stock_minimo'] > 0) {
-                                    if ($producto['stock_actual'] <= $producto['stock_minimo']) {
-                                        $estado_badge = 'bg-danger';
+                                $estado_badge = 'success';
+                                $estado_texto = 'Normal';
+                                $estado_icono = 'check-circle';
+                                
+                                if ($stock_minimo > 0) {
+                                    if ($stock_actual <= $stock_minimo) {
+                                        $estado_badge = 'danger';
                                         $estado_texto = 'Crítico';
-                                    } elseif ($producto['stock_actual'] <= ($producto['stock_minimo'] * 1.5)) {
-                                        $estado_badge = 'bg-warning';
+                                        $estado_icono = 'exclamation-triangle';
+                                    } elseif ($stock_actual <= ($stock_minimo * 1.5)) {
+                                        $estado_badge = 'warning';
                                         $estado_texto = 'Bajo';
+                                        $estado_icono = 'exclamation-circle';
                                     }
                                 }
                             ?>
@@ -688,47 +728,45 @@ $stats['productos_criticos'] = intval($stats['productos_criticos'] ?? 0);
                                     </td>
                                     <td>
                                         <div class="producto-info">
-                                            <h6>
-                                                <?php echo htmlspecialchars($producto['nombre']); ?>
-                                                <?php if ($producto['alerta_stock'] == 1): ?>
-                                                    <i class="fas fa-bell text-danger ms-2" title="Stock crítico"></i>
-                                                <?php endif; ?>
-                                            </h6>
+                                            <h6><?php echo htmlspecialchars($producto['nombre']); ?></h6>
+                                            <span class="badge bg-secondary"><?php echo htmlspecialchars($producto['tipo']); ?></span>
                                         </div>
                                     </td>
-                                    <td class="text-center hide-mobile">
-                                        <span class="badge bg-secondary"><?php echo htmlspecialchars($producto['tipo']); ?></span>
-                                    </td>
                                     <td class="text-center">
-                                        <strong class="<?php echo $producto['alerta_stock'] == 1 ? 'text-danger' : 'text-success'; ?>">
-                                            <?php echo number_format($producto['stock_actual'], 1); ?>
-                                        </strong>
-                                    </td>
-                                    <td class="text-center">
-                                        <?php echo number_format($producto['stock_minimo'], 1); ?>
-                                    </td>
-                                    <td class="text-center">
-                                        <span class="badge <?php echo $estado_badge; ?>">
-                                            <?php echo $estado_texto; ?>
+                                        <span class="badge badge-stock bg-primary">
+                                            <i class="fas fa-box"></i> <?php echo number_format($stock_actual, 1); ?>
                                         </span>
                                     </td>
+                                    <td class="text-center">
+                                        <?php if ($stock_minimo > 0): ?>
+                                            <span class="badge badge-stock bg-info">
+                                                <i class="fas fa-flag"></i> <?php echo number_format($stock_minimo, 1); ?>
+                                            </span>
+                                        <?php else: ?>
+                                            <span class="text-muted">
+                                                <small>No configurado</small>
+                                            </span>
+                                        <?php endif; ?>
+                                    </td>
                                     <td class="text-center hide-mobile">
-                                        <small class="text-muted">
-                                            <?php 
-                                            echo $producto['ultima_actualizacion'] 
-                                                ? date('d/m/Y H:i', strtotime($producto['ultima_actualizacion'])) 
-                                                : 'Sin movimientos'; 
-                                            ?>
-                                        </small>
+                                        <strong class="text-success">$<?php echo number_format($producto['precio_caja'], 2); ?></strong>
+                                    </td>
+                                    <td class="text-center hide-mobile">
+                                        <strong class="text-primary">$<?php echo number_format($valor_stock, 2); ?></strong>
+                                    </td>
+                                    <td class="text-center">
+                                        <span class="badge bg-<?php echo $estado_badge; ?>">
+                                            <i class="fas fa-<?php echo $estado_icono; ?>"></i> <?php echo $estado_texto; ?>
+                                        </span>
                                     </td>
                                     <td class="text-center">
                                         <button class="btn btn-action btn-config" 
                                                 data-id="<?php echo $producto['id']; ?>"
                                                 data-nombre="<?php echo htmlspecialchars($producto['nombre']); ?>"
-                                                data-stock-minimo="<?php echo $producto['stock_minimo']; ?>"
-                                                onclick="configurarStock(this)"
+                                                data-stock-minimo="<?php echo $stock_minimo; ?>"
+                                                onclick="configurarStockMinimo(this)"
                                                 title="Configurar Stock Mínimo">
-                                            <i class="fas fa-cog"></i> <span>Config.</span>
+                                            <i class="fas fa-cog"></i> <span>Configurar</span>
                                         </button>
                                     </td>
                                 </tr>
@@ -740,14 +778,27 @@ $stats['productos_criticos'] = intval($stats['productos_criticos'] ?? 0);
                             <tr>
                                 <td colspan="8" class="text-center text-muted py-5">
                                     <i class="fas fa-inbox fa-3x mb-3 d-block"></i>
-                                    <h5>No hay productos en el inventario</h5>
-                                    <p>Los productos aparecerán automáticamente cuando se registren movimientos</p>
+                                    <h5>No se encontraron productos</h5>
+                                    <p>Intenta ajustar los filtros de búsqueda</p>
                                 </td>
                             </tr>
                         <?php endif; ?>
                     </tbody>
                 </table>
             </div>
+
+            <!-- Resumen de resultados -->
+            <?php if ($productos->num_rows > 0): ?>
+                <div class="mt-3">
+                    <p class="text-muted text-end mb-0">
+                        <i class="fas fa-info-circle"></i> 
+                        Mostrando <?php echo $productos->num_rows; ?> producto(s)
+                        <?php if (!empty($busqueda) || $filtro_tipo != 'todos' || $filtro_estado != 'todos'): ?>
+                            con filtros aplicados
+                        <?php endif; ?>
+                    </p>
+                </div>
+            <?php endif; ?>
         </div>
 
         <!-- Copyright Footer -->
@@ -760,7 +811,9 @@ $stats['productos_criticos'] = intval($stats['productos_criticos'] ?? 0);
                 <small>Desarrollado por: Cristian Hernandez</small>
             </p>
         </div>
-    </div><!-- Modal Configurar Stock Mínimo -->
+    </div>
+
+    <!-- Modal Configurar Stock Mínimo -->
     <div class="modal fade" id="modalConfigStock" tabindex="-1">
         <div class="modal-dialog">
             <div class="modal-content">
@@ -780,18 +833,13 @@ $stats['productos_criticos'] = intval($stats['productos_criticos'] ?? 0);
                         
                         <div class="mb-3">
                             <label class="form-label fw-bold">Stock Mínimo *</label>
-                            <input type="number" class="form-control" name="stock_minimo" id="config_stock_minimo" 
-                                   step="0.1" min="0" required placeholder="Ej: 10">
-                            <small class="text-muted">
-                                Ingrese la cantidad mínima de stock. Cuando el stock actual sea igual o menor a este valor, 
-                                recibirá una alerta.
-                            </small>
+                            <input type="number" step="0.1" min="0" class="form-control" name="stock_minimo" id="config_stock_minimo" required placeholder="Ej: 10.0">
+                            <small class="text-muted">Cuando el stock llegue a este nivel o menos, se generará una alerta automática</small>
                         </div>
-                        
-                        <div class="alert alert-warning mb-0">
-                            <i class="fas fa-lightbulb"></i>
-                            <strong>Recomendación:</strong> Configure el stock mínimo considerando el tiempo de reabastecimiento 
-                            y la demanda promedio del producto.
+
+                        <div class="alert alert-warning">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            <strong>Nota:</strong> Si configuras el stock mínimo en 0, no se generarán alertas para este producto.
                         </div>
                     </div>
                     <div class="modal-footer">
@@ -814,7 +862,7 @@ $stats['productos_criticos'] = intval($stats['productos_criticos'] ?? 0);
         let modalConfigStockInstance = null;
         
         document.addEventListener('DOMContentLoaded', function() {
-            // Inicializar modal de configuración
+            // Inicializar modal
             const modalConfigStockElement = document.getElementById('modalConfigStock');
             if (modalConfigStockElement) {
                 modalConfigStockInstance = new bootstrap.Modal(modalConfigStockElement);
@@ -870,17 +918,15 @@ $stats['productos_criticos'] = intval($stats['productos_criticos'] ?? 0);
             
             console.log('Inventario cargado correctamente');
             console.log('Total de productos:', <?php echo $productos->num_rows; ?>);
-            console.log('Productos con stock crítico:', <?php echo $stats['productos_criticos']; ?>);
-            console.log('Alertas activas:', <?php echo $total_alertas; ?>);
         });
         
         // Función para configurar stock mínimo
-        function configurarStock(button) {
+        function configurarStockMinimo(button) {
             const id = button.getAttribute('data-id');
             const nombre = button.getAttribute('data-nombre');
             const stockMinimo = button.getAttribute('data-stock-minimo');
             
-            console.log('Configurando stock para:', {id, nombre, stockMinimo});
+            console.log('Configurando stock mínimo para:', {id, nombre, stockMinimo});
             
             // Llenar los campos del formulario
             document.getElementById('config_producto_id').value = id;
@@ -911,16 +957,9 @@ $stats['productos_criticos'] = intval($stats['productos_criticos'] ?? 0);
         document.getElementById('formConfigStock').addEventListener('submit', function(e) {
             const stockMinimo = parseFloat(this.querySelector('[name="stock_minimo"]').value);
             
-            if (stockMinimo < 0) {
+            if (isNaN(stockMinimo) || stockMinimo < 0) {
                 e.preventDefault();
-                alert('El stock mínimo no puede ser negativo');
-                return false;
-            }
-            
-            // Confirmación antes de guardar
-            const productoNombre = document.getElementById('config_producto_nombre').textContent;
-            if (!confirm(`¿Confirmar configuración de stock mínimo para "${productoNombre}"?`)) {
-                e.preventDefault();
+                alert('El stock mínimo debe ser un número mayor o igual a 0');
                 return false;
             }
         });
@@ -966,22 +1005,21 @@ $stats['productos_criticos'] = intval($stats['productos_criticos'] ?? 0);
             btn.setAttribute('data-original-text', btn.innerHTML);
         });
         
-        // Resaltar productos con stock crítico
-        document.querySelectorAll('.table-inventario tbody tr').forEach(row => {
-            const estadoBadge = row.querySelector('.badge');
-            if (estadoBadge && estadoBadge.classList.contains('bg-danger')) {
-                row.style.backgroundColor = '#fff5f5';
-            }
-        });
-        
-        // Animación de contadores en estadísticas
+        // Animación de estadísticas al cargar
         const animateValue = (element, start, end, duration) => {
             let startTimestamp = null;
             const step = (timestamp) => {
                 if (!startTimestamp) startTimestamp = timestamp;
                 const progress = Math.min((timestamp - startTimestamp) / duration, 1);
                 const value = Math.floor(progress * (end - start) + start);
-                element.textContent = value;
+                
+                // Si el elemento contiene decimales, usar 1 decimal
+                if (element.textContent.includes('.')) {
+                    element.textContent = (progress * (end - start) + start).toFixed(1);
+                } else {
+                    element.textContent = value;
+                }
+                
                 if (progress < 1) {
                     window.requestAnimationFrame(step);
                 }
@@ -989,155 +1027,20 @@ $stats['productos_criticos'] = intval($stats['productos_criticos'] ?? 0);
             window.requestAnimationFrame(step);
         };
         
-        // Animar estadísticas al cargar
-        document.querySelectorAll('.stat-card h3').forEach(element => {
-            const text = element.textContent.replace(/[^0-9.]/g, '');
-            if (text && !isNaN(text)) {
-                const endValue = parseFloat(text);
-                element.textContent = '0';
-                setTimeout(() => {
-                    if (text.includes('.')) {
-                        // Si tiene decimales, animar hasta el número y agregar los decimales
-                        const intPart = Math.floor(endValue);
-                        animateValue(element, 0, intPart, 1000);
-                        setTimeout(() => {
-                            element.textContent = endValue.toFixed(1);
-                        }, 1000);
-                    } else {
+        // Animar los números de las estadísticas al cargar
+        window.addEventListener('load', function() {
+            document.querySelectorAll('.stat-inventario h3').forEach(element => {
+                const text = element.textContent.replace(/[^0-9.]/g, '');
+                if (text && !isNaN(text)) {
+                    const endValue = parseFloat(text);
+                    const hasDecimal = text.includes('.');
+                    element.textContent = '0' + (hasDecimal ? '.0' : '');
+                    setTimeout(() => {
                         animateValue(element, 0, endValue, 1000);
-                    }
-                }, 100);
-            }
-        });
-        
-        // Efecto de pulsación en alertas críticas
-        const alertasBadges = document.querySelectorAll('.badge.bg-danger');
-        alertasBadges.forEach(badge => {
-            setInterval(() => {
-                badge.style.transform = 'scale(1.1)';
-                setTimeout(() => {
-                    badge.style.transform = 'scale(1)';
-                }, 300);
-            }, 2000);
-        });
-        
-        // Auto-focus en campo de búsqueda
-        const searchInput = document.querySelector('input[name="busqueda"]');
-        if (searchInput && searchInput.value === '') {
-            searchInput.addEventListener('focus', function() {
-                this.select();
-            });
-        }
-        
-        // Resaltar resultados de búsqueda
-        if (searchInput && searchInput.value !== '') {
-            const searchTerm = searchInput.value.toLowerCase();
-            document.querySelectorAll('.producto-info h6').forEach(element => {
-                const text = element.textContent.toLowerCase();
-                if (text.includes(searchTerm)) {
-                    element.style.backgroundColor = '#fff3cd';
-                    element.style.padding = '5px';
-                    element.style.borderRadius = '5px';
-                }
-            });
-        }
-        
-        // Animación de aparición de filas
-        const rows = document.querySelectorAll('.table-inventario tbody tr');
-        rows.forEach((row, index) => {
-            row.style.opacity = '0';
-            row.style.transform = 'translateY(20px)';
-            
-            setTimeout(() => {
-                row.style.transition = 'all 0.3s ease';
-                row.style.opacity = '1';
-                row.style.transform = 'translateY(0)';
-            }, index * 50);
-        });
-        
-        // Tooltip para iconos de alerta
-        document.querySelectorAll('[title]').forEach(element => {
-            element.addEventListener('mouseenter', function() {
-                const title = this.getAttribute('title');
-                const tooltip = document.createElement('div');
-                tooltip.className = 'custom-tooltip';
-                tooltip.textContent = title;
-                tooltip.style.cssText = `
-                    position: absolute;
-                    background: #333;
-                    color: white;
-                    padding: 5px 10px;
-                    border-radius: 5px;
-                    font-size: 12px;
-                    z-index: 1000;
-                    pointer-events: none;
-                `;
-                document.body.appendChild(tooltip);
-                
-                const rect = this.getBoundingClientRect();
-                tooltip.style.top = (rect.top - tooltip.offsetHeight - 5) + 'px';
-                tooltip.style.left = (rect.left + rect.width / 2 - tooltip.offsetWidth / 2) + 'px';
-                
-                this._tooltip = tooltip;
-            });
-            
-            element.addEventListener('mouseleave', function() {
-                if (this._tooltip) {
-                    this._tooltip.remove();
-                    this._tooltip = null;
+                    }, 100);
                 }
             });
         });
-        
-        // Función para exportar datos (futura implementación)
-        function exportarInventario() {
-            console.log('Exportar inventario - Función en desarrollo');
-            alert('Función de exportación en desarrollo');
-        }
-        
-        // Contador de productos filtrados
-        const totalProductos = <?php echo $productos->num_rows; ?>;
-        const totalGeneral = <?php echo $stats['total_productos']; ?>;
-        
-        if (totalProductos < totalGeneral) {
-            console.log(`Mostrando ${totalProductos} de ${totalGeneral} productos`);
-        }
-        
-        // Mostrar información de filtros activos
-        const filtrosActivos = [];
-        <?php if ($filtro_tipo != 'todos'): ?>
-            filtrosActivos.push('Tipo: <?php echo $filtro_tipo; ?>');
-        <?php endif; ?>
-        <?php if ($filtro_estado != 'todos'): ?>
-            filtrosActivos.push('Estado: <?php echo $filtro_estado; ?>');
-        <?php endif; ?>
-        <?php if (!empty($busqueda)): ?>
-            filtrosActivos.push('Búsqueda: <?php echo $busqueda; ?>');
-        <?php endif; ?>
-        
-        if (filtrosActivos.length > 0) {
-            console.log('Filtros activos:', filtrosActivos.join(', '));
-        }
-        
-        // Advertencia si hay muchos productos con stock crítico
-        const productosCriticos = <?php echo $stats['productos_criticos']; ?>;
-        if (productosCriticos > 5) {
-            console.warn(`¡ATENCIÓN! Hay ${productosCriticos} productos con stock crítico`);
-        }
-        
-        // Detección de cambios en el formulario de filtros
-        const formFiltros = document.querySelector('form');
-        if (formFiltros) {
-            const selects = formFiltros.querySelectorAll('select');
-            selects.forEach(select => {
-                select.addEventListener('change', function() {
-                    // Auto-submit al cambiar filtro en desktop
-                    if (window.innerWidth > 768) {
-                        formFiltros.submit();
-                    }
-                });
-            });
-        }
     </script>
 </body>
 </html>
