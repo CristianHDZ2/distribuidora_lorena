@@ -44,12 +44,15 @@ CREATE TABLE IF NOT EXISTS `productos` (
   `nombre` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
   `precio_caja` decimal(10,2) NOT NULL DEFAULT '1.00',
   `precio_unitario` decimal(10,2) DEFAULT NULL,
+  `unidades_por_caja` int DEFAULT NULL,
+  `observaciones` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
   `tipo` enum('Big Cola','Varios','Ambos') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
   `etiqueta_propietario` enum('LORENA','FRANCISCO') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'LORENA',
   `etiqueta_declaracion` enum('SE DECLARA','NO SE DECLARA') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'SE DECLARA',
   `activo` tinyint(1) DEFAULT '1',
   `fecha_creacion` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`)
+  PRIMARY KEY (`id`),
+  KEY `idx_unidades_por_caja` (`unidades_por_caja`)
 ) ENGINE=InnoDB AUTO_INCREMENT=67 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Volcando estructura para tabla distribuidora_lorena.rutas
@@ -57,18 +60,20 @@ CREATE TABLE IF NOT EXISTS `rutas` (
   `id` int NOT NULL AUTO_INCREMENT,
   `nombre` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
   `descripcion` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
+  `tipo_productos` enum('Big Cola','Varios','Ambos') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'Varios',
   `activo` tinyint(1) DEFAULT '1',
   `fecha_creacion` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`)
+  PRIMARY KEY (`id`),
+  KEY `idx_tipo_productos` (`tipo_productos`)
 ) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Volcando datos para la tabla distribuidora_lorena.rutas: ~5 rows (aproximadamente)
-INSERT INTO `rutas` (`id`, `nombre`, `descripcion`, `activo`, `fecha_creacion`) VALUES
-	(1, 'RUTA #1: COSTA DEL SOL Y LA HERRADURA', 'Ruta 1 - Productos Varios', 1, '2025-10-03 21:25:07'),
-	(2, 'RUTA #2: LAS ISLETAS – SANTA ISABEL Y SAN MARCELINO', 'Ruta 2 - Productos Varios', 1, '2025-10-03 21:25:07'),
-	(3, 'RUTA #3: CIDECO - PORFIADO Y SAN MARCELINO', 'Ruta 3 - Productos Varios', 1, '2025-10-03 21:25:07'),
-	(4, 'RUTA #4: SAN LUIS TALPA Y ACHIOTAL', 'Ruta 4 - Productos Varios', 1, '2025-10-03 21:25:07'),
-	(5, 'RUTA #5: BIG COLA', 'Ruta 5 - Productos Big Cola', 1, '2025-10-03 21:25:07');
+INSERT INTO `rutas` (`id`, `nombre`, `descripcion`, `tipo_productos`, `activo`, `fecha_creacion`) VALUES
+	(1, 'RUTA #1: COSTA DEL SOL Y LA HERRADURA', 'Ruta 1 - Productos Varios', 'Varios', 1, '2025-10-03 21:25:07'),
+	(2, 'RUTA #2: LAS ISLETAS – SANTA ISABEL Y SAN MARCELINO', 'Ruta 2 - Productos Varios', 'Varios', 1, '2025-10-03 21:25:07'),
+	(3, 'RUTA #3: CIDECO - PORFIADO Y SAN MARCELINO', 'Ruta 3 - Productos Varios', 'Varios', 1, '2025-10-03 21:25:07'),
+	(4, 'RUTA #4: SAN LUIS TALPA Y ACHIOTAL', 'Ruta 4 - Productos Varios', 'Varios', 1, '2025-10-03 21:25:07'),
+	(5, 'RUTA #5: BIG COLA', 'Ruta 5 - Productos Big Cola', 'Big Cola', 1, '2025-10-03 21:25:07');
 
 -- Volcando estructura para tabla distribuidora_lorena.salidas
 CREATE TABLE IF NOT EXISTS `salidas` (
@@ -246,7 +251,9 @@ CREATE TABLE IF NOT EXISTS `ventas_directas` (
   `id` int NOT NULL AUTO_INCREMENT,
   `producto_id` int NOT NULL,
   `cantidad` decimal(10,1) NOT NULL,
-  `precio_unitario` decimal(10,2) NOT NULL,
+  `usa_precio_unitario` tinyint(1) NOT NULL DEFAULT '0',
+  `precio_original` decimal(10,2) NOT NULL DEFAULT '0.00',
+  `precio_usado` decimal(10,2) NOT NULL,
   `total` decimal(10,2) NOT NULL,
   `cliente` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `descripcion` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
@@ -257,6 +264,7 @@ CREATE TABLE IF NOT EXISTS `ventas_directas` (
   KEY `producto_id` (`producto_id`),
   KEY `usuario_id` (`usuario_id`),
   KEY `fecha` (`fecha`),
+  KEY `idx_usa_precio_unitario` (`usa_precio_unitario`),
   CONSTRAINT `ventas_directas_ibfk_1` FOREIGN KEY (`producto_id`) REFERENCES `productos` (`id`),
   CONSTRAINT `ventas_directas_ibfk_2` FOREIGN KEY (`usuario_id`) REFERENCES `usuarios` (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
