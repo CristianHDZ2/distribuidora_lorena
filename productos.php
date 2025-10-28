@@ -314,10 +314,10 @@ if (!empty($params)) {
     </style>
 </head>
 <body><!-- NAVBAR -->
-    <nav class="navbar navbar-expand-lg navbar-custom">
+    <nav class="navbar navbar-expand-lg navbar-light navbar-custom">
         <div class="container-fluid">
             <a class="navbar-brand" href="index.php">
-                <i class="fas fa-store"></i> Distribuidora LORENA
+                <i class="fas fa-truck"></i> Distribuidora LORENA
             </a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
                 <span class="navbar-toggler-icon"></span>
@@ -325,55 +325,60 @@ if (!empty($params)) {
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav ms-auto">
                     <li class="nav-item">
-                        <a class="nav-link" href="index.php"><i class="fas fa-home"></i> Inicio</a>
+                        <a class="nav-link" href="index.php">
+                            <i class="fas fa-home"></i> Inicio
+                        </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link active" href="productos.php"><i class="fas fa-box"></i> Productos</a>
+                        <a class="nav-link" href="rutas.php">
+                            <i class="fas fa-route"></i> Rutas
+                        </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="rutas.php"><i class="fas fa-route"></i> Rutas</a>
+                        <a class="nav-link active" href="productos.php">
+                            <i class="fas fa-box"></i> Productos
+                        </a>
                     </li>
                     <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
-                            <i class="fas fa-dolly"></i> Movimientos
+                        <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown">
+                            <i class="fas fa-clipboard-list"></i> Operaciones
                         </a>
                         <ul class="dropdown-menu">
-                            <li><a class="dropdown-item" href="salidas.php"><i class="fas fa-truck-loading"></i> Salidas</a></li>
+                            <li><a class="dropdown-item" href="salidas.php"><i class="fas fa-arrow-up"></i> Salidas</a></li>
                             <li><a class="dropdown-item" href="recargas.php"><i class="fas fa-sync"></i> Recargas</a></li>
-                            <li><a class="dropdown-item" href="retornos.php"><i class="fas fa-undo"></i> Retornos</a></li>
-                            <li><hr class="dropdown-divider"></li>
-                            <li><a class="dropdown-item" href="ventas_directas.php"><i class="fas fa-cash-register"></i> Ventas Directas</a></li>
-                            <li><a class="dropdown-item" href="devoluciones_directas.php"><i class="fas fa-exchange-alt"></i> Devoluciones</a></li>
+                            <li><a class="dropdown-item" href="retornos.php"><i class="fas fa-arrow-down"></i> Retornos</a></li>
                         </ul>
                     </li>
                     <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="navbarDropdownInventario" role="button" data-bs-toggle="dropdown">
                             <i class="fas fa-warehouse"></i> Inventario
                         </a>
                         <ul class="dropdown-menu">
                             <li><a class="dropdown-item" href="inventario.php"><i class="fas fa-boxes"></i> Ver Inventario</a></li>
-                            <li><a class="dropdown-item" href="inventario_ingresos.php"><i class="fas fa-plus-circle"></i> Registrar Ingreso</a></li>
+                            <li><a class="dropdown-item" href="inventario_ingresos.php"><i class="fas fa-plus-circle"></i> Ingresos</a></li>
                             <li><a class="dropdown-item" href="inventario_movimientos.php"><i class="fas fa-exchange-alt"></i> Movimientos</a></li>
                             <li><a class="dropdown-item" href="inventario_danados.php"><i class="fas fa-exclamation-triangle"></i> Productos Dañados</a></li>
+                        </ul>
+                    </li>
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="navbarDropdownVentas" role="button" data-bs-toggle="dropdown">
+                            <i class="fas fa-shopping-cart"></i> Ventas
+                        </a>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="ventas_directas.php"><i class="fas fa-cash-register"></i> Ventas Directas</a></li>
+                            <li><a class="dropdown-item" href="devoluciones_directas.php"><i class="fas fa-undo"></i> Devoluciones</a></li>
                             <li><a class="dropdown-item" href="consumo_interno.php"><i class="fas fa-utensils"></i> Consumo Interno</a></li>
                         </ul>
                     </li>
-                    <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
-                            <i class="fas fa-chart-line"></i> Reportes
+                    <li class="nav-item">
+                        <a class="nav-link" href="generar_pdf.php">
+                            <i class="fas fa-file-pdf"></i> Reportes
                         </a>
-                        <ul class="dropdown-menu">
-                            <li><a class="dropdown-item" href="liquidaciones.php"><i class="fas fa-calculator"></i> Liquidaciones</a></li>
-                            <li><a class="dropdown-item" href="generar_pdf.php"><i class="fas fa-file-pdf"></i> Generar PDF</a></li>
-                        </ul>
                     </li>
-                    <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
-                            <i class="fas fa-user"></i> <?php echo $_SESSION['nombre']; ?>
+                    <li class="nav-item">
+                        <a class="nav-link text-danger" href="logout.php">
+                            <i class="fas fa-sign-out-alt"></i> Salir
                         </a>
-                        <ul class="dropdown-menu dropdown-menu-end">
-                            <li><a class="dropdown-item" href="logout.php"><i class="fas fa-sign-out-alt"></i> Cerrar Sesión</a></li>
-                        </ul>
                     </li>
                 </ul>
             </div>
