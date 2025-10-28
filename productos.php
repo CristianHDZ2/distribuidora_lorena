@@ -16,13 +16,14 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         $nombre = limpiarInput($_POST['nombre']);
         $precio_caja = floatval($_POST['precio_caja']);
         $precio_unitario = !empty($_POST['precio_unitario']) ? floatval($_POST['precio_unitario']) : null;
+        $unidades_por_caja = !empty($_POST['unidades_por_caja']) ? intval($_POST['unidades_por_caja']) : null; // NUEVO
         $tipo = $_POST['tipo'];
         $etiqueta_propietario = $_POST['etiqueta_propietario'];
         $etiqueta_declaracion = $_POST['etiqueta_declaracion'];
         
         if (!empty($nombre) && $precio_caja > 0) {
-            $stmt = $conn->prepare("INSERT INTO productos (nombre, precio_caja, precio_unitario, tipo, etiqueta_propietario, etiqueta_declaracion) VALUES (?, ?, ?, ?, ?, ?)");
-            $stmt->bind_param("sddsss", $nombre, $precio_caja, $precio_unitario, $tipo, $etiqueta_propietario, $etiqueta_declaracion);
+            $stmt = $conn->prepare("INSERT INTO productos (nombre, precio_caja, precio_unitario, unidades_por_caja, tipo, etiqueta_propietario, etiqueta_declaracion) VALUES (?, ?, ?, ?, ?, ?, ?)"); // MODIFICADO
+            $stmt->bind_param("sddisss", $nombre, $precio_caja, $precio_unitario, $unidades_por_caja, $tipo, $etiqueta_propietario, $etiqueta_declaracion); // MODIFICADO
             
             if ($stmt->execute()) {
                 $mensaje = 'Producto agregado exitosamente';
@@ -45,13 +46,14 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         $nombre = limpiarInput($_POST['nombre']);
         $precio_caja = floatval($_POST['precio_caja']);
         $precio_unitario = !empty($_POST['precio_unitario']) ? floatval($_POST['precio_unitario']) : null;
+        $unidades_por_caja = !empty($_POST['unidades_por_caja']) ? intval($_POST['unidades_por_caja']) : null; // NUEVO
         $tipo = $_POST['tipo'];
         $etiqueta_propietario = $_POST['etiqueta_propietario'];
         $etiqueta_declaracion = $_POST['etiqueta_declaracion'];
         
         if (!empty($nombre) && $precio_caja > 0 && $id > 0) {
-            $stmt = $conn->prepare("UPDATE productos SET nombre = ?, precio_caja = ?, precio_unitario = ?, tipo = ?, etiqueta_propietario = ?, etiqueta_declaracion = ? WHERE id = ?");
-            $stmt->bind_param("sddsssi", $nombre, $precio_caja, $precio_unitario, $tipo, $etiqueta_propietario, $etiqueta_declaracion, $id);
+            $stmt = $conn->prepare("UPDATE productos SET nombre = ?, precio_caja = ?, precio_unitario = ?, unidades_por_caja = ?, tipo = ?, etiqueta_propietario = ?, etiqueta_declaracion = ? WHERE id = ?"); // MODIFICADO
+            $stmt->bind_param("sddisssi", $nombre, $precio_caja, $precio_unitario, $unidades_por_caja, $tipo, $etiqueta_propietario, $etiqueta_declaracion, $id); // MODIFICADO
             
             if ($stmt->execute()) {
                 $mensaje = 'Producto actualizado exitosamente';
@@ -98,38 +100,40 @@ if (isset($_GET['mensaje'])) {
 }
 
 // Filtros
-$filtro_tipo = $_GET['tipo_filtro'] ?? 'todos';
-$busqueda = $_GET['busqueda'] ?? '';
+$filtro_tipo = isset($_GET['tipo_filtro']) ? $_GET['tipo_filtro'] : 'todos';
+$busqueda = isset($_GET['busqueda']) ? trim($_GET['busqueda']) : '';
 
-// Construir consulta - ORDENAR ALFABÉTICAMENTE
+// Query base
 $query = "SELECT * FROM productos WHERE activo = 1";
+
+// Aplicar filtros
 $params = [];
-$types = "";
+$types = '';
 
 if ($filtro_tipo != 'todos') {
     $query .= " AND tipo = ?";
     $params[] = $filtro_tipo;
-    $types .= "s";
+    $types .= 's';
 }
 
 if (!empty($busqueda)) {
     $query .= " AND nombre LIKE ?";
     $params[] = "%$busqueda%";
-    $types .= "s";
+    $types .= 's';
 }
 
 $query .= " ORDER BY nombre ASC";
 
-// Ejecutar consulta
+// Preparar y ejecutar consulta
 if (!empty($params)) {
     $stmt = $conn->prepare($query);
     $stmt->bind_param($types, ...$params);
     $stmt->execute();
     $productos = $stmt->get_result();
+    $stmt->close();
 } else {
     $productos = $conn->query($query);
 }
-
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -141,95 +145,39 @@ if (!empty($params)) {
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="assets/css/custom.css">
     <style>
-        /* ============================================
-           ESTILOS CORREGIDOS PARA TABLA DE PRODUCTOS
-           ============================================ */
-        
-        /* Tabla de productos mejorada y responsiva */
+        /* Estilos específicos para productos */
         .table-productos {
             box-shadow: 0 2px 8px rgba(0,0,0,0.1);
             border-radius: 10px;
             overflow: hidden;
-            background: white;
         }
-
-        /* CORREGIDO: Encabezados con fondo degradado y texto blanco */
+        
         .table-productos thead {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         }
 
         .table-productos thead th {
             color: white !important;
-            font-weight: 600 !important;
+            font-weight: 600;
             text-transform: uppercase;
             font-size: 13px;
             letter-spacing: 0.5px;
-            padding: 18px 15px !important;
+            padding: 18px 15px;
             border: none !important;
             vertical-align: middle;
-            background: transparent !important; /* Evitar que Bootstrap sobreescriba */
         }
-
-        @media (max-width: 991px) {
-            .table-productos thead th {
-                padding: 15px 12px !important;
-                font-size: 12px;
-            }
-        }
-
-        @media (max-width: 767px) {
-            .table-productos thead th {
-                padding: 12px 8px !important;
-                font-size: 11px;
-                letter-spacing: 0.3px;
-            }
-        }
-
-        @media (max-width: 480px) {
-            .table-productos thead th {
-                padding: 10px 5px !important;
-                font-size: 10px;
-            }
-        }
-
+        
         .table-productos tbody tr {
             transition: all 0.3s ease;
             border-bottom: 1px solid #e9ecef;
-            background: white;
         }
-
+        
         .table-productos tbody tr:hover {
-            background-color: #f8f9ff !important;
+            background-color: #f8f9ff;
             transform: scale(1.01);
             box-shadow: 0 3px 10px rgba(0,0,0,0.08);
         }
-
-        .table-productos tbody td {
-            padding: 15px;
-            vertical-align: middle;
-            color: #2c3e50;
-        }
-
-        @media (max-width: 991px) {
-            .table-productos tbody td {
-                padding: 12px 10px;
-            }
-        }
-
-        @media (max-width: 767px) {
-            .table-productos tbody td {
-                padding: 10px 8px;
-            }
-        }
-
-        @media (max-width: 480px) {
-            .table-productos tbody td {
-                padding: 8px 5px;
-                font-size: 11px;
-            }
-        }
         
-        /* Número de orden */
         .numero-orden {
             font-weight: 700;
             font-size: 16px;
@@ -243,50 +191,14 @@ if (!empty($params)) {
             justify-content: center;
         }
         
-        @media (max-width: 991px) {
-            .numero-orden {
-                width: 35px;
-                height: 35px;
-                font-size: 14px;
-            }
-        }
-        
-        @media (max-width: 767px) {
-            .numero-orden {
-                width: 30px;
-                height: 30px;
-                font-size: 12px;
-            }
-        }
-        
-        @media (max-width: 480px) {
-            .numero-orden {
-                width: 25px;
-                height: 25px;
-                font-size: 11px;
-            }
-        }
-        
-        /* Botones de acción */
         .btn-action {
-            padding: 6px 12px;
-            border-radius: 6px;
-            font-size: 12px;
+            padding: 8px 15px;
+            border-radius: 8px;
+            font-size: 13px;
             font-weight: 500;
             transition: all 0.3s ease;
             border: none;
             margin: 2px;
-        }
-        
-        @media (max-width: 767px) {
-            .btn-action {
-                padding: 5px 8px;
-                font-size: 10px;
-            }
-            
-            .btn-action span {
-                display: none;
-            }
         }
         
         .btn-editar {
@@ -298,6 +210,7 @@ if (!empty($params)) {
             background: linear-gradient(135deg, #2980b9, #21618c);
             color: white;
             transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(52, 152, 219, 0.4);
         }
         
         .btn-eliminar {
@@ -309,47 +222,43 @@ if (!empty($params)) {
             background: linear-gradient(135deg, #c0392b, #a93226);
             color: white;
             transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(231, 76, 60, 0.4);
         }
         
-        /* Ocultar columnas en móviles */
-        .hide-mobile {
-            display: table-cell;
-        }
-        
-        @media (max-width: 767px) {
-            .hide-mobile {
-                display: none !important;
-            }
-        }
-        
-        /* Badges de etiquetas */
         .badge-propietario {
-            font-size: 10px;
-            padding: 4px 8px;
-            font-weight: 600;
+            font-size: 11px;
+            padding: 5px 10px;
+            border-radius: 15px;
         }
         
         .badge-lorena {
-            background: linear-gradient(135deg, #27ae60, #229954);
+            background: linear-gradient(135deg, #667eea, #764ba2);
             color: white;
         }
         
         .badge-francisco {
-            background: linear-gradient(135deg, #f39c12, #e67e22);
+            background: linear-gradient(135deg, #f093fb, #f5576c);
             color: white;
         }
         
         .badge-declara {
-            background: linear-gradient(135deg, #3498db, #2980b9);
+            background: linear-gradient(135deg, #4facfe, #00f2fe);
             color: white;
         }
         
         .badge-no-declara {
-            background: linear-gradient(135deg, #e74c3c, #c0392b);
+            background: linear-gradient(135deg, #fa709a, #fee140);
             color: white;
         }
         
-        /* Total de productos */
+        .filtros-card {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        
         .total-productos {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
@@ -359,22 +268,10 @@ if (!empty($params)) {
             box-shadow: 0 4px 15px rgba(0,0,0,0.1);
         }
         
-        @media (max-width: 767px) {
-            .total-productos {
-                padding: 15px;
-            }
-        }
-        
         .total-productos h5 {
             margin: 0;
             font-weight: 600;
             font-size: 18px;
-        }
-        
-        @media (max-width: 767px) {
-            .total-productos h5 {
-                font-size: 14px;
-            }
         }
         
         .total-productos .numero {
@@ -382,27 +279,6 @@ if (!empty($params)) {
             font-weight: 700;
         }
         
-        @media (max-width: 767px) {
-            .total-productos .numero {
-                font-size: 24px;
-            }
-        }
-        
-        /* Filtros */
-        .filtros-card {
-            background: #f8f9fa;
-            padding: 20px;
-            border-radius: 10px;
-            margin-bottom: 20px;
-        }
-        
-        @media (max-width: 767px) {
-            .filtros-card {
-                padding: 15px;
-            }
-        }
-        
-        /* Copyright Footer */
         .copyright-footer {
             background: white;
             border-radius: 15px;
@@ -422,23 +298,26 @@ if (!empty($params)) {
         }
         
         @media (max-width: 767px) {
-            .copyright-footer {
-                padding: 15px;
-                font-size: 12px;
+            .hide-mobile {
+                display: none !important;
             }
             
-            .copyright-footer strong {
-                font-size: 14px;
+            .btn-action span {
+                display: none;
+            }
+            
+            .btn-action {
+                padding: 6px 10px;
+                font-size: 11px;
             }
         }
     </style>
 </head>
-<body>
-    <!-- Navbar -->
-    <nav class="navbar navbar-expand-lg navbar-light navbar-custom">
+<body><!-- NAVBAR -->
+    <nav class="navbar navbar-expand-lg navbar-custom">
         <div class="container-fluid">
             <a class="navbar-brand" href="index.php">
-                <i class="fas fa-truck"></i> Distribuidora LORENA
+                <i class="fas fa-store"></i> Distribuidora LORENA
             </a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
                 <span class="navbar-toggler-icon"></span>
@@ -446,65 +325,62 @@ if (!empty($params)) {
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav ms-auto">
                     <li class="nav-item">
-                        <a class="nav-link" href="index.php">
-                            <i class="fas fa-home"></i> Inicio
-                        </a>
+                        <a class="nav-link" href="index.php"><i class="fas fa-home"></i> Inicio</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="rutas.php">
-                            <i class="fas fa-route"></i> Rutas
-                        </a>
+                        <a class="nav-link active" href="productos.php"><i class="fas fa-box"></i> Productos</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link active" href="productos.php">
-                            <i class="fas fa-box"></i> Productos
-                        </a>
+                        <a class="nav-link" href="rutas.php"><i class="fas fa-route"></i> Rutas</a>
                     </li>
                     <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown">
-                            <i class="fas fa-clipboard-list"></i> Operaciones
+                        <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
+                            <i class="fas fa-dolly"></i> Movimientos
                         </a>
                         <ul class="dropdown-menu">
-                            <li><a class="dropdown-item" href="salidas.php"><i class="fas fa-arrow-up"></i> Salidas</a></li>
+                            <li><a class="dropdown-item" href="salidas.php"><i class="fas fa-truck-loading"></i> Salidas</a></li>
                             <li><a class="dropdown-item" href="recargas.php"><i class="fas fa-sync"></i> Recargas</a></li>
-                            <li><a class="dropdown-item" href="retornos.php"><i class="fas fa-arrow-down"></i> Retornos</a></li>
+                            <li><a class="dropdown-item" href="retornos.php"><i class="fas fa-undo"></i> Retornos</a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="ventas_directas.php"><i class="fas fa-cash-register"></i> Ventas Directas</a></li>
+                            <li><a class="dropdown-item" href="devoluciones_directas.php"><i class="fas fa-exchange-alt"></i> Devoluciones</a></li>
                         </ul>
                     </li>
                     <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle" href="#" id="navbarDropdownInventario" role="button" data-bs-toggle="dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
                             <i class="fas fa-warehouse"></i> Inventario
                         </a>
                         <ul class="dropdown-menu">
                             <li><a class="dropdown-item" href="inventario.php"><i class="fas fa-boxes"></i> Ver Inventario</a></li>
-                            <li><a class="dropdown-item" href="inventario_ingresos.php"><i class="fas fa-plus-circle"></i> Ingresos</a></li>
+                            <li><a class="dropdown-item" href="inventario_ingresos.php"><i class="fas fa-plus-circle"></i> Registrar Ingreso</a></li>
                             <li><a class="dropdown-item" href="inventario_movimientos.php"><i class="fas fa-exchange-alt"></i> Movimientos</a></li>
                             <li><a class="dropdown-item" href="inventario_danados.php"><i class="fas fa-exclamation-triangle"></i> Productos Dañados</a></li>
-                        </ul>
-                    </li>
-                    <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle" href="#" id="navbarDropdownVentas" role="button" data-bs-toggle="dropdown">
-                            <i class="fas fa-shopping-cart"></i> Ventas
-                        </a>
-                        <ul class="dropdown-menu">
-                            <li><a class="dropdown-item" href="ventas_directas.php"><i class="fas fa-cash-register"></i> Ventas Directas</a></li>
-                            <li><a class="dropdown-item" href="devoluciones_directas.php"><i class="fas fa-undo"></i> Devoluciones</a></li>
                             <li><a class="dropdown-item" href="consumo_interno.php"><i class="fas fa-utensils"></i> Consumo Interno</a></li>
                         </ul>
                     </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="generar_pdf.php">
-                            <i class="fas fa-file-pdf"></i> Reportes
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
+                            <i class="fas fa-chart-line"></i> Reportes
                         </a>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="liquidaciones.php"><i class="fas fa-calculator"></i> Liquidaciones</a></li>
+                            <li><a class="dropdown-item" href="generar_pdf.php"><i class="fas fa-file-pdf"></i> Generar PDF</a></li>
+                        </ul>
                     </li>
-                    <li class="nav-item">
-                        <a class="nav-link text-danger" href="logout.php">
-                            <i class="fas fa-sign-out-alt"></i> Salir
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
+                            <i class="fas fa-user"></i> <?php echo $_SESSION['nombre']; ?>
                         </a>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            <li><a class="dropdown-item" href="logout.php"><i class="fas fa-sign-out-alt"></i> Cerrar Sesión</a></li>
+                        </ul>
                     </li>
                 </ul>
             </div>
         </div>
-    </nav><!-- Dashboard Container -->
+    </nav>
+
+    <!-- Dashboard Container -->
     <div class="dashboard-container">
         <div class="content-card">
             <h1 class="page-title">
@@ -589,6 +465,7 @@ if (!empty($params)) {
                             <th>Producto</th>
                             <th width="100" class="text-center">Precio Caja</th>
                             <th width="100" class="text-center hide-mobile">Precio Unit.</th>
+                            <th width="100" class="text-center hide-mobile">Unid/Caja</th> <!-- NUEVO -->
                             <th width="100" class="text-center hide-mobile">Tipo</th>
                             <th width="120" class="text-center hide-mobile">Propietario</th>
                             <th width="120" class="text-center hide-mobile">Declaración</th>
@@ -619,6 +496,14 @@ if (!empty($params)) {
                                             <span class="text-muted">-</span>
                                         <?php endif; ?>
                                     </td>
+                                    <!-- NUEVO: Mostrar unidades por caja -->
+                                    <td class="text-center hide-mobile">
+                                        <?php if ($producto['unidades_por_caja']): ?>
+                                            <span class="badge bg-warning text-dark"><?php echo $producto['unidades_por_caja']; ?> unid.</span>
+                                        <?php else: ?>
+                                            <span class="text-muted">-</span>
+                                        <?php endif; ?>
+                                    </td>
                                     <td class="text-center hide-mobile">
                                         <span class="badge bg-secondary"><?php echo htmlspecialchars($producto['tipo']); ?></span>
                                     </td>
@@ -638,6 +523,7 @@ if (!empty($params)) {
                                                 data-nombre="<?php echo htmlspecialchars($producto['nombre']); ?>"
                                                 data-precio-caja="<?php echo $producto['precio_caja']; ?>"
                                                 data-precio-unitario="<?php echo $producto['precio_unitario']; ?>"
+                                                data-unidades-caja="<?php echo $producto['unidades_por_caja']; ?>"
                                                 data-tipo="<?php echo $producto['tipo']; ?>"
                                                 data-propietario="<?php echo $producto['etiqueta_propietario']; ?>"
                                                 data-declaracion="<?php echo $producto['etiqueta_declaracion']; ?>"
@@ -658,7 +544,7 @@ if (!empty($params)) {
                             ?>
                         <?php else: ?>
                             <tr>
-                                <td colspan="8" class="text-center text-muted py-5">
+                                <td colspan="9" class="text-center text-muted py-5">
                                     <i class="fas fa-inbox fa-3x mb-3 d-block"></i>
                                     <h5>No hay productos registrados</h5>
                                     <p>Comienza agregando productos usando el botón de arriba</p>
@@ -680,9 +566,7 @@ if (!empty($params)) {
                 <small>Desarrollado por: Cristian Hernandez</small>
             </p>
         </div>
-    </div>
-
-    <!-- Modal Agregar Producto -->
+    </div><!-- Modal Agregar Producto -->
     <div class="modal fade" id="modalAgregar" tabindex="-1">
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
@@ -714,6 +598,18 @@ if (!empty($params)) {
                                 <div id="precio_unitario_agregar_container" style="display: none;">
                                     <input type="number" class="form-control" name="precio_unitario" id="precio_unitario_agregar" step="0.01" min="0" placeholder="0.00">
                                     <small class="text-muted">Precio cuando se vende por unidad individual</small>
+                                </div>
+                            </div>
+                            
+                            <!-- NUEVO: Campo unidades por caja -->
+                            <div class="col-md-12 mb-3">
+                                <label class="form-label fw-bold">
+                                    <input type="checkbox" id="agregar_unidades_caja" onchange="toggleUnidadesCajaAgregar()">
+                                    ¿Cuántas unidades tiene una caja? (Opcional)
+                                </label>
+                                <div id="unidades_caja_agregar_container" style="display: none;">
+                                    <input type="number" class="form-control" name="unidades_por_caja" id="unidades_por_caja_agregar" min="1" step="1" placeholder="Ej: 24">
+                                    <small class="text-muted">Ejemplo: Si una caja tiene 24 botellas, ingrese 24. Esto ayuda a calcular inventario por unidades.</small>
                                 </div>
                             </div>
                             
@@ -789,6 +685,18 @@ if (!empty($params)) {
                                 </label>
                                 <div id="precio_unitario_editar_container" style="display: none;">
                                     <input type="number" class="form-control" name="precio_unitario" id="edit_precio_unitario" step="0.01" min="0">
+                                </div>
+                            </div>
+                            
+                            <!-- NUEVO: Campo unidades por caja en editar -->
+                            <div class="col-md-12 mb-3">
+                                <label class="form-label fw-bold">
+                                    <input type="checkbox" id="editar_unidades_caja" onchange="toggleUnidadesCajaEditar()">
+                                    ¿Cuántas unidades tiene una caja? (Opcional)
+                                </label>
+                                <div id="unidades_caja_editar_container" style="display: none;">
+                                    <input type="number" class="form-control" name="unidades_por_caja" id="edit_unidades_por_caja" min="1" step="1" placeholder="Ej: 24">
+                                    <small class="text-muted">Ejemplo: Si una caja tiene 24 botellas, ingrese 24. Esto ayuda a calcular inventario por unidades.</small>
                                 </div>
                             </div>
                             
@@ -902,12 +810,45 @@ if (!empty($params)) {
             }
         }
         
-        // Función para editar producto
+        // NUEVO: Toggle unidades por caja en agregar
+        function toggleUnidadesCajaAgregar() {
+            const checkbox = document.getElementById('agregar_unidades_caja');
+            const container = document.getElementById('unidades_caja_agregar_container');
+            const input = document.getElementById('unidades_por_caja_agregar');
+            
+            if (checkbox.checked) {
+                container.style.display = 'block';
+                input.required = true;
+            } else {
+                container.style.display = 'none';
+                input.required = false;
+                input.value = '';
+            }
+        }
+        
+        // NUEVO: Toggle unidades por caja en editar
+        function toggleUnidadesCajaEditar() {
+            const checkbox = document.getElementById('editar_unidades_caja');
+            const container = document.getElementById('unidades_caja_editar_container');
+            const input = document.getElementById('edit_unidades_por_caja');
+            
+            if (checkbox.checked) {
+                container.style.display = 'block';
+                input.required = true;
+            } else {
+                container.style.display = 'none';
+                input.required = false;
+                input.value = '';
+            }
+        }
+        
+        // Función para editar producto - ACTUALIZADA
         function editarProducto(button) {
             const id = button.getAttribute('data-id');
             const nombre = button.getAttribute('data-nombre');
             const precioCaja = button.getAttribute('data-precio-caja');
             const precioUnitario = button.getAttribute('data-precio-unitario');
+            const unidadesCaja = button.getAttribute('data-unidades-caja'); // NUEVO
             const tipo = button.getAttribute('data-tipo');
             const propietario = button.getAttribute('data-propietario');
             const declaracion = button.getAttribute('data-declaracion');
@@ -920,20 +861,37 @@ if (!empty($params)) {
             document.getElementById('edit_declaracion').value = declaracion;
             
             // Manejar precio unitario
-            const checkbox = document.getElementById('editar_precio_unitario');
-            const container = document.getElementById('precio_unitario_editar_container');
-            const input = document.getElementById('edit_precio_unitario');
+            const checkboxPrecio = document.getElementById('editar_precio_unitario');
+            const containerPrecio = document.getElementById('precio_unitario_editar_container');
+            const inputPrecio = document.getElementById('edit_precio_unitario');
             
             if (precioUnitario && precioUnitario !== 'null' && precioUnitario !== '') {
-                checkbox.checked = true;
-                container.style.display = 'block';
-                input.value = precioUnitario;
-                input.required = true;
+                checkboxPrecio.checked = true;
+                containerPrecio.style.display = 'block';
+                inputPrecio.value = precioUnitario;
+                inputPrecio.required = true;
             } else {
-                checkbox.checked = false;
-                container.style.display = 'none';
-                input.value = '';
-                input.required = false;
+                checkboxPrecio.checked = false;
+                containerPrecio.style.display = 'none';
+                inputPrecio.value = '';
+                inputPrecio.required = false;
+            }
+            
+            // NUEVO: Manejar unidades por caja
+            const checkboxUnidades = document.getElementById('editar_unidades_caja');
+            const containerUnidades = document.getElementById('unidades_caja_editar_container');
+            const inputUnidades = document.getElementById('edit_unidades_por_caja');
+            
+            if (unidadesCaja && unidadesCaja !== 'null' && unidadesCaja !== '' && unidadesCaja !== '0') {
+                checkboxUnidades.checked = true;
+                containerUnidades.style.display = 'block';
+                inputUnidades.value = unidadesCaja;
+                inputUnidades.required = true;
+            } else {
+                checkboxUnidades.checked = false;
+                containerUnidades.style.display = 'none';
+                inputUnidades.value = '';
+                inputUnidades.required = false;
             }
             
             const modal = new bootstrap.Modal(document.getElementById('modalEditar'));
@@ -946,9 +904,7 @@ if (!empty($params)) {
             
             const modal = new bootstrap.Modal(document.getElementById('modalEliminar'));
             modal.show();
-        }
-        
-        // Responsive navbar
+        }// Responsive navbar
         document.addEventListener('DOMContentLoaded', function() {
             const navbarToggler = document.querySelector('.navbar-toggler');
             const navbarCollapse = document.querySelector('.navbar-collapse');
@@ -967,7 +923,7 @@ if (!empty($params)) {
                 });
             }
             
-            // Mejorar experiencia táctil
+            // Mejorar experiencia táctil en dispositivos móviles
             if ('ontouchstart' in window) {
                 document.querySelectorAll('.btn').forEach(element => {
                     element.addEventListener('touchstart', function() {
@@ -982,7 +938,7 @@ if (!empty($params)) {
                 });
             }
             
-            // Manejar orientación
+            // Manejar orientación en dispositivos móviles
             function handleOrientationChange() {
                 const orientation = window.innerHeight > window.innerWidth ? 'portrait' : 'landscape';
                 document.body.setAttribute('data-orientation', orientation);
@@ -998,7 +954,7 @@ if (!empty($params)) {
             }
         });
         
-        // Auto-ocultar alerta
+        // Auto-ocultar alerta después de 5 segundos
         window.addEventListener('load', function() {
             const alert = document.querySelector('.alert-dismissible');
             if (alert) {
@@ -1008,6 +964,141 @@ if (!empty($params)) {
                 }, 5000);
             }
         });
+        
+        // Validación de formularios
+        document.getElementById('formAgregar').addEventListener('submit', function(e) {
+            const nombre = this.querySelector('[name="nombre"]').value.trim();
+            const precioCaja = parseFloat(this.querySelector('[name="precio_caja"]').value);
+            
+            if (nombre.length < 3) {
+                e.preventDefault();
+                alert('El nombre del producto debe tener al menos 3 caracteres');
+                return false;
+            }
+            
+            if (precioCaja <= 0) {
+                e.preventDefault();
+                alert('El precio por caja debe ser mayor a 0');
+                return false;
+            }
+            
+            // NUEVO: Validar unidades por caja si está marcado
+            const checkboxUnidades = document.getElementById('agregar_unidades_caja');
+            if (checkboxUnidades.checked) {
+                const unidadesCaja = parseInt(this.querySelector('[name="unidades_por_caja"]').value);
+                if (!unidadesCaja || unidadesCaja < 1) {
+                    e.preventDefault();
+                    alert('Las unidades por caja deben ser al menos 1');
+                    return false;
+                }
+            }
+        });
+        
+        document.getElementById('formEditar').addEventListener('submit', function(e) {
+            const nombre = this.querySelector('[name="nombre"]').value.trim();
+            const precioCaja = parseFloat(this.querySelector('[name="precio_caja"]').value);
+            
+            if (nombre.length < 3) {
+                e.preventDefault();
+                alert('El nombre del producto debe tener al menos 3 caracteres');
+                return false;
+            }
+            
+            if (precioCaja <= 0) {
+                e.preventDefault();
+                alert('El precio por caja debe ser mayor a 0');
+                return false;
+            }
+            
+            // NUEVO: Validar unidades por caja si está marcado
+            const checkboxUnidades = document.getElementById('editar_unidades_caja');
+            if (checkboxUnidades.checked) {
+                const unidadesCaja = parseInt(this.querySelector('[name="unidades_por_caja"]').value);
+                if (!unidadesCaja || unidadesCaja < 1) {
+                    e.preventDefault();
+                    alert('Las unidades por caja deben ser al menos 1');
+                    return false;
+                }
+            }
+        });
+        
+        // Confirmación adicional antes de eliminar
+        document.getElementById('formEliminar').addEventListener('submit', function(e) {
+            const nombre = document.getElementById('delete_nombre').textContent;
+            
+            if (!confirm(`¿Está COMPLETAMENTE SEGURO que desea eliminar el producto "${nombre}"?`)) {
+                e.preventDefault();
+                return false;
+            }
+        });
+        
+        // Limpiar formularios al cerrar modales
+        document.getElementById('modalAgregar').addEventListener('hidden.bs.modal', function() {
+            document.getElementById('formAgregar').reset();
+            document.getElementById('precio_unitario_agregar_container').style.display = 'none';
+            document.getElementById('unidades_caja_agregar_container').style.display = 'none'; // NUEVO
+            document.getElementById('agregar_precio_unitario').checked = false;
+            document.getElementById('agregar_unidades_caja').checked = false; // NUEVO
+        });
+        
+        document.getElementById('modalEditar').addEventListener('hidden.bs.modal', function() {
+            document.getElementById('formEditar').reset();
+            document.getElementById('precio_unitario_editar_container').style.display = 'none';
+            document.getElementById('unidades_caja_editar_container').style.display = 'none'; // NUEVO
+            document.getElementById('editar_precio_unitario').checked = false;
+            document.getElementById('editar_unidades_caja').checked = false; // NUEVO
+        });
+        
+        // Efecto hover mejorado para filas de tabla en desktop
+        if (window.innerWidth > 768) {
+            document.querySelectorAll('.table-productos tbody tr').forEach(row => {
+                row.addEventListener('mouseenter', function() {
+                    this.style.transform = 'scale(1.01)';
+                });
+                
+                row.addEventListener('mouseleave', function() {
+                    this.style.transform = 'scale(1)';
+                });
+            });
+        }
+        
+        // Prevenir doble submit
+        const forms = document.querySelectorAll('form');
+        forms.forEach(form => {
+            form.addEventListener('submit', function() {
+                const submitBtn = this.querySelector('button[type="submit"]');
+                if (submitBtn && !submitBtn.disabled) {
+                    submitBtn.disabled = true;
+                    const originalText = submitBtn.innerHTML;
+                    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Procesando...';
+                    
+                    // Re-habilitar después de 3 segundos por si hay error
+                    setTimeout(() => {
+                        submitBtn.disabled = false;
+                        submitBtn.innerHTML = originalText;
+                    }, 3000);
+                }
+            });
+        });
+        
+        // Detectar si hay filtros activos y mostrar indicador
+        const filtroTipo = '<?php echo $filtro_tipo; ?>';
+        const busqueda = '<?php echo $busqueda; ?>';
+        
+        if (filtroTipo !== 'todos' || busqueda !== '') {
+            console.log('Filtros activos:', {tipo: filtroTipo, busqueda: busqueda});
+        }
+        
+        // Log de debugging para desarrollo
+        console.log('===========================================');
+        console.log('GESTIÓN DE PRODUCTOS - DISTRIBUIDORA LORENA');
+        console.log('===========================================');
+        console.log('✅ Sistema cargado correctamente');
+        console.log('📦 Total de productos:', <?php echo $productos->num_rows; ?>);
+        console.log('🔍 Filtros aplicados:', filtroTipo !== 'todos' || busqueda !== '' ? 'Sí' : 'No');
+        console.log('📱 Dispositivo:', 'ontouchstart' in window ? 'Táctil' : 'Desktop');
+        console.log('🖥️ Ancho de pantalla:', window.innerWidth + 'px');
+        console.log('===========================================');
     </script>
 </body>
 </html>

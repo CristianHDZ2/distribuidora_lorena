@@ -118,6 +118,7 @@ $rutas = $conn->query("SELECT * FROM rutas WHERE activo = 1 ORDER BY nombre ASC"
             box-shadow: 0 2px 8px rgba(0,0,0,0.1);
             border-radius: 10px;
             overflow: hidden;
+            background: white;
         }
         
         @media (max-width: 767px) {
@@ -135,16 +136,16 @@ $rutas = $conn->query("SELECT * FROM rutas WHERE activo = 1 ORDER BY nombre ASC"
         }
         
         .table-rutas thead {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
 }
 
 .table-rutas thead th {
     color: white !important;
-    font-weight: 600;
+    font-weight: 600 !important;
     text-transform: uppercase;
     font-size: 13px;
     letter-spacing: 0.5px;
-    padding: 18px 15px;
+    padding: 18px 15px !important;
     border: none !important;
     vertical-align: middle;
     background: transparent !important;
@@ -152,14 +153,14 @@ $rutas = $conn->query("SELECT * FROM rutas WHERE activo = 1 ORDER BY nombre ASC"
         
         @media (max-width: 991px) {
             .table-rutas thead th {
-                padding: 15px 12px;
+                padding: 15px 12px !important;
                 font-size: 12px;
             }
         }
         
         @media (max-width: 767px) {
             .table-rutas thead th {
-                padding: 12px 8px;
+                padding: 12px 8px !important;
                 font-size: 11px;
                 letter-spacing: 0.3px;
             }
@@ -167,7 +168,7 @@ $rutas = $conn->query("SELECT * FROM rutas WHERE activo = 1 ORDER BY nombre ASC"
         
         @media (max-width: 480px) {
             .table-rutas thead th {
-                padding: 10px 5px;
+                padding: 10px 5px !important;
                 font-size: 10px;
             }
         }
@@ -175,10 +176,11 @@ $rutas = $conn->query("SELECT * FROM rutas WHERE activo = 1 ORDER BY nombre ASC"
         .table-rutas tbody tr {
             transition: all 0.3s ease;
             border-bottom: 1px solid #e9ecef;
+            background: white;
         }
         
         .table-rutas tbody tr:hover {
-            background-color: #f8f9ff;
+            background-color: #f8f9ff !important;
             transform: scale(1.01);
             box-shadow: 0 3px 10px rgba(0,0,0,0.08);
         }
@@ -186,6 +188,7 @@ $rutas = $conn->query("SELECT * FROM rutas WHERE activo = 1 ORDER BY nombre ASC"
         .table-rutas tbody td {
             padding: 15px;
             vertical-align: middle;
+            color: #2c3e50;
         }
         
         @media (max-width: 991px) {
@@ -203,6 +206,7 @@ $rutas = $conn->query("SELECT * FROM rutas WHERE activo = 1 ORDER BY nombre ASC"
         @media (max-width: 480px) {
             .table-rutas tbody td {
                 padding: 8px 5px;
+                font-size: 11px;
             }
         }
         
@@ -448,26 +452,6 @@ $rutas = $conn->query("SELECT * FROM rutas WHERE activo = 1 ORDER BY nombre ASC"
             }
         }
         
-        /* Header container responsivo */
-        .header-container {
-            margin-bottom: 20px;
-            display: flex;
-            justify-content: flex-end;
-            align-items: center;
-            gap: 10px;
-        }
-        
-        @media (max-width: 767px) {
-            .header-container {
-                justify-content: center;
-                flex-direction: column;
-            }
-            
-            .header-container .btn {
-                width: 100%;
-            }
-        }
-        
         /* Copyright Footer */
         .copyright-footer {
             background: white;
@@ -500,13 +484,11 @@ $rutas = $conn->query("SELECT * FROM rutas WHERE activo = 1 ORDER BY nombre ASC"
     </style>
 </head>
 <body>
-    <!-- ============================================
-         NAVBAR RESPONSIVA
-         ============================================ -->
-    <nav class="navbar navbar-expand-lg navbar-custom">
+    <!-- Navbar -->
+    <nav class="navbar navbar-expand-lg navbar-light navbar-custom">
         <div class="container-fluid">
             <a class="navbar-brand" href="index.php">
-                <i class="fas fa-store"></i> Distribuidora LORENA
+                <i class="fas fa-truck"></i> Distribuidora LORENA
             </a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
                 <span class="navbar-toggler-icon"></span>
@@ -514,68 +496,72 @@ $rutas = $conn->query("SELECT * FROM rutas WHERE activo = 1 ORDER BY nombre ASC"
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav ms-auto">
                     <li class="nav-item">
-                        <a class="nav-link" href="index.php"><i class="fas fa-home"></i> Inicio</a>
+                        <a class="nav-link" href="index.php">
+                            <i class="fas fa-home"></i> Inicio
+                        </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="productos.php"><i class="fas fa-box"></i> Productos</a>
+                        <a class="nav-link active" href="rutas.php">
+                            <i class="fas fa-route"></i> Rutas
+                        </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link active" href="rutas.php"><i class="fas fa-route"></i> Rutas</a>
+                        <a class="nav-link" href="productos.php">
+                            <i class="fas fa-box"></i> Productos
+                        </a>
                     </li>
                     <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
-                            <i class="fas fa-dolly"></i> Movimientos
+                        <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown">
+                            <i class="fas fa-clipboard-list"></i> Operaciones
                         </a>
                         <ul class="dropdown-menu">
-                            <li><a class="dropdown-item" href="salidas.php"><i class="fas fa-truck-loading"></i> Salidas</a></li>
+                            <li><a class="dropdown-item" href="salidas.php"><i class="fas fa-arrow-up"></i> Salidas</a></li>
                             <li><a class="dropdown-item" href="recargas.php"><i class="fas fa-sync"></i> Recargas</a></li>
-                            <li><a class="dropdown-item" href="retornos.php"><i class="fas fa-undo"></i> Retornos</a></li>
-                            <li><hr class="dropdown-divider"></li>
-                            <li><a class="dropdown-item" href="ventas_directas.php"><i class="fas fa-cash-register"></i> Ventas Directas</a></li>
-                            <li><a class="dropdown-item" href="devoluciones_directas.php"><i class="fas fa-exchange-alt"></i> Devoluciones</a></li>
+                            <li><a class="dropdown-item" href="retornos.php"><i class="fas fa-arrow-down"></i> Retornos</a></li>
                         </ul>
                     </li>
                     <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="navbarDropdownInventario" role="button" data-bs-toggle="dropdown">
                             <i class="fas fa-warehouse"></i> Inventario
                         </a>
                         <ul class="dropdown-menu">
                             <li><a class="dropdown-item" href="inventario.php"><i class="fas fa-boxes"></i> Ver Inventario</a></li>
-                            <li><a class="dropdown-item" href="inventario_ingresos.php"><i class="fas fa-plus-circle"></i> Registrar Ingreso</a></li>
+                            <li><a class="dropdown-item" href="inventario_ingresos.php"><i class="fas fa-plus-circle"></i> Ingresos</a></li>
                             <li><a class="dropdown-item" href="inventario_movimientos.php"><i class="fas fa-exchange-alt"></i> Movimientos</a></li>
                             <li><a class="dropdown-item" href="inventario_danados.php"><i class="fas fa-exclamation-triangle"></i> Productos Dañados</a></li>
+                        </ul>
+                    </li>
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="navbarDropdownVentas" role="button" data-bs-toggle="dropdown">
+                            <i class="fas fa-shopping-cart"></i> Ventas
+                        </a>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="ventas_directas.php"><i class="fas fa-cash-register"></i> Ventas Directas</a></li>
+                            <li><a class="dropdown-item" href="devoluciones_directas.php"><i class="fas fa-undo"></i> Devoluciones</a></li>
                             <li><a class="dropdown-item" href="consumo_interno.php"><i class="fas fa-utensils"></i> Consumo Interno</a></li>
                         </ul>
                     </li>
-                    <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
-                            <i class="fas fa-chart-line"></i> Reportes
+                    <li class="nav-item">
+                        <a class="nav-link" href="generar_pdf.php">
+                            <i class="fas fa-file-pdf"></i> Reportes
                         </a>
-                        <ul class="dropdown-menu">
-                            <li><a class="dropdown-item" href="liquidaciones.php"><i class="fas fa-calculator"></i> Liquidaciones</a></li>
-                            <li><a class="dropdown-item" href="generar_pdf.php"><i class="fas fa-file-pdf"></i> Generar PDF</a></li>
-                        </ul>
                     </li>
-                    <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
-                            <i class="fas fa-user"></i> <?php echo $_SESSION['nombre']; ?>
+                    <li class="nav-item">
+                        <a class="nav-link text-danger" href="logout.php">
+                            <i class="fas fa-sign-out-alt"></i> Salir
                         </a>
-                        <ul class="dropdown-menu dropdown-menu-end">
-                            <li><a class="dropdown-item" href="logout.php"><i class="fas fa-sign-out-alt"></i> Cerrar Sesión</a></li>
-                        </ul>
                     </li>
                 </ul>
             </div>
         </div>
     </nav>
-
-    <div class="container-fluid mt-4">
-        <div class="page-header">
-            <h1><i class="fas fa-route"></i> Gestión de Rutas</h1>
-            <p class="text-muted">Administre las rutas de distribución de la empresa</p>
-        </div>
-        
+<!-- Dashboard Container -->
+    <div class="dashboard-container">
         <div class="content-card">
+            <h1 class="page-title">
+                <i class="fas fa-route"></i> Gestión de Rutas
+            </h1>
+            
             <div class="alert alert-info alert-custom">
                 <i class="fas fa-info-circle"></i>
                 <strong>Instrucciones:</strong> 
@@ -592,7 +578,7 @@ $rutas = $conn->query("SELECT * FROM rutas WHERE activo = 1 ORDER BY nombre ASC"
             <?php endif; ?>
             
             <!-- Header con botón agregar -->
-            <div class="header-container">
+            <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
                 <button class="btn btn-custom-primary" data-bs-toggle="modal" data-bs-target="#modalAgregar">
                     <i class="fas fa-plus"></i> Agregar Nueva Ruta
                 </button>
