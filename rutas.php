@@ -15,10 +15,11 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     if ($accion == 'agregar') {
         $nombre = limpiarInput($_POST['nombre']);
         $descripcion = limpiarInput($_POST['descripcion']);
+        $tipo_productos = $_POST['tipo_productos'] ?? 'Varios'; // AGREGADO
         
         if (!empty($nombre)) {
-            $stmt = $conn->prepare("INSERT INTO rutas (nombre, descripcion) VALUES (?, ?)");
-            $stmt->bind_param("ss", $nombre, $descripcion);
+            $stmt = $conn->prepare("INSERT INTO rutas (nombre, descripcion, tipo_productos) VALUES (?, ?, ?)"); // MODIFICADO
+            $stmt->bind_param("sss", $nombre, $descripcion, $tipo_productos); // MODIFICADO
             
             if ($stmt->execute()) {
                 $mensaje = 'Ruta agregada exitosamente';
@@ -41,10 +42,11 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         $id = intval($_POST['id']);
         $nombre = limpiarInput($_POST['nombre']);
         $descripcion = limpiarInput($_POST['descripcion']);
+        $tipo_productos = $_POST['tipo_productos'] ?? 'Varios'; // AGREGADO
         
         if (!empty($nombre) && $id > 0) {
-            $stmt = $conn->prepare("UPDATE rutas SET nombre = ?, descripcion = ? WHERE id = ?");
-            $stmt->bind_param("ssi", $nombre, $descripcion, $id);
+            $stmt = $conn->prepare("UPDATE rutas SET nombre = ?, descripcion = ?, tipo_productos = ? WHERE id = ?"); // MODIFICADO
+            $stmt->bind_param("sssi", $nombre, $descripcion, $tipo_productos, $id); // MODIFICADO
             
             if ($stmt->execute()) {
                 $mensaje = 'Ruta actualizada exitosamente';
@@ -282,6 +284,38 @@ $rutas = $conn->query("SELECT * FROM rutas WHERE activo = 1 ORDER BY nombre ASC"
             }
         }
         
+        /* NUEVO: Badges para tipo de productos */
+        .badge-tipo-producto {
+            font-size: 11px;
+            padding: 5px 10px;
+            border-radius: 15px;
+            font-weight: 600;
+            display: inline-block;
+            margin-top: 5px;
+        }
+        
+        .badge-big-cola {
+            background: linear-gradient(135deg, #e74c3c, #c0392b);
+            color: white;
+        }
+        
+        .badge-varios {
+            background: linear-gradient(135deg, #3498db, #2980b9);
+            color: white;
+        }
+        
+        .badge-ambos {
+            background: linear-gradient(135deg, #27ae60, #229954);
+            color: white;
+        }
+        
+        @media (max-width: 480px) {
+            .badge-tipo-producto {
+                font-size: 9px;
+                padding: 3px 8px;
+            }
+        }
+        
         /* Botones de acción */
         .btn-action {
             padding: 8px 15px;
@@ -466,11 +500,13 @@ $rutas = $conn->query("SELECT * FROM rutas WHERE activo = 1 ORDER BY nombre ASC"
     </style>
 </head>
 <body>
-    <!-- Navbar -->
-    <nav class="navbar navbar-expand-lg navbar-light navbar-custom">
+    <!-- ============================================
+         NAVBAR RESPONSIVA
+         ============================================ -->
+    <nav class="navbar navbar-expand-lg navbar-custom">
         <div class="container-fluid">
             <a class="navbar-brand" href="index.php">
-                <i class="fas fa-truck"></i> Distribuidora LORENA
+                <i class="fas fa-store"></i> Distribuidora LORENA
             </a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
                 <span class="navbar-toggler-icon"></span>
@@ -478,76 +514,72 @@ $rutas = $conn->query("SELECT * FROM rutas WHERE activo = 1 ORDER BY nombre ASC"
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav ms-auto">
                     <li class="nav-item">
-                        <a class="nav-link" href="index.php">
-                            <i class="fas fa-home"></i> Inicio
-                        </a>
+                        <a class="nav-link" href="index.php"><i class="fas fa-home"></i> Inicio</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link active" href="rutas.php">
-                            <i class="fas fa-route"></i> Rutas
-                        </a>
+                        <a class="nav-link" href="productos.php"><i class="fas fa-box"></i> Productos</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="productos.php">
-                            <i class="fas fa-box"></i> Productos
-                        </a>
+                        <a class="nav-link active" href="rutas.php"><i class="fas fa-route"></i> Rutas</a>
                     </li>
                     <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown">
-                            <i class="fas fa-clipboard-list"></i> Operaciones
+                        <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
+                            <i class="fas fa-dolly"></i> Movimientos
                         </a>
                         <ul class="dropdown-menu">
-                            <li><a class="dropdown-item" href="salidas.php"><i class="fas fa-arrow-up"></i> Salidas</a></li>
+                            <li><a class="dropdown-item" href="salidas.php"><i class="fas fa-truck-loading"></i> Salidas</a></li>
                             <li><a class="dropdown-item" href="recargas.php"><i class="fas fa-sync"></i> Recargas</a></li>
-                            <li><a class="dropdown-item" href="retornos.php"><i class="fas fa-arrow-down"></i> Retornos</a></li>
+                            <li><a class="dropdown-item" href="retornos.php"><i class="fas fa-undo"></i> Retornos</a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="ventas_directas.php"><i class="fas fa-cash-register"></i> Ventas Directas</a></li>
+                            <li><a class="dropdown-item" href="devoluciones_directas.php"><i class="fas fa-exchange-alt"></i> Devoluciones</a></li>
                         </ul>
                     </li>
                     <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle" href="#" id="navbarDropdownInventario" role="button" data-bs-toggle="dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
                             <i class="fas fa-warehouse"></i> Inventario
                         </a>
                         <ul class="dropdown-menu">
                             <li><a class="dropdown-item" href="inventario.php"><i class="fas fa-boxes"></i> Ver Inventario</a></li>
-                            <li><a class="dropdown-item" href="inventario_ingresos.php"><i class="fas fa-plus-circle"></i> Ingresos</a></li>
+                            <li><a class="dropdown-item" href="inventario_ingresos.php"><i class="fas fa-plus-circle"></i> Registrar Ingreso</a></li>
                             <li><a class="dropdown-item" href="inventario_movimientos.php"><i class="fas fa-exchange-alt"></i> Movimientos</a></li>
                             <li><a class="dropdown-item" href="inventario_danados.php"><i class="fas fa-exclamation-triangle"></i> Productos Dañados</a></li>
-                        </ul>
-                    </li>
-                    <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle" href="#" id="navbarDropdownVentas" role="button" data-bs-toggle="dropdown">
-                            <i class="fas fa-shopping-cart"></i> Ventas
-                        </a>
-                        <ul class="dropdown-menu">
-                            <li><a class="dropdown-item" href="ventas_directas.php"><i class="fas fa-cash-register"></i> Ventas Directas</a></li>
-                            <li><a class="dropdown-item" href="devoluciones_directas.php"><i class="fas fa-undo"></i> Devoluciones</a></li>
                             <li><a class="dropdown-item" href="consumo_interno.php"><i class="fas fa-utensils"></i> Consumo Interno</a></li>
                         </ul>
                     </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="generar_pdf.php">
-                            <i class="fas fa-file-pdf"></i> Reportes
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
+                            <i class="fas fa-chart-line"></i> Reportes
                         </a>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="liquidaciones.php"><i class="fas fa-calculator"></i> Liquidaciones</a></li>
+                            <li><a class="dropdown-item" href="generar_pdf.php"><i class="fas fa-file-pdf"></i> Generar PDF</a></li>
+                        </ul>
                     </li>
-                    <li class="nav-item">
-                        <a class="nav-link text-danger" href="logout.php">
-                            <i class="fas fa-sign-out-alt"></i> Salir
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
+                            <i class="fas fa-user"></i> <?php echo $_SESSION['nombre']; ?>
                         </a>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            <li><a class="dropdown-item" href="logout.php"><i class="fas fa-sign-out-alt"></i> Cerrar Sesión</a></li>
+                        </ul>
                     </li>
                 </ul>
             </div>
         </div>
     </nav>
 
-    <!-- Dashboard Container -->
-    <div class="dashboard-container">
+    <div class="container-fluid mt-4">
+        <div class="page-header">
+            <h1><i class="fas fa-route"></i> Gestión de Rutas</h1>
+            <p class="text-muted">Administre las rutas de distribución de la empresa</p>
+        </div>
+        
         <div class="content-card">
-            <h1 class="page-title">
-                <i class="fas fa-route"></i> Gestión de Rutas
-            </h1>
-            
             <div class="alert alert-info alert-custom">
                 <i class="fas fa-info-circle"></i>
-                <strong>Instrucciones:</strong> Administre las rutas de distribución del sistema. Puede agregar nuevas rutas, editar las existentes o desactivarlas cuando sea necesario.
+                <strong>Instrucciones:</strong> 
+                Puede agregar nuevas rutas, editar las existentes o desactivarlas cuando sea necesario.
             </div>
             
             <!-- Mensaje de éxito/error -->
@@ -593,6 +625,13 @@ $rutas = $conn->query("SELECT * FROM rutas WHERE activo = 1 ORDER BY nombre ASC"
                             $contador = 1; // Contador para numeración ordenada
                             $rutas->data_seek(0); // Reset del puntero
                             while ($ruta = $rutas->fetch_assoc()): 
+                                // NUEVO: Determinar clase del badge según tipo
+                                $badge_clase = 'badge-varios';
+                                if ($ruta['tipo_productos'] == 'Big Cola') {
+                                    $badge_clase = 'badge-big-cola';
+                                } elseif ($ruta['tipo_productos'] == 'Ambos') {
+                                    $badge_clase = 'badge-ambos';
+                                }
                             ?>
                                 <tr>
                                     <td class="text-center">
@@ -604,6 +643,10 @@ $rutas = $conn->query("SELECT * FROM rutas WHERE activo = 1 ORDER BY nombre ASC"
                                             <?php if (!empty($ruta['descripcion'])): ?>
                                                 <p><?php echo htmlspecialchars($ruta['descripcion']); ?></p>
                                             <?php endif; ?>
+                                            <!-- NUEVO: Badge de tipo de productos -->
+                                            <span class="badge-tipo-producto <?php echo $badge_clase; ?>">
+                                                <?php echo htmlspecialchars($ruta['tipo_productos']); ?>
+                                            </span>
                                         </div>
                                     </td>
                                     <td class="text-center hide-mobile">
@@ -617,6 +660,7 @@ $rutas = $conn->query("SELECT * FROM rutas WHERE activo = 1 ORDER BY nombre ASC"
                                                 data-id="<?php echo $ruta['id']; ?>"
                                                 data-nombre="<?php echo htmlspecialchars($ruta['nombre']); ?>"
                                                 data-descripcion="<?php echo htmlspecialchars($ruta['descripcion']); ?>"
+                                                data-tipo="<?php echo htmlspecialchars($ruta['tipo_productos']); ?>"
                                                 onclick="editarRuta(this)"
                                                 title="Editar">
                                             <i class="fas fa-edit"></i> <span>Editar</span>
@@ -656,7 +700,9 @@ $rutas = $conn->query("SELECT * FROM rutas WHERE activo = 1 ORDER BY nombre ASC"
                 <small>Desarrollado por: Cristian Hernandez</small>
             </p>
         </div>
-    </div><!-- Modal Agregar Ruta -->
+    </div>
+
+    <!-- Modal Agregar Ruta -->
     <div class="modal fade" id="modalAgregar" tabindex="-1">
         <div class="modal-dialog">
             <div class="modal-content">
@@ -678,6 +724,17 @@ $rutas = $conn->query("SELECT * FROM rutas WHERE activo = 1 ORDER BY nombre ASC"
                             <label class="form-label fw-bold">Descripción</label>
                             <textarea class="form-control" name="descripcion" rows="3" placeholder="Descripción opcional de la ruta"></textarea>
                             <small class="text-muted">Puede incluir zonas, clientes o detalles adicionales</small>
+                        </div>
+                        
+                        <!-- NUEVO: Campo tipo de productos -->
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Tipo de Productos *</label>
+                            <select class="form-select" name="tipo_productos" required>
+                                <option value="Varios">Varios</option>
+                                <option value="Big Cola">Big Cola</option>
+                                <option value="Ambos">Ambos</option>
+                            </select>
+                            <small class="text-muted">Seleccione qué tipo de productos se venderán en esta ruta</small>
                         </div>
                     </div>
                     <div class="modal-footer">
@@ -716,6 +773,17 @@ $rutas = $conn->query("SELECT * FROM rutas WHERE activo = 1 ORDER BY nombre ASC"
                             <label class="form-label fw-bold">Descripción</label>
                             <textarea class="form-control" name="descripcion" id="edit_descripcion" rows="3" placeholder="Descripción opcional de la ruta"></textarea>
                             <small class="text-muted">Puede incluir zonas, clientes o detalles adicionales</small>
+                        </div>
+                        
+                        <!-- NUEVO: Campo tipo de productos -->
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Tipo de Productos *</label>
+                            <select class="form-select" name="tipo_productos" id="edit_tipo_productos" required>
+                                <option value="Varios">Varios</option>
+                                <option value="Big Cola">Big Cola</option>
+                                <option value="Ambos">Ambos</option>
+                            </select>
+                            <small class="text-muted">Seleccione qué tipo de productos se venderán en esta ruta</small>
                         </div>
                     </div>
                     <div class="modal-footer">
@@ -832,19 +900,21 @@ $rutas = $conn->query("SELECT * FROM rutas WHERE activo = 1 ORDER BY nombre ASC"
             console.log('Total de rutas:', <?php echo $rutas->num_rows; ?>);
         });
         
-        // Función para editar ruta - usando data attributes
+        // Función para editar ruta - MODIFICADA para incluir tipo_productos
         function editarRuta(button) {
             // Obtener datos del botón
             const id = button.getAttribute('data-id');
             const nombre = button.getAttribute('data-nombre');
             const descripcion = button.getAttribute('data-descripcion');
+            const tipo = button.getAttribute('data-tipo'); // NUEVO
             
-            console.log('Editando ruta:', {id, nombre, descripcion}); // Para debug
+            console.log('Editando ruta:', {id, nombre, descripcion, tipo}); // Para debug
             
             // Llenar los campos del formulario
             document.getElementById('edit_id').value = id;
             document.getElementById('edit_nombre').value = nombre;
             document.getElementById('edit_descripcion').value = descripcion;
+            document.getElementById('edit_tipo_productos').value = tipo; // NUEVO
             
             // Mostrar el modal
             if (modalEditarInstance) {
