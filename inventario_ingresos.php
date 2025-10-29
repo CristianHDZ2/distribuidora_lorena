@@ -14,10 +14,19 @@ if (isset($_GET['mensaje'])) {
     $tipo_mensaje = $_GET['tipo'] ?? 'info';
 }
 
-// Obtener todos los productos activos ordenados alfabéticamente
-$productos = $conn->query("SELECT * FROM productos WHERE activo = 1 ORDER BY nombre ASC");
+// Obtener todos los productos activos con información de inventario
+$query_productos = "
+    SELECT 
+        p.*,
+        COALESCE(i.stock_actual, 0) as stock_actual
+    FROM productos p
+    LEFT JOIN inventario i ON p.id = i.producto_id
+    WHERE p.activo = 1
+    ORDER BY p.nombre ASC
+";
+$productos = $conn->query($query_productos);
 
-// Obtener últimos 10 ingresos
+// Obtener últimos 10 ingresos con desglose
 $query_ultimos = "
     SELECT 
         mi.id,
@@ -27,6 +36,7 @@ $query_ultimos = "
         mi.stock_nuevo,
         mi.descripcion,
         p.nombre as producto_nombre,
+        p.unidades_por_caja,
         u.nombre as usuario_nombre
     FROM movimientos_inventario mi
     INNER JOIN productos p ON mi.producto_id = p.id
@@ -47,10 +57,6 @@ $ultimos_ingresos = $conn->query($query_ultimos);
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="assets/css/custom.css">
     <style>
-        /* ============================================
-           ESTILOS SIMILARES A PRODUCTOS.PHP
-           ============================================ */
-        
         /* Tabla de ingresos con diseño similar */
         .table-ingresos {
             box-shadow: 0 2px 8px rgba(0,0,0,0.1);
@@ -151,23 +157,23 @@ $ultimos_ingresos = $conn->query($query_ultimos);
         /* Formulario de ingreso */
         .form-section {
             background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-            padding: 30px;
+            padding: 25px;
             border-radius: 15px;
-            margin-bottom: 30px;
+            margin-bottom: 25px;
             box-shadow: 0 4px 15px rgba(0,0,0,0.1);
         }
         
         @media (max-width: 767px) {
             .form-section {
                 padding: 20px;
-                border-radius: 10px;
+                border-radius: 12px;
             }
         }
         
         @media (max-width: 480px) {
             .form-section {
                 padding: 15px;
-                border-radius: 8px;
+                border-radius: 10px;
             }
         }
         
@@ -193,7 +199,64 @@ $ultimos_ingresos = $conn->query($query_ultimos);
             }
         }
         
-        /* Botones del formulario */
+        /* NUEVO: Tabla de productos dinámica */
+        .tabla-productos-ingreso {
+            background: white;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        .tabla-productos-ingreso thead {
+            background: linear-gradient(135deg, #27ae60, #229954);
+        }
+        
+        .tabla-productos-ingreso thead th {
+            color: white !important;
+            font-weight: 600;
+            padding: 12px 10px;
+            font-size: 12px;
+            text-transform: uppercase;
+        }
+        
+        .tabla-productos-ingreso tbody td {
+            padding: 10px;
+            vertical-align: middle;
+        }
+        
+        .tabla-productos-ingreso tbody tr:hover {
+            background-color: #e8f5e9;
+        }
+        
+        /* Info del producto */
+        .producto-info {
+            background: #e3f2fd;
+            border-left: 4px solid #2196f3;
+            padding: 10px;
+            border-radius: 5px;
+            margin-top: 5px;
+            font-size: 11px;
+            display: none;
+        }
+        
+        .producto-info.show {
+            display: block;
+        }
+        
+        /* Switch de unidades */
+        .form-switch .form-check-input {
+            width: 50px;
+            height: 25px;
+            cursor: pointer;
+        }
+        
+        .form-switch .form-check-label {
+            cursor: pointer;
+            margin-left: 10px;
+            font-weight: 600;
+        }
+        
+        /* Botones de acción */
         .btn-action-form {
             padding: 12px 30px;
             font-size: 16px;
@@ -220,6 +283,12 @@ $ultimos_ingresos = $conn->query($query_ultimos);
         .btn-action-form:hover {
             transform: translateY(-2px);
             box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        }
+        
+        /* Botón eliminar fila */
+        .btn-eliminar-fila {
+            padding: 5px 10px;
+            font-size: 12px;
         }
         
         /* Header actions */
@@ -249,24 +318,16 @@ $ultimos_ingresos = $conn->query($query_ultimos);
             }
         }
         
-        /* Badges responsivos */
-        .badge {
-            font-size: 12px;
-            padding: 6px 12px;
-        }
-        
-        @media (max-width: 767px) {
-            .badge {
-                font-size: 11px;
-                padding: 5px 10px;
-            }
-        }
-        
-        @media (max-width: 480px) {
-            .badge {
-                font-size: 10px;
-                padding: 4px 8px;
-            }
+        /* Badge de conversión */
+        .badge-conversion {
+            background: #e3f2fd;
+            color: #0d47a1;
+            font-size: 10px;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            display: inline-block;
+            margin-left: 5px;
         }
         
         /* Copyright Footer */
@@ -388,7 +449,13 @@ $ultimos_ingresos = $conn->query($query_ultimos);
             <div class="alert alert-info alert-custom">
                 <i class="fas fa-info-circle"></i>
                 <strong>Instrucciones:</strong> Utilice este formulario para registrar la entrada de productos al inventario. 
-                Cada ingreso aumentará el stock disponible del producto seleccionado.
+                Puede registrar <strong>múltiples productos a la vez</strong>. Cada ingreso aumentará el stock disponible de los productos seleccionados.
+                <br><strong class="mt-2 d-block">Registro por Unidades:</strong>
+                <ul class="mb-0">
+                    <li>✅ Activa el switch "Por Unidades" para ingresar en unidades individuales</li>
+                    <li>❌ Desmarcado = Ingreso por CAJAS</li>
+                    <li>🔄 El sistema convierte automáticamente unidades a cajas</li>
+                </ul>
             </div>
             
             <!-- Mensaje de éxito/error -->
@@ -400,64 +467,57 @@ $ultimos_ingresos = $conn->query($query_ultimos);
                 </div>
             <?php endif; ?>
 
-            <!-- Formulario de Ingreso -->
+            <!-- Formulario de Ingreso Múltiple -->
             <div class="form-section">
-                <h4><i class="fas fa-clipboard-list"></i> Formulario de Ingreso</h4>
+                <h4><i class="fas fa-clipboard-list"></i> Formulario de Ingreso Múltiple</h4>
                 <form method="POST" action="api/inventario_api.php" id="formIngreso">
-                    <input type="hidden" name="accion" value="registrar_ingreso">
+                    <input type="hidden" name="accion" value="registrar_ingreso_multiple">
                     
-                    <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <label for="producto_id" class="form-label fw-bold">
-                                <i class="fas fa-box"></i> Producto *
-                            </label>
-                            <select class="form-select form-select-lg" id="producto_id" name="producto_id" required>
-                                <option value="">-- Seleccione un producto --</option>
-                                <?php 
-                                $productos->data_seek(0); // Reset pointer
-                                while ($producto = $productos->fetch_assoc()): 
-                                ?>
-                                    <option value="<?php echo $producto['id']; ?>">
-                                        <?php echo htmlspecialchars($producto['nombre']); ?>
-                                        (<?php echo $producto['tipo']; ?>)
-                                    </option>
-                                <?php endwhile; ?>
-                            </select>
-                            <small class="text-muted">Seleccione el producto que ingresará al inventario</small>
-                        </div>
-
-                        <div class="col-md-6 mb-3">
-                            <label for="cantidad" class="form-label fw-bold">
-                                <i class="fas fa-sort-numeric-up"></i> Cantidad *
-                            </label>
-                            <input type="number" class="form-control form-control-lg" id="cantidad" 
-                                   name="cantidad" step="0.1" min="0.1" required 
-                                   placeholder="Ejemplo: 50.5">
-                            <small class="text-muted">Ingrese la cantidad de unidades/cajas que ingresan</small>
-                        </div>
+                    <!-- Tabla de productos -->
+                    <div class="table-responsive mb-3">
+                        <table class="table tabla-productos-ingreso table-hover mb-0" id="tablaProductos">
+                            <thead>
+                                <tr>
+                                    <th width="40" class="text-center">#</th>
+                                    <th>Producto</th>
+                                    <th width="150" class="text-center">Cantidad</th>
+                                    <th width="120" class="text-center">Por Unidades</th>
+                                    <th width="80" class="text-center">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="productosBody">
+                                <!-- Las filas se agregarán dinámicamente -->
+                            </tbody>
+                        </table>
                     </div>
-
+                    
+                    <!-- Botón para agregar producto -->
                     <div class="mb-3">
-                        <label for="descripcion" class="form-label fw-bold">
-                            <i class="fas fa-comment"></i> Descripción / Observaciones
+                        <button type="button" class="btn btn-success" id="btnAgregarProducto">
+                            <i class="fas fa-plus-circle"></i> Agregar Producto
+                        </button>
+                    </div>
+                    
+                    <!-- Descripción general -->
+                    <div class="mb-3">
+                        <label for="descripcion_general" class="form-label fw-bold">
+                            <i class="fas fa-comment"></i> Descripción General (Opcional)
                         </label>
-                        <textarea class="form-control" id="descripcion" name="descripcion" 
-                                  rows="3" placeholder="Ejemplo: Compra de proveedor X, Factura #12345, etc."></textarea>
-                        <small class="text-muted">Agregue detalles opcionales sobre este ingreso</small>
+                        <textarea class="form-control" id="descripcion_general" name="descripcion_general" 
+                                  rows="2" placeholder="Ejemplo: Compra de proveedor X, Factura #12345, etc."></textarea>
+                        <small class="text-muted">Esta descripción se aplicará a todos los productos del ingreso</small>
                     </div>
 
                     <div class="d-flex gap-2 justify-content-end flex-wrap">
-                        <button type="reset" class="btn btn-secondary btn-action-form">
-                            <i class="fas fa-redo"></i> Limpiar
+                        <button type="button" class="btn btn-secondary btn-action-form" id="btnLimpiar">
+                            <i class="fas fa-redo"></i> Limpiar Todo
                         </button>
                         <button type="submit" class="btn btn-custom-primary btn-action-form">
-                            <i class="fas fa-save"></i> Registrar Ingreso
+                            <i class="fas fa-save"></i> Registrar Ingresos
                         </button>
                     </div>
                 </form>
-            </div>
-
-            <!-- Últimos Ingresos -->
+            </div><!-- Últimos Ingresos -->
             <div class="form-section">
                 <h4><i class="fas fa-history"></i> Últimos 10 Ingresos Registrados</h4>
                 
@@ -468,7 +528,7 @@ $ultimos_ingresos = $conn->query($query_ultimos);
                                 <tr>
                                     <th width="180">Fecha y Hora</th>
                                     <th>Producto</th>
-                                    <th width="100" class="text-center">Cantidad</th>
+                                    <th width="150" class="text-center">Cantidad</th>
                                     <th width="100" class="text-center hide-mobile">Stock Anterior</th>
                                     <th width="100" class="text-center">Stock Nuevo</th>
                                     <th class="hide-mobile">Descripción</th>
@@ -476,7 +536,20 @@ $ultimos_ingresos = $conn->query($query_ultimos);
                                 </tr>
                             </thead>
                             <tbody>
-                                <?php while ($ingreso = $ultimos_ingresos->fetch_assoc()): ?>
+                                <?php while ($ingreso = $ultimos_ingresos->fetch_assoc()): 
+                                    $cantidad_cajas = floatval($ingreso['cantidad']);
+                                    $unidades_por_caja = intval($ingreso['unidades_por_caja']);
+                                    
+                                    // Calcular si hay conversión de unidades
+                                    $es_decimal = ($cantidad_cajas != floor($cantidad_cajas));
+                                    $mostrar_conversion = ($es_decimal && $unidades_por_caja > 0);
+                                    
+                                    if ($mostrar_conversion) {
+                                        $cajas_completas = floor($cantidad_cajas);
+                                        $decimal = $cantidad_cajas - $cajas_completas;
+                                        $unidades_sueltas = round($decimal * $unidades_por_caja);
+                                    }
+                                ?>
                                     <tr>
                                         <td>
                                             <small>
@@ -489,20 +562,33 @@ $ultimos_ingresos = $conn->query($query_ultimos);
                                         </td>
                                         <td>
                                             <strong><?php echo htmlspecialchars($ingreso['producto_nombre']); ?></strong>
+                                            <?php if ($unidades_por_caja > 0): ?>
+                                                <br><small class="text-muted"><?php echo $unidades_por_caja; ?> unid/caja</small>
+                                            <?php endif; ?>
                                         </td>
                                         <td class="text-center">
-                                            <span class="badge bg-success">
-                                                +<?php echo number_format($ingreso['cantidad'], 1); ?>
+                                            <span class="badge bg-success" style="font-size: 13px;">
+                                                +<?php echo number_format($cantidad_cajas, 2); ?> cajas
                                             </span>
+                                            <?php if ($mostrar_conversion): ?>
+                                                <br>
+                                                <span class="badge-conversion">
+                                                    <i class="fas fa-box-open"></i>
+                                                    <?php if ($cajas_completas > 0): ?>
+                                                        <?php echo $cajas_completas; ?> caja<?php echo $cajas_completas != 1 ? 's' : ''; ?> + 
+                                                    <?php endif; ?>
+                                                    <?php echo $unidades_sueltas; ?> unid.
+                                                </span>
+                                            <?php endif; ?>
                                         </td>
                                         <td class="text-center hide-mobile">
                                             <small class="text-muted">
-                                                <?php echo number_format($ingreso['stock_anterior'], 1); ?>
+                                                <?php echo number_format($ingreso['stock_anterior'], 2); ?>
                                             </small>
                                         </td>
                                         <td class="text-center">
                                             <strong class="text-success">
-                                                <?php echo number_format($ingreso['stock_nuevo'], 1); ?>
+                                                <?php echo number_format($ingreso['stock_nuevo'], 2); ?>
                                             </strong>
                                         </td>
                                         <td class="hide-mobile">
@@ -543,10 +629,293 @@ $ultimos_ingresos = $conn->query($query_ultimos);
         </div>
     </div>
 
+    <!-- Template de fila de producto (oculto) -->
+    <template id="templateFilaProducto">
+        <tr class="fila-producto">
+            <td class="text-center numero-fila">1</td>
+            <td>
+                <select class="form-select form-select-sm producto-select" name="productos[INDEX][producto_id]" required>
+                    <option value="">-- Seleccione un producto --</option>
+                    <?php 
+                    $productos->data_seek(0);
+                    while ($producto = $productos->fetch_assoc()): 
+                    ?>
+                        <option value="<?php echo $producto['id']; ?>" 
+                                data-unidades-por-caja="<?php echo $producto['unidades_por_caja']; ?>"
+                                data-stock-actual="<?php echo $producto['stock_actual']; ?>"
+                                data-nombre="<?php echo htmlspecialchars($producto['nombre']); ?>">
+                            <?php echo htmlspecialchars($producto['nombre']); ?>
+                        </option>
+                    <?php endwhile; ?>
+                </select>
+                <div class="producto-info">
+                    <i class="fas fa-info-circle"></i> <span class="info-texto"></span>
+                </div>
+            </td>
+            <td class="text-center">
+                <input type="number" 
+                       class="form-control form-control-sm text-center cantidad-input" 
+                       name="productos[INDEX][cantidad]" 
+                       step="1" 
+                       min="0.1" 
+                       required 
+                       placeholder="0">
+                <small class="text-muted cantidad-label">cajas</small>
+            </td>
+            <td class="text-center">
+                <div class="form-check form-switch d-flex justify-content-center">
+                    <input class="form-check-input switch-unidades" 
+                           type="checkbox" 
+                           name="productos[INDEX][por_unidades]" 
+                           value="1"
+                           disabled
+                           title="Seleccione primero un producto">
+                </div>
+            </td>
+            <td class="text-center">
+                <button type="button" class="btn btn-danger btn-sm btn-eliminar-fila" title="Eliminar">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </td>
+        </tr>
+    </template>
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="assets/js/notifications.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
+            let contadorFilas = 0;
+            const productosBody = document.getElementById('productosBody');
+            const btnAgregarProducto = document.getElementById('btnAgregarProducto');
+            const btnLimpiar = document.getElementById('btnLimpiar');
+            const formIngreso = document.getElementById('formIngreso');
+            const template = document.getElementById('templateFilaProducto');
+            
+            // Agregar primera fila al cargar
+            agregarFilaProducto();
+            
+            // Función para agregar fila de producto
+            function agregarFilaProducto() {
+                contadorFilas++;
+                const clone = template.content.cloneNode(true);
+                const tr = clone.querySelector('tr');
+                
+                // Reemplazar INDEX con el contador
+                tr.innerHTML = tr.innerHTML.replace(/INDEX/g, contadorFilas);
+                
+                // Actualizar número de fila
+                tr.querySelector('.numero-fila').textContent = contadorFilas;
+                
+                productosBody.appendChild(tr);
+                
+                // Agregar event listeners a la nueva fila
+                const nuevaFila = productosBody.lastElementChild;
+                configurarEventosFilas(nuevaFila);
+                
+                // Scroll suave a la nueva fila
+                nuevaFila.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
+            
+            // Configurar eventos de cada fila
+            function configurarEventosFilas(fila) {
+                const productoSelect = fila.querySelector('.producto-select');
+                const cantidadInput = fila.querySelector('.cantidad-input');
+                const switchUnidades = fila.querySelector('.switch-unidades');
+                const productoInfo = fila.querySelector('.producto-info');
+                const btnEliminar = fila.querySelector('.btn-eliminar-fila');
+                const cantidadLabel = fila.querySelector('.cantidad-label');
+                
+                // Evento al seleccionar producto
+                productoSelect.addEventListener('change', function() {
+                    const option = this.options[this.selectedIndex];
+                    const unidadesPorCaja = parseInt(option.getAttribute('data-unidades-por-caja')) || 0;
+                    const stockActual = parseFloat(option.getAttribute('data-stock-actual')) || 0;
+                    const nombreProducto = option.getAttribute('data-nombre');
+                    
+                    if (this.value) {
+                        // Habilitar/deshabilitar switch según si tiene unidades_por_caja
+                        if (unidadesPorCaja > 0) {
+                            switchUnidades.disabled = false;
+                            switchUnidades.title = 'Activar para ingresar por unidades';
+                        } else {
+                            switchUnidades.disabled = true;
+                            switchUnidades.checked = false;
+                            switchUnidades.title = 'Este producto no tiene configuradas unidades por caja';
+                            cantidadInput.setAttribute('step', '0.5');
+                            cantidadLabel.textContent = 'cajas';
+                        }
+                        
+                        // Mostrar info del producto
+                        let infoTexto = `<strong>${nombreProducto}</strong><br>`;
+                        infoTexto += `Stock actual: <strong>${stockActual.toFixed(2)} cajas</strong>`;
+                        
+                        if (unidadesPorCaja > 0) {
+                            const totalUnidades = Math.round(stockActual * unidadesPorCaja);
+                            infoTexto += ` (<strong>${totalUnidades} unidades</strong>)`;
+                            infoTexto += `<br>Configuración: <strong>${unidadesPorCaja} unidades por caja</strong>`;
+                        }
+                        
+                        productoInfo.querySelector('.info-texto').innerHTML = infoTexto;
+                        productoInfo.classList.add('show');
+                    } else {
+                        productoInfo.classList.remove('show');
+                        switchUnidades.disabled = true;
+                        switchUnidades.checked = false;
+                    }
+                });
+                
+                // Evento al cambiar el switch de unidades
+                switchUnidades.addEventListener('change', function() {
+                    const option = productoSelect.options[productoSelect.selectedIndex];
+                    const unidadesPorCaja = parseInt(option.getAttribute('data-unidades-por-caja')) || 0;
+                    
+                    if (this.checked && unidadesPorCaja > 0) {
+                        // Modo UNIDADES
+                        cantidadInput.setAttribute('step', '1');
+                        cantidadInput.setAttribute('min', '1');
+                        cantidadLabel.textContent = 'unidades';
+                        cantidadInput.placeholder = 'Ej: 24';
+                        
+                        // Agregar badge visual
+                        if (!fila.querySelector('.badge-modo-unidad')) {
+                            const badge = document.createElement('span');
+                            badge.className = 'badge bg-warning text-dark ms-2 badge-modo-unidad';
+                            badge.innerHTML = '<i class="fas fa-box-open"></i> Modo: Unidades';
+                            productoSelect.parentElement.appendChild(badge);
+                        }
+                        
+                        // Convertir valor si existe
+                        if (cantidadInput.value) {
+                            const valorCajas = parseFloat(cantidadInput.value);
+                            const valorUnidades = Math.round(valorCajas * unidadesPorCaja);
+                            cantidadInput.value = valorUnidades;
+                        }
+                    } else {
+                        // Modo CAJAS
+                        cantidadInput.setAttribute('step', '0.5');
+                        cantidadInput.setAttribute('min', '0.1');
+                        cantidadLabel.textContent = 'cajas';
+                        cantidadInput.placeholder = 'Ej: 10';
+                        
+                        // Remover badge
+                        const badge = fila.querySelector('.badge-modo-unidad');
+                        if (badge) badge.remove();
+                        
+                        // Convertir valor si existe
+                        if (cantidadInput.value && unidadesPorCaja > 0) {
+                            const valorUnidades = parseFloat(cantidadInput.value);
+                            const valorCajas = (valorUnidades / unidadesPorCaja).toFixed(2);
+                            cantidadInput.value = valorCajas;
+                        }
+                    }
+                });
+                
+                // Validar cantidad en tiempo real
+                cantidadInput.addEventListener('input', function() {
+                    const valor = parseFloat(this.value) || 0;
+                    if (valor < 0) {
+                        this.value = 0;
+                    }
+                });
+                
+                // Formatear al perder el foco
+                cantidadInput.addEventListener('blur', function() {
+                    if (this.value && parseFloat(this.value) > 0) {
+                        if (switchUnidades.checked) {
+                            // Unidades: número entero
+                            this.value = Math.round(parseFloat(this.value));
+                        } else {
+                            // Cajas: dos decimales
+                            this.value = parseFloat(this.value).toFixed(2);
+                        }
+                    }
+                });
+                
+                // Eliminar fila
+                btnEliminar.addEventListener('click', function() {
+                    const totalFilas = productosBody.querySelectorAll('tr').length;
+                    
+                    if (totalFilas > 1) {
+                        if (confirm('¿Está seguro que desea eliminar este producto?')) {
+                            fila.remove();
+                            renumerarFilas();
+                        }
+                    } else {
+                        alert('Debe mantener al menos un producto en la lista');
+                    }
+                });
+            }
+            
+            // Renumerar filas después de eliminar
+            function renumerarFilas() {
+                const filas = productosBody.querySelectorAll('tr');
+                filas.forEach((fila, index) => {
+                    fila.querySelector('.numero-fila').textContent = index + 1;
+                });
+            }
+            
+            // Botón agregar producto
+            btnAgregarProducto.addEventListener('click', function() {
+                agregarFilaProducto();
+            });
+            
+            // Botón limpiar todo
+            btnLimpiar.addEventListener('click', function() {
+                if (confirm('¿Está seguro que desea limpiar todos los productos?')) {
+                    productosBody.innerHTML = '';
+                    contadorFilas = 0;
+                    agregarFilaProducto();
+                    document.getElementById('descripcion_general').value = '';
+                }
+            });
+            
+            // Validación del formulario
+            formIngreso.addEventListener('submit', function(e) {
+                const filas = productosBody.querySelectorAll('tr');
+                let productosValidos = 0;
+                let errores = [];
+                
+                filas.forEach((fila, index) => {
+                    const productoSelect = fila.querySelector('.producto-select');
+                    const cantidadInput = fila.querySelector('.cantidad-input');
+                    const productoId = productoSelect.value;
+                    const cantidad = parseFloat(cantidadInput.value) || 0;
+                    
+                    if (productoId && cantidad > 0) {
+                        productosValidos++;
+                    } else if (productoId && cantidad <= 0) {
+                        errores.push(`Fila ${index + 1}: Debe ingresar una cantidad mayor a 0`);
+                    } else if (!productoId && cantidad > 0) {
+                        errores.push(`Fila ${index + 1}: Debe seleccionar un producto`);
+                    }
+                });
+                
+                if (productosValidos === 0) {
+                    e.preventDefault();
+                    alert('Debe agregar al menos un producto con cantidad válida');
+                    return false;
+                }
+                
+                if (errores.length > 0) {
+                    e.preventDefault();
+                    alert('Errores encontrados:\n\n' + errores.join('\n'));
+                    return false;
+                }
+                
+                // Confirmar el ingreso
+                if (!confirm(`¿Confirma el ingreso de ${productosValidos} producto(s)?`)) {
+                    e.preventDefault();
+                    return false;
+                }
+                
+                // Deshabilitar botón para evitar doble envío
+                const submitBtn = this.querySelector('button[type="submit"]');
+                if (submitBtn) {
+                    submitBtn.disabled = true;
+                    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Procesando...';
+                }
+            });
+            
             // Responsive navbar
             const navbarToggler = document.querySelector('.navbar-toggler');
             const navbarCollapse = document.querySelector('.navbar-collapse');
@@ -604,55 +973,14 @@ $ultimos_ingresos = $conn->query($query_ultimos);
                 }, 5000);
             }
             
-            // Validación del formulario
-            const formIngreso = document.getElementById('formIngreso');
-            if (formIngreso) {
-                formIngreso.addEventListener('submit', function(e) {
-                    const producto = document.getElementById('producto_id').value;
-                    const cantidad = parseFloat(document.getElementById('cantidad').value);
-                    
-                    if (!producto) {
-                        e.preventDefault();
-                        alert('Por favor seleccione un producto');
-                        return false;
-                    }
-                    
-                    if (isNaN(cantidad) || cantidad <= 0) {
-                        e.preventDefault();
-                        alert('Por favor ingrese una cantidad válida mayor a 0');
-                        return false;
-                    }
-                    
-                    // Confirmar el ingreso
-                    const productoNombre = document.getElementById('producto_id').options[document.getElementById('producto_id').selectedIndex].text;
-                    
-                    if (!confirm(`¿Confirma el ingreso de ${cantidad} unidades de ${productoNombre}?`)) {
-                        e.preventDefault();
-                        return false;
-                    }
-                    
-                    // Deshabilitar botón para evitar doble envío
-                    const submitBtn = this.querySelector('button[type="submit"]');
-                    if (submitBtn) {
-                        submitBtn.disabled = true;
-                        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Procesando...';
-                    }
-                });
-            }
-            
-            // Prevenir números negativos en el campo cantidad
-            const cantidadInput = document.getElementById('cantidad');
-            if (cantidadInput) {
-                cantidadInput.addEventListener('input', function() {
-                    if (this.value < 0) {
-                        this.value = 0;
-                    }
-                });
-            }
-            
-            console.log('Inventario Ingresos cargado correctamente');
-            console.log('Total de productos activos:', <?php echo $productos->num_rows; ?>);
-            console.log('Sistema de notificaciones activo');
+            console.log('===========================================');
+            console.log('INGRESOS MÚLTIPLES - DISTRIBUIDORA LORENA');
+            console.log('===========================================');
+            console.log('✅ Sistema cargado correctamente');
+            console.log('📦 Ingreso múltiple de productos activado');
+            console.log('🔄 Conversión automática unidades/cajas activada');
+            console.log('📊 Total de productos disponibles:', <?php echo $productos->num_rows; ?>);
+            console.log('===========================================');
         });
     </script>
 </body>

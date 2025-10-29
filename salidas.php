@@ -85,52 +85,76 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 $usa_precio_unitario = isset($datos['precio_unitario']) && $datos['precio_unitario'] == '1' ? 1 : 0;
                 
                 if ($cantidad > 0) {
-                    // Verificar stock disponible
-                    $stmt_stock = $conn->prepare("SELECT stock_actual FROM inventario WHERE producto_id = ?");
-                    $stmt_stock->bind_param("i", $producto_id);
-                    $stmt_stock->execute();
-                    $result_stock = $stmt_stock->get_result();
+                    // NUEVO: Obtener información del producto para conversión
+                    $stmt_producto = $conn->prepare("
+                        SELECT p.nombre, p.precio_caja, p.precio_unitario, p.unidades_por_caja,
+                               COALESCE(i.stock_actual, 0) as stock_actual
+                        FROM productos p
+                        LEFT JOIN inventario i ON p.id = i.producto_id
+                        WHERE p.id = ?
+                    ");
+                    $stmt_producto->bind_param("i", $producto_id);
+                    $stmt_producto->execute();
+                    $result_producto = $stmt_producto->get_result();
                     
-                    if ($result_stock->num_rows > 0) {
-                        $stock = $result_stock->fetch_assoc();
-                        $stock_disponible = floatval($stock['stock_actual']);
-                        
-                        if ($cantidad > $stock_disponible) {
-                            throw new Exception("No hay suficiente stock para el producto ID: $producto_id. Stock disponible: $stock_disponible");
-                        }
-                        
-                        $stmt_stock->close();
-                    } else {
-                        throw new Exception("No existe inventario para el producto ID: $producto_id");
+                    if ($result_producto->num_rows == 0) {
+                        throw new Exception("Producto ID: $producto_id no encontrado");
                     }
                     
-                    // Obtener el precio usado
-                    $stmt_precio = $conn->prepare("SELECT precio_caja, precio_unitario FROM productos WHERE id = ?");
-                    $stmt_precio->bind_param("i", $producto_id);
-                    $stmt_precio->execute();
-                    $result_precio = $stmt_precio->get_result();
-                    $producto_info = $result_precio->fetch_assoc();
-                    $stmt_precio->close();
+                    $producto_info = $result_producto->fetch_assoc();
+                    $stmt_producto->close();
                     
-                    $precio_usado = $usa_precio_unitario ? $producto_info['precio_unitario'] : $producto_info['precio_caja'];
+                    $nombre_producto = $producto_info['nombre'];
+                    $precio_caja = floatval($producto_info['precio_caja']);
+                    $precio_unitario = floatval($producto_info['precio_unitario']);
+                    $unidades_por_caja = intval($producto_info['unidades_por_caja']);
+                    $stock_actual = floatval($producto_info['stock_actual']);
                     
-                    // Insertar la salida
+                    // NUEVO: Convertir cantidad a cajas si es venta por unidad
+                    $cantidad_en_cajas = $cantidad;
+                    if ($usa_precio_unitario == 1 && $unidades_por_caja > 0) {
+                        // Convertir unidades a cajas
+                        $cantidad_en_cajas = $cantidad / $unidades_por_caja;
+                    }
+                    
+                    // Verificar stock disponible EN CAJAS
+                    if ($cantidad_en_cajas > $stock_actual) {
+                        $stock_unidades = ($unidades_por_caja > 0) ? ($stock_actual * $unidades_por_caja) : 0;
+                        
+                        if ($usa_precio_unitario == 1 && $unidades_por_caja > 0) {
+                            throw new Exception("Stock insuficiente para {$nombre_producto}. Intentas sacar {$cantidad} unidades (" . number_format($cantidad_en_cajas, 2) . " cajas) pero solo hay {$stock_actual} cajas disponibles ({$stock_unidades} unidades)");
+                        } else {
+                            throw new Exception("Stock insuficiente para {$nombre_producto}. Intentas sacar {$cantidad} cajas pero solo hay {$stock_actual} cajas disponibles");
+                        }
+                    }
+                    
+                    // Determinar el precio usado
+                    $precio_usado = $usa_precio_unitario ? $precio_unitario : $precio_caja;
+                    
+                    // Insertar la salida (guardamos la cantidad ORIGINAL ingresada por el usuario)
                     $stmt->bind_param("iididsi", $ruta_id, $producto_id, $cantidad, $usa_precio_unitario, $precio_usado, $fecha, $usuario_id);
                     $stmt->execute();
                     
-                    // Descontar del inventario
+                    // MODIFICADO: Descontar del inventario EN CAJAS
                     $stmt_update = $conn->prepare("UPDATE inventario SET stock_actual = stock_actual - ? WHERE producto_id = ?");
-                    $stmt_update->bind_param("di", $cantidad, $producto_id);
+                    $stmt_update->bind_param("di", $cantidad_en_cajas, $producto_id);
                     $stmt_update->execute();
                     $stmt_update->close();
                     
                     // Registrar movimiento de inventario
+                    $tipo_texto = ($usa_precio_unitario == 1) ? "unidades" : "cajas";
+                    $desc_movimiento = "Salida - Ruta ID: {$ruta_id} - {$cantidad} {$tipo_texto} de {$nombre_producto}";
+                    
+                    if ($usa_precio_unitario == 1 && $unidades_por_caja > 0) {
+                        $desc_movimiento .= " (equivale a " . number_format($cantidad_en_cajas, 2) . " cajas)";
+                    }
+                    
                     $stmt_mov = $conn->prepare("
                         INSERT INTO movimientos_inventario (producto_id, tipo_movimiento, cantidad, stock_anterior, stock_nuevo, usuario_id, descripcion)
-                        SELECT ?, 'SALIDA', ?, stock_actual + ?, stock_actual, ?, CONCAT('Salida - Ruta ID: ', ?)
+                        SELECT ?, 'SALIDA', ?, stock_actual + ?, stock_actual, ?, ?
                         FROM inventario WHERE producto_id = ?
                     ");
-                    $stmt_mov->bind_param("iddiis", $producto_id, $cantidad, $cantidad, $usuario_id, $ruta_id, $producto_id);
+                    $stmt_mov->bind_param("idddis", $producto_id, $cantidad_en_cajas, $cantidad_en_cajas, $usuario_id, $desc_movimiento, $producto_id);
                     $stmt_mov->execute();
                     $stmt_mov->close();
                 }
@@ -498,7 +522,8 @@ if (isset($_GET['mensaje'])) {
         }
     </style>
 </head>
-<body><!-- Navbar -->
+<body>
+    <!-- Navbar -->
     <nav class="navbar navbar-expand-lg navbar-light navbar-custom">
         <div class="container-fluid">
             <a class="navbar-brand" href="index.php">
@@ -597,7 +622,7 @@ if (isset($_GET['mensaje'])) {
                 </ul>
                 <strong class="mt-2 d-block">Precio Unitario:</strong>
                 <ul class="mb-0">
-                    <li>✅ Marcado = Se venden <strong>UNIDADES</strong></li>
+                    <li>✅ Marcado = Se venden <strong>UNIDADES</strong> (el sistema convierte automáticamente a cajas)</li>
                     <li>❌ Desmarcado = Se venden <strong>CAJAS</strong></li>
                 </ul>
             </div>
@@ -697,6 +722,7 @@ if (isset($_GET['mensaje'])) {
                                         while ($producto = $productos_big_cola->fetch_assoc()): 
                                             $stock_actual = floatval($producto['stock_actual']);
                                             $stock_minimo = floatval($producto['stock_minimo']);
+                                            $unidades_por_caja = intval($producto['unidades_por_caja']);
                                             $cantidad_existente = $salidas_existentes[$producto['id']]['cantidad'] ?? 0;
                                             $usa_precio_unit_existente = $salidas_existentes[$producto['id']]['usa_precio_unitario'] ?? 0;
                                             
@@ -716,6 +742,9 @@ if (isset($_GET['mensaje'])) {
                                                 $stock_clase = 'badge-stock-ok';
                                                 $stock_texto = 'Stock OK';
                                             }
+                                            
+                                            // Calcular total de unidades
+                                            $total_unidades = ($unidades_por_caja > 0) ? ($stock_actual * $unidades_por_caja) : 0;
                                         ?>
                                             <tr>
                                                 <td class="text-center">
@@ -723,11 +752,17 @@ if (isset($_GET['mensaje'])) {
                                                 </td>
                                                 <td>
                                                     <strong><?php echo htmlspecialchars($producto['nombre']); ?></strong>
+                                                    <?php if ($unidades_por_caja > 0): ?>
+                                                        <br><small class="text-muted"><?php echo $unidades_por_caja; ?> unid/caja</small>
+                                                    <?php endif; ?>
                                                 </td>
                                                 <td class="text-center">
                                                     <span class="badge badge-stock <?php echo $stock_clase; ?>">
-                                                        <?php echo number_format($stock_actual, 1); ?>
+                                                        <?php echo number_format($stock_actual, 1); ?> cajas
                                                     </span>
+                                                    <?php if ($unidades_por_caja > 0): ?>
+                                                        <br><small class="text-muted"><?php echo $total_unidades; ?> unid.</small>
+                                                    <?php endif; ?>
                                                     <br>
                                                     <small class="text-muted"><?php echo $stock_texto; ?></small>
                                                 </td>
@@ -749,14 +784,17 @@ if (isset($_GET['mensaje'])) {
                                                                value="<?php echo $cantidad_existente > 0 ? number_format($cantidad_existente, 1, '.', '') : ''; ?>"
                                                                min="0" 
                                                                max="<?php echo $stock_actual; ?>"
-                                                               step="<?php echo !empty($producto['precio_unitario']) ? '1' : '0.5'; ?>" 
-                                                               placeholder="0">
+                                                               step="<?php echo !empty($producto['precio_unitario']) && $unidades_por_caja > 0 ? '1' : '0.5'; ?>" 
+                                                               placeholder="0"
+                                                               data-unidades-por-caja="<?php echo $unidades_por_caja; ?>"
+                                                               data-stock-cajas="<?php echo $stock_actual; ?>"
+                                                               data-total-unidades="<?php echo $total_unidades; ?>">
                                                     <?php else: ?>
                                                         <input type="number" class="form-control input-cantidad" value="0" disabled>
                                                     <?php endif; ?>
                                                 </td>
                                                 <td class="text-center">
-                                                    <?php if ($puede_registrar && !empty($producto['precio_unitario'])): ?>
+                                                    <?php if ($puede_registrar && !empty($producto['precio_unitario']) && $unidades_por_caja > 0): ?>
                                                         <div class="form-check d-flex justify-content-center">
                                                             <input class="form-check-input" 
                                                                    type="checkbox" 
@@ -809,6 +847,7 @@ if (isset($_GET['mensaje'])) {
                                         while ($producto = $productos_varios->fetch_assoc()): 
                                             $stock_actual = floatval($producto['stock_actual']);
                                             $stock_minimo = floatval($producto['stock_minimo']);
+                                            $unidades_por_caja = intval($producto['unidades_por_caja']);
                                             $cantidad_existente = $salidas_existentes[$producto['id']]['cantidad'] ?? 0;
                                             $usa_precio_unit_existente = $salidas_existentes[$producto['id']]['usa_precio_unitario'] ?? 0;
                                             
@@ -828,6 +867,9 @@ if (isset($_GET['mensaje'])) {
                                                 $stock_clase = 'badge-stock-ok';
                                                 $stock_texto = 'Stock OK';
                                             }
+                                            
+                                            // Calcular total de unidades
+                                            $total_unidades = ($unidades_por_caja > 0) ? ($stock_actual * $unidades_por_caja) : 0;
                                         ?>
                                             <tr>
                                                 <td class="text-center">
@@ -835,11 +877,17 @@ if (isset($_GET['mensaje'])) {
                                                 </td>
                                                 <td>
                                                     <strong><?php echo htmlspecialchars($producto['nombre']); ?></strong>
+                                                    <?php if ($unidades_por_caja > 0): ?>
+                                                        <br><small class="text-muted"><?php echo $unidades_por_caja; ?> unid/caja</small>
+                                                    <?php endif; ?>
                                                 </td>
                                                 <td class="text-center">
                                                     <span class="badge badge-stock <?php echo $stock_clase; ?>">
-                                                        <?php echo number_format($stock_actual, 1); ?>
+                                                        <?php echo number_format($stock_actual, 1); ?> cajas
                                                     </span>
+                                                    <?php if ($unidades_por_caja > 0): ?>
+                                                        <br><small class="text-muted"><?php echo $total_unidades; ?> unid.</small>
+                                                    <?php endif; ?>
                                                     <br>
                                                     <small class="text-muted"><?php echo $stock_texto; ?></small>
                                                 </td>
@@ -861,14 +909,17 @@ if (isset($_GET['mensaje'])) {
                                                                value="<?php echo $cantidad_existente > 0 ? number_format($cantidad_existente, 1, '.', '') : ''; ?>"
                                                                min="0" 
                                                                max="<?php echo $stock_actual; ?>"
-                                                               step="<?php echo !empty($producto['precio_unitario']) ? '1' : '0.5'; ?>" 
-                                                               placeholder="0">
+                                                               step="<?php echo !empty($producto['precio_unitario']) && $unidades_por_caja > 0 ? '1' : '0.5'; ?>" 
+                                                               placeholder="0"
+                                                               data-unidades-por-caja="<?php echo $unidades_por_caja; ?>"
+                                                               data-stock-cajas="<?php echo $stock_actual; ?>"
+                                                               data-total-unidades="<?php echo $total_unidades; ?>">
                                                     <?php else: ?>
                                                         <input type="number" class="form-control input-cantidad" value="0" disabled>
                                                     <?php endif; ?>
                                                 </td>
                                                 <td class="text-center">
-                                                    <?php if ($puede_registrar && !empty($producto['precio_unitario'])): ?>
+                                                    <?php if ($puede_registrar && !empty($producto['precio_unitario']) && $unidades_por_caja > 0): ?>
                                                         <div class="form-check d-flex justify-content-center">
                                                             <input class="form-check-input" 
                                                                    type="checkbox" 
@@ -928,7 +979,9 @@ if (isset($_GET['mensaje'])) {
                 <small>Desarrollado por: Cristian Hernandez</small>
             </p>
         </div>
-    </div><script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="assets/js/notifications.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
@@ -1001,16 +1054,35 @@ if (isset($_GET['mensaje'])) {
                     
                     inputs.forEach(input => {
                         const cantidad = parseFloat(input.value) || 0;
-                        const max = parseFloat(input.getAttribute('max')) || 0;
+                        const unidadesPorCaja = parseInt(input.getAttribute('data-unidades-por-caja')) || 0;
+                        const stockCajas = parseFloat(input.getAttribute('data-stock-cajas')) || 0;
+                        const totalUnidades = parseInt(input.getAttribute('data-total-unidades')) || 0;
+                        
+                        // Encontrar el checkbox correspondiente
+                        const row = input.closest('tr');
+                        const checkbox = row ? row.querySelector('input[type="checkbox"]') : null;
+                        const usaPrecioUnitario = checkbox ? checkbox.checked : false;
                         
                         if (cantidad > 0) {
                             tieneCantidad = true;
                             
-                            // Verificar que no exceda el stock
-                            if (cantidad > max) {
-                                errorStock = true;
-                                const productoNombre = input.closest('tr').querySelector('strong').textContent;
-                                errorMessage += `\n- ${productoNombre}: Cantidad ingresada (${cantidad}) excede el stock disponible (${max})`;
+                            // NUEVA VALIDACIÓN: Verificar stock según tipo de venta
+                            if (usaPrecioUnitario && unidadesPorCaja > 0) {
+                                // Venta por UNIDAD - convertir a cajas
+                                const cajasEquivalentes = cantidad / unidadesPorCaja;
+                                
+                                if (cajasEquivalentes > stockCajas) {
+                                    errorStock = true;
+                                    const productoNombre = row.querySelector('strong').textContent;
+                                    errorMessage += `\n- ${productoNombre}: Intentas sacar ${cantidad} unidades (${cajasEquivalentes.toFixed(2)} cajas) pero solo hay ${stockCajas} cajas (${totalUnidades} unidades)`;
+                                }
+                            } else {
+                                // Venta por CAJA
+                                if (cantidad > stockCajas) {
+                                    errorStock = true;
+                                    const productoNombre = row.querySelector('strong').textContent;
+                                    errorMessage += `\n- ${productoNombre}: Cantidad ingresada (${cantidad} cajas) excede el stock disponible (${stockCajas} cajas)`;
+                                }
                             }
                         }
                     });
@@ -1046,27 +1118,50 @@ if (isset($_GET['mensaje'])) {
             document.querySelectorAll('input[type="number"][name*="cantidad"]').forEach(input => {
                 input.addEventListener('input', function() {
                     const valor = parseFloat(this.value) || 0;
-                    const max = parseFloat(this.getAttribute('max')) || 0;
+                    const unidadesPorCaja = parseInt(this.getAttribute('data-unidades-por-caja')) || 0;
+                    const stockCajas = parseFloat(this.getAttribute('data-stock-cajas')) || 0;
+                    const totalUnidades = parseInt(this.getAttribute('data-total-unidades')) || 0;
                     const min = parseFloat(this.getAttribute('min')) || 0;
+                    
+                    // Encontrar checkbox
+                    const row = this.closest('tr');
+                    const checkbox = row ? row.querySelector('input[type="checkbox"]') : null;
+                    const usaPrecioUnitario = checkbox ? checkbox.checked : false;
                     
                     // Validar que no sea negativo
                     if (valor < min) {
                         this.value = min;
                     }
                     
-                    // Validar que no exceda el stock
-                    if (valor > max) {
-                        this.value = max;
-                        
-                        // Mostrar alerta temporal
-                        const row = this.closest('tr');
+                    // NUEVA VALIDACIÓN: según tipo de venta
+                    let excede = false;
+                    let mensajeError = '';
+                    
+                    if (usaPrecioUnitario && unidadesPorCaja > 0) {
+                        // Validar UNIDADES
+                        const cajasEquivalentes = valor / unidadesPorCaja;
+                        if (cajasEquivalentes > stockCajas) {
+                            excede = true;
+                            mensajeError = `Intentas sacar ${valor} unidades (${cajasEquivalentes.toFixed(2)} cajas) pero solo hay ${stockCajas} cajas disponibles (${totalUnidades} unidades)`;
+                            this.value = totalUnidades; // Ajustar al máximo
+                        }
+                    } else {
+                        // Validar CAJAS
+                        if (valor > stockCajas) {
+                            excede = true;
+                            mensajeError = `Stock máximo: ${stockCajas} cajas`;
+                            this.value = stockCajas; // Ajustar al máximo
+                        }
+                    }
+                    
+                    if (excede) {
                         const productoNombre = row.querySelector('strong').textContent;
                         
                         // Crear tooltip temporal
                         const tooltip = document.createElement('div');
                         tooltip.className = 'alert alert-warning position-fixed top-0 start-50 translate-middle-x mt-3';
                         tooltip.style.zIndex = '9999';
-                        tooltip.innerHTML = `<i class="fas fa-exclamation-triangle"></i> <strong>${productoNombre}:</strong> Stock máximo: ${max}`;
+                        tooltip.innerHTML = `<i class="fas fa-exclamation-triangle"></i> <strong>${productoNombre}:</strong> ${mensajeError}`;
                         document.body.appendChild(tooltip);
                         
                         setTimeout(() => {
@@ -1080,13 +1175,17 @@ if (isset($_GET['mensaje'])) {
                     if (this.value === '' || parseFloat(this.value) === 0) {
                         this.value = '';
                     } else {
-                        // Formatear a un decimal
-                        const step = parseFloat(this.getAttribute('step')) || 1;
+                        const row = this.closest('tr');
+                        const checkbox = row ? row.querySelector('input[type="checkbox"]') : null;
+                        const usaPrecioUnitario = checkbox ? checkbox.checked : false;
                         const valor = parseFloat(this.value);
                         
-                        if (step === 1) {
+                        // Formatear según tipo
+                        if (usaPrecioUnitario) {
+                            // Unidades: número entero
                             this.value = Math.round(valor);
                         } else {
+                            // Cajas: un decimal
                             this.value = valor.toFixed(1);
                         }
                     }
@@ -1114,10 +1213,15 @@ if (isset($_GET['mensaje'])) {
                 checkbox.addEventListener('change', function() {
                     const row = this.closest('tr');
                     const cantidadInput = row.querySelector('input[type="number"][name*="cantidad"]');
+                    const unidadesPorCaja = parseInt(cantidadInput.getAttribute('data-unidades-por-caja')) || 0;
                     
                     if (this.checked) {
-                        // Cambiar step a 1 para unidades
+                        // Cambiar a modo UNIDADES
                         cantidadInput.setAttribute('step', '1');
+                        
+                        // Actualizar max a total de unidades
+                        const totalUnidades = parseInt(cantidadInput.getAttribute('data-total-unidades')) || 0;
+                        cantidadInput.setAttribute('max', totalUnidades);
                         
                         // Redondear cantidad actual si existe
                         if (cantidadInput.value) {
@@ -1126,7 +1230,7 @@ if (isset($_GET['mensaje'])) {
                         
                         // Resaltar que está en modo unitario
                         const badge = document.createElement('span');
-                        badge.className = 'badge bg-info ms-2';
+                        badge.className = 'badge bg-warning text-dark ms-2';
                         badge.id = 'badge-unitario-' + row.rowIndex;
                         badge.textContent = 'Modo: Unidades';
                         
@@ -1137,8 +1241,12 @@ if (isset($_GET['mensaje'])) {
                         }
                         productoCell.appendChild(badge);
                     } else {
-                        // Cambiar step a 0.5 para cajas
+                        // Cambiar a modo CAJAS
                         cantidadInput.setAttribute('step', '0.5');
+                        
+                        // Actualizar max a stock en cajas
+                        const stockCajas = parseFloat(cantidadInput.getAttribute('data-stock-cajas')) || 0;
+                        cantidadInput.setAttribute('max', stockCajas);
                         
                         // Remover badge
                         const badge = document.getElementById('badge-unitario-' + row.rowIndex);
@@ -1154,33 +1262,9 @@ if (isset($_GET['mensaje'])) {
                 }
             });
             
-            // Calcular total de productos y cantidades
-            function calcularTotales() {
-                const inputs = document.querySelectorAll('input[type="number"][name*="cantidad"]');
-                let totalProductos = 0;
-                let totalCantidad = 0;
-                
-                inputs.forEach(input => {
-                    const cantidad = parseFloat(input.value) || 0;
-                    if (cantidad > 0) {
-                        totalProductos++;
-                        totalCantidad += cantidad;
-                    }
-                });
-                
-                // Mostrar totales en consola para debug
-                console.log('Total productos con cantidad:', totalProductos);
-                console.log('Total cantidad:', totalCantidad.toFixed(1));
-            }
-            
-            // Actualizar totales cuando cambian las cantidades
-            document.querySelectorAll('input[type="number"][name*="cantidad"]').forEach(input => {
-                input.addEventListener('input', calcularTotales);
-            });
-            
             // Atajos de teclado
             document.addEventListener('keydown', function(e) {
-                // Ctrl + S para guardar (prevenir el comportamiento por defecto del navegador)
+                // Ctrl + S para guardar
                 if ((e.ctrlKey || e.metaKey) && e.key === 's') {
                     e.preventDefault();
                     const formSalidas = document.getElementById('formSalidas');
@@ -1222,35 +1306,16 @@ if (isset($_GET['mensaje'])) {
                 });
             }
             
-            // Efecto hover mejorado para filas de tabla en desktop
-            if (window.innerWidth > 768) {
-                document.querySelectorAll('.table-salidas tbody tr').forEach(row => {
-                    row.addEventListener('mouseenter', function() {
-                        if (!this.style.backgroundColor || this.style.backgroundColor === '') {
-                            this.style.transform = 'scale(1.01)';
-                        }
-                    });
-                    
-                    row.addEventListener('mouseleave', function() {
-                        if (!this.style.backgroundColor || this.style.backgroundColor === '') {
-                            this.style.transform = 'scale(1)';
-                        }
-                    });
-                });
-            }
-            
-            // Focus automático en el primer input de cantidad visible
-            const primerInput = document.querySelector('input[type="number"][name*="cantidad"]:not([disabled])');
-            if (primerInput && window.innerWidth > 768) {
-                setTimeout(() => {
-                    primerInput.focus();
-                }, 500);
-            }
-            
-            console.log('Salidas cargadas correctamente');
-            console.log('Ruta seleccionada:', <?php echo $ruta_id; ?>);
-            console.log('Fecha seleccionada:', '<?php echo $fecha_seleccionada; ?>');
-            console.log('Puede registrar mañana:', <?php echo $puede_registrar_manana ? 'true' : 'false'; ?>);
+            console.log('===========================================');
+            console.log('SALIDAS - DISTRIBUIDORA LORENA');
+            console.log('===========================================');
+            console.log('✅ Sistema cargado correctamente');
+            console.log('📦 Conversión automática de unidades a cajas activada');
+            console.log('🔒 Validaciones de stock en tiempo real activadas');
+            console.log('📊 Ruta seleccionada:', <?php echo $ruta_id; ?>);
+            console.log('📅 Fecha seleccionada:', '<?php echo $fecha_seleccionada; ?>');
+            console.log('🔓 Puede registrar mañana:', <?php echo $puede_registrar_manana ? 'true' : 'false'; ?>);
+            console.log('===========================================');
         });
     </script>
 </body>

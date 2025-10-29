@@ -17,15 +17,25 @@ if (isset($_GET['mensaje'])) {
 // Fecha de hoy por defecto
 $fecha_hoy = date('Y-m-d');
 
-// Obtener todos los productos activos ordenados alfabéticamente
-$productos = $conn->query("SELECT * FROM productos WHERE activo = 1 ORDER BY nombre ASC");
+// MODIFICADO: Obtener todos los productos activos CON STOCK E INFORMACIÓN DE UNIDADES POR CAJA
+$productos = $conn->query("
+    SELECT 
+        p.*,
+        COALESCE(i.stock_actual, 0) as stock_actual,
+        COALESCE(i.stock_minimo, 0) as stock_minimo
+    FROM productos p
+    LEFT JOIN inventario i ON p.id = i.producto_id
+    WHERE p.activo = 1 
+    ORDER BY p.nombre ASC
+");
 
 // Obtener ventas directas recientes (últimas 20)
 $query_ventas = "
     SELECT 
         vd.id,
         vd.cantidad,
-        vd.precio_unitario,
+        vd.usa_precio_unitario,
+        vd.precio_usado,
         vd.total,
         vd.cliente,
         vd.descripcion,
@@ -33,6 +43,7 @@ $query_ventas = "
         vd.fecha_registro,
         p.nombre as producto_nombre,
         p.tipo as producto_tipo,
+        p.unidades_por_caja,
         u.nombre as usuario_nombre
     FROM ventas_directas vd
     INNER JOIN productos p ON vd.producto_id = p.id
@@ -419,6 +430,29 @@ $stats_total = $conn->query($query_stats_total)->fetch_assoc();
             }
         }
         
+        /* NUEVO: Badges de stock */
+        .badge-stock {
+            font-size: 12px;
+            padding: 5px 10px;
+            border-radius: 5px;
+            font-weight: 600;
+        }
+        
+        .badge-stock-ok {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .badge-stock-bajo {
+            background: #fff3cd;
+            color: #856404;
+        }
+        
+        .badge-stock-critico {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        
         /* Total calculado */
         #total_calculado {
             font-size: 1.5rem;
@@ -505,8 +539,7 @@ $stats_total = $conn->query($query_stats_total)->fetch_assoc();
         }
     </style>
 </head>
-<body>
-    <!-- Navbar -->
+<body><!-- Navbar -->
     <nav class="navbar navbar-expand-lg navbar-light navbar-custom">
         <div class="container-fluid">
             <a class="navbar-brand" href="index.php">
@@ -602,7 +635,12 @@ $stats_total = $conn->query($query_stats_total)->fetch_assoc();
             <div class="alert alert-info alert-custom">
                 <i class="fas fa-info-circle"></i>
                 <strong>Ventas Directas:</strong> Registre aquí las ventas que se realizan directamente desde la bodega, sin pasar por las rutas de distribución. 
-                Cada venta disminuirá automáticamente el inventario disponible.
+                <br><strong class="mt-2 d-block">Sistema Inteligente:</strong>
+                <ul class="mb-0">
+                    <li>✅ Si vende <strong>POR CAJA</strong>: Descuenta 1 caja completa del inventario</li>
+                    <li>✅ Si vende <strong>POR UNIDAD</strong>: El sistema convierte automáticamente a cajas (Ej: 12 unidades de 24 = 0.5 cajas)</li>
+                    <li>⚠️ El sistema valida que no exceda el stock disponible</li>
+                </ul>
             </div>
 
             <!-- Estadísticas -->
@@ -637,7 +675,9 @@ $stats_total = $conn->query($query_stats_total)->fetch_assoc();
                         </div>
                     </div>
                 </div>
-            </div><!-- Formulario de Venta Directa -->
+            </div>
+
+            <!-- Formulario de Venta Directa -->
             <div class="form-section">
                 <h4>
                     <i class="fas fa-plus-circle"></i> Registrar Venta Directa
@@ -655,13 +695,24 @@ $stats_total = $conn->query($query_stats_total)->fetch_assoc();
                                 <?php 
                                 $productos->data_seek(0); // Reset pointer
                                 while ($producto = $productos->fetch_assoc()): 
+                                    $stock_actual = floatval($producto['stock_actual']);
+                                    $unidades_por_caja = intval($producto['unidades_por_caja']);
+                                    $total_unidades = ($unidades_por_caja > 0) ? ($stock_actual * $unidades_por_caja) : 0;
                                 ?>
                                     <option value="<?php echo $producto['id']; ?>" 
                                             data-nombre="<?php echo htmlspecialchars($producto['nombre']); ?>"
                                             data-tipo="<?php echo htmlspecialchars($producto['tipo']); ?>"
                                             data-precio-caja="<?php echo $producto['precio_caja']; ?>"
-                                            data-precio-unitario="<?php echo $producto['precio_unitario']; ?>">
-                                        <?php echo htmlspecialchars($producto['nombre']); ?> - <?php echo $producto['tipo']; ?>
+                                            data-precio-unitario="<?php echo $producto['precio_unitario']; ?>"
+                                            data-stock-actual="<?php echo $stock_actual; ?>"
+                                            data-unidades-por-caja="<?php echo $unidades_por_caja; ?>"
+                                            data-total-unidades="<?php echo $total_unidades; ?>">
+                                        <?php echo htmlspecialchars($producto['nombre']); ?> - 
+                                        <?php echo $producto['tipo']; ?> 
+                                        (Stock: <?php echo number_format($stock_actual, 1); ?> cajas
+                                        <?php if ($unidades_por_caja > 0): ?>
+                                            = <?php echo $total_unidades; ?> unid.
+                                        <?php endif; ?>)
                                     </option>
                                 <?php endwhile; ?>
                             </select>
@@ -675,11 +726,11 @@ $stats_total = $conn->query($query_stats_total)->fetch_assoc();
                         </div>
                     </div>
                     
-                    <!-- Información del producto seleccionado -->
+                    <!-- Información del producto seleccionado - MODIFICADO -->
                     <div id="producto_info" class="producto-info-box" style="display: none;">
                         <h5><i class="fas fa-info-circle"></i> Información del Producto</h5>
                         <div class="row">
-                            <div class="col-md-6">
+                            <div class="col-md-4">
                                 <div class="info-item">
                                     <label>Producto:</label>
                                     <span id="info_nombre">-</span>
@@ -689,7 +740,7 @@ $stats_total = $conn->query($query_stats_total)->fetch_assoc();
                                     <span id="info_tipo">-</span>
                                 </div>
                             </div>
-                            <div class="col-md-6">
+                            <div class="col-md-4">
                                 <div class="info-item">
                                     <label>Precio por Caja:</label>
                                     <span id="info_precio_caja">$0.00</span>
@@ -699,25 +750,52 @@ $stats_total = $conn->query($query_stats_total)->fetch_assoc();
                                     <span id="info_precio_unitario">$0.00</span>
                                 </div>
                             </div>
+                            <div class="col-md-4">
+                                <div class="info-item">
+                                    <label>Stock en Cajas:</label>
+                                    <span id="info_stock_cajas" class="badge badge-stock badge-stock-ok">0</span>
+                                </div>
+                                <div class="info-item">
+                                    <label>Stock en Unidades:</label>
+                                    <span id="info_stock_unidades" class="badge badge-stock badge-stock-ok">0 unid.</span>
+                                </div>
+                                <div class="info-item" id="info_unidades_caja_container" style="display: none;">
+                                    <label>Unidades por Caja:</label>
+                                    <span id="info_unidades_caja">0</span>
+                                </div>
+                            </div>
                         </div>
                     </div>
                     
                     <div class="row mt-3">
-                        <div class="col-md-4 mb-3">
+                        <div class="col-md-3 mb-3">
+                            <label for="tipo_venta" class="form-label">
+                                <i class="fas fa-shopping-cart"></i> Tipo de Venta *
+                            </label>
+                            <select class="form-select" id="tipo_venta" name="usa_precio_unitario" required>
+                                <option value="0">Por Caja</option>
+                                <option value="1">Por Unidad</option>
+                            </select>
+                            <small class="text-muted" id="tipo_venta_ayuda">Venta por caja completa</small>
+                        </div>
+                        
+                        <div class="col-md-3 mb-3">
                             <label for="cantidad" class="form-label">
                                 <i class="fas fa-sort-numeric-up"></i> Cantidad *
                             </label>
                             <input type="number" class="form-control" id="cantidad" name="cantidad" step="0.1" min="0.1" required placeholder="Ej: 5">
+                            <small class="text-muted" id="cantidad_ayuda">Cantidad de cajas</small>
                         </div>
                         
-                        <div class="col-md-4 mb-3">
-                            <label for="precio_unitario" class="form-label">
-                                <i class="fas fa-dollar-sign"></i> Precio Unitario *
+                        <div class="col-md-3 mb-3">
+                            <label for="precio_usado" class="form-label">
+                                <i class="fas fa-dollar-sign"></i> Precio *
                             </label>
-                            <input type="number" class="form-control" id="precio_unitario" name="precio_unitario" step="0.01" min="0.01" required placeholder="Ej: 10.50">
+                            <input type="number" class="form-control" id="precio_usado" name="precio_usado" step="0.01" min="0.01" required placeholder="Ej: 10.50">
+                            <small class="text-muted">Precio de venta</small>
                         </div>
                         
-                        <div class="col-md-4 mb-3">
+                        <div class="col-md-3 mb-3">
                             <label class="form-label">
                                 <i class="fas fa-calculator"></i> Total
                             </label>
@@ -725,6 +803,13 @@ $stats_total = $conn->query($query_stats_total)->fetch_assoc();
                                 <span id="total_calculado">$0.00</span>
                             </div>
                         </div>
+                    </div>
+                    
+                    <!-- NUEVO: Alerta de conversión -->
+                    <div id="alerta_conversion" class="alert alert-warning" style="display: none;">
+                        <i class="fas fa-exchange-alt"></i>
+                        <strong>Conversión Automática:</strong>
+                        <span id="texto_conversion"></span>
                     </div>
                     
                     <div class="row">
@@ -768,15 +853,19 @@ $stats_total = $conn->query($query_stats_total)->fetch_assoc();
                                     <th>Fecha</th>
                                     <th>Producto</th>
                                     <th class="text-center">Cantidad</th>
-                                    <th class="text-center hide-tablet">Precio Unit.</th>
+                                    <th class="text-center">Tipo</th>
+                                    <th class="text-center hide-tablet">Precio</th>
                                     <th class="text-center">Total</th>
                                     <th class="hide-mobile">Cliente</th>
-                                    <th class="hide-mobile">Descripción</th>
                                     <th class="hide-tablet">Usuario</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                <?php while ($venta = $ventas_recientes->fetch_assoc()): ?>
+                                <?php while ($venta = $ventas_recientes->fetch_assoc()): 
+                                    $usa_unitario = intval($venta['usa_precio_unitario']);
+                                    $unidades_caja = intval($venta['unidades_por_caja']);
+                                    $cantidad = floatval($venta['cantidad']);
+                                ?>
                                     <tr>
                                         <td>
                                             <strong><?php echo date('d/m/Y', strtotime($venta['fecha'])); ?></strong>
@@ -790,11 +879,21 @@ $stats_total = $conn->query($query_stats_total)->fetch_assoc();
                                         </td>
                                         <td class="text-center">
                                             <span class="badge bg-info" style="font-size: 13px;">
-                                                <?php echo number_format($venta['cantidad'], 1); ?>
+                                                <?php echo number_format($cantidad, 1); ?>
                                             </span>
+                                            <?php if ($usa_unitario && $unidades_caja > 0): ?>
+                                                <br><small class="text-muted">(<?php echo number_format($cantidad / $unidades_caja, 2); ?> cajas)</small>
+                                            <?php endif; ?>
+                                        </td>
+                                        <td class="text-center">
+                                            <?php if ($usa_unitario): ?>
+                                                <span class="badge bg-warning text-dark">Unidad</span>
+                                            <?php else: ?>
+                                                <span class="badge bg-primary">Caja</span>
+                                            <?php endif; ?>
                                         </td>
                                         <td class="text-center hide-tablet">
-                                            <small>$<?php echo number_format($venta['precio_unitario'], 2); ?></small>
+                                            <small>$<?php echo number_format($venta['precio_usado'], 2); ?></small>
                                         </td>
                                         <td class="text-center">
                                             <strong class="text-success">
@@ -803,9 +902,6 @@ $stats_total = $conn->query($query_stats_total)->fetch_assoc();
                                         </td>
                                         <td class="hide-mobile">
                                             <small><?php echo htmlspecialchars($venta['cliente'] ?: 'N/A'); ?></small>
-                                        </td>
-                                        <td class="hide-mobile">
-                                            <small><?php echo htmlspecialchars($venta['descripcion'] ?: 'Sin descripción'); ?></small>
                                         </td>
                                         <td class="hide-tablet">
                                             <small><?php echo htmlspecialchars($venta['usuario_nombre']); ?></small>
@@ -835,26 +931,103 @@ $stats_total = $conn->query($query_stats_total)->fetch_assoc();
                 </p>
             </div>
         </div>
-    </div>
-
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    </div><script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="assets/js/notifications.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             const productoSelect = document.getElementById('producto_id');
+            const tipoVentaSelect = document.getElementById('tipo_venta');
             const cantidadInput = document.getElementById('cantidad');
-            const precioUnitarioInput = document.getElementById('precio_unitario');
+            const precioUsadoInput = document.getElementById('precio_usado');
             const totalSpan = document.getElementById('total_calculado');
             const productoInfo = document.getElementById('producto_info');
             const formVenta = document.getElementById('formVenta');
+            const alertaConversion = document.getElementById('alerta_conversion');
+            const textoConversion = document.getElementById('texto_conversion');
+            
+            // Variables de producto actual
+            let productoActual = {
+                nombre: '',
+                tipo: '',
+                precioCaja: 0,
+                precioUnitario: 0,
+                stockCajas: 0,
+                unidadesPorCaja: 0,
+                totalUnidades: 0
+            };
             
             // Función para calcular el total
             function calcularTotal() {
                 const cantidad = parseFloat(cantidadInput.value) || 0;
-                const precioUnitario = parseFloat(precioUnitarioInput.value) || 0;
-                const total = cantidad * precioUnitario;
+                const precioUsado = parseFloat(precioUsadoInput.value) || 0;
+                const total = cantidad * precioUsado;
                 
                 totalSpan.textContent = '$' + total.toFixed(2);
+                
+                // Validar y mostrar conversión si es venta por unidad
+                validarCantidadYConversion();
+            }
+            
+            // Función para validar cantidad y mostrar conversión
+            function validarCantidadYConversion() {
+                const cantidad = parseFloat(cantidadInput.value) || 0;
+                const tipoVenta = parseInt(tipoVentaSelect.value);
+                
+                if (cantidad <= 0 || !productoActual.nombre) {
+                    alertaConversion.style.display = 'none';
+                    return;
+                }
+                
+                if (tipoVenta === 1 && productoActual.unidadesPorCaja > 0) {
+                    // Venta por UNIDAD - Calcular conversión a cajas
+                    const cajasEquivalentes = cantidad / productoActual.unidadesPorCaja;
+                    
+                    textoConversion.innerHTML = `
+                        Vendiendo <strong>${cantidad} unidades</strong> equivale a 
+                        <strong>${cajasEquivalentes.toFixed(2)} cajas</strong>.
+                        <br>Se descontarán <strong>${cajasEquivalentes.toFixed(2)} cajas</strong> del inventario.
+                    `;
+                    alertaConversion.style.display = 'block';
+                    
+                    // Validar que no exceda el stock en cajas
+                    if (cajasEquivalentes > productoActual.stockCajas) {
+                        alertaConversion.className = 'alert alert-danger';
+                        textoConversion.innerHTML = `
+                            <strong>¡ERROR!</strong> Stock insuficiente. 
+                            <br>Intentas vender ${cantidad} unidades (${cajasEquivalentes.toFixed(2)} cajas) 
+                            pero solo hay ${productoActual.stockCajas} cajas disponibles 
+                            (${productoActual.totalUnidades} unidades).
+                        `;
+                    } else {
+                        alertaConversion.className = 'alert alert-warning';
+                    }
+                    
+                } else if (tipoVenta === 0) {
+                    // Venta por CAJA
+                    if (productoActual.unidadesPorCaja > 0) {
+                        const unidadesEquivalentes = cantidad * productoActual.unidadesPorCaja;
+                        textoConversion.innerHTML = `
+                            Vendiendo <strong>${cantidad} cajas</strong> equivale a 
+                            <strong>${unidadesEquivalentes} unidades</strong>.
+                        `;
+                        alertaConversion.style.display = 'block';
+                        alertaConversion.className = 'alert alert-info';
+                    } else {
+                        alertaConversion.style.display = 'none';
+                    }
+                    
+                    // Validar que no exceda el stock en cajas
+                    if (cantidad > productoActual.stockCajas) {
+                        alertaConversion.className = 'alert alert-danger';
+                        alertaConversion.style.display = 'block';
+                        textoConversion.innerHTML = `
+                            <strong>¡ERROR!</strong> Stock insuficiente. 
+                            <br>Intentas vender ${cantidad} cajas pero solo hay ${productoActual.stockCajas} cajas disponibles.
+                        `;
+                    }
+                } else {
+                    alertaConversion.style.display = 'none';
+                }
             }
             
             // Cuando se selecciona un producto
@@ -866,34 +1039,173 @@ $stats_total = $conn->query($query_stats_total)->fetch_assoc();
                     const tipo = selectedOption.getAttribute('data-tipo');
                     const precioCaja = parseFloat(selectedOption.getAttribute('data-precio-caja'));
                     const precioUnitario = parseFloat(selectedOption.getAttribute('data-precio-unitario'));
+                    const stockCajas = parseFloat(selectedOption.getAttribute('data-stock-actual'));
+                    const unidadesPorCaja = parseInt(selectedOption.getAttribute('data-unidades-por-caja'));
+                    const totalUnidades = parseInt(selectedOption.getAttribute('data-total-unidades'));
+                    
+                    // Guardar información del producto
+                    productoActual = {
+                        nombre: nombre,
+                        tipo: tipo,
+                        precioCaja: precioCaja,
+                        precioUnitario: precioUnitario,
+                        stockCajas: stockCajas,
+                        unidadesPorCaja: unidadesPorCaja,
+                        totalUnidades: totalUnidades
+                    };
                     
                     // Mostrar información del producto
                     document.getElementById('info_nombre').textContent = nombre;
                     document.getElementById('info_tipo').textContent = tipo;
                     document.getElementById('info_precio_caja').textContent = '$' + precioCaja.toFixed(2);
-                    document.getElementById('info_precio_unitario').textContent = '$' + precioUnitario.toFixed(2);
+                    document.getElementById('info_precio_unitario').textContent = precioUnitario > 0 ? '$' + precioUnitario.toFixed(2) : 'N/A';
                     
-                    // Sugerir el precio unitario del producto
-                    precioUnitarioInput.value = precioUnitario.toFixed(2);
+                    // Mostrar stock
+                    const stockCajasSpan = document.getElementById('info_stock_cajas');
+                    stockCajasSpan.textContent = stockCajas.toFixed(1) + ' cajas';
+                    
+                    // Determinar color del badge según stock
+                    if (stockCajas <= 0) {
+                        stockCajasSpan.className = 'badge badge-stock badge-stock-critico';
+                    } else if (stockCajas <= 5) {
+                        stockCajasSpan.className = 'badge badge-stock badge-stock-bajo';
+                    } else {
+                        stockCajasSpan.className = 'badge badge-stock badge-stock-ok';
+                    }
+                    
+                    // Mostrar unidades si el producto tiene unidades_por_caja
+                    if (unidadesPorCaja > 0) {
+                        document.getElementById('info_stock_unidades').textContent = totalUnidades + ' unid.';
+                        document.getElementById('info_unidades_caja').textContent = unidadesPorCaja + ' unid/caja';
+                        document.getElementById('info_unidades_caja_container').style.display = 'block';
+                        
+                        // Habilitar venta por unidad
+                        tipoVentaSelect.querySelector('option[value="1"]').disabled = false;
+                    } else {
+                        document.getElementById('info_stock_unidades').textContent = 'N/A';
+                        document.getElementById('info_unidades_caja_container').style.display = 'none';
+                        
+                        // Deshabilitar venta por unidad si no hay unidades_por_caja
+                        tipoVentaSelect.querySelector('option[value="1"]').disabled = true;
+                        tipoVentaSelect.value = '0'; // Forzar a venta por caja
+                    }
+                    
+                    // Actualizar precio según tipo de venta
+                    actualizarPrecioSegunTipo();
+                    
+                    // Validar stock
+                    if (stockCajas <= 0) {
+                        alert('⚠️ ADVERTENCIA: Este producto NO tiene stock disponible. No podrá registrar la venta.');
+                        cantidadInput.value = '';
+                        cantidadInput.disabled = true;
+                    } else {
+                        cantidadInput.disabled = false;
+                        cantidadInput.max = stockCajas; // Establecer máximo
+                    }
                     
                     productoInfo.style.display = 'block';
                     calcularTotal();
                 } else {
                     productoInfo.style.display = 'none';
-                    precioUnitarioInput.value = '';
+                    precioUsadoInput.value = '';
                     totalSpan.textContent = '$0.00';
+                    alertaConversion.style.display = 'none';
+                    cantidadInput.disabled = false;
+                    
+                    // Resetear producto actual
+                    productoActual = {
+                        nombre: '',
+                        tipo: '',
+                        precioCaja: 0,
+                        precioUnitario: 0,
+                        stockCajas: 0,
+                        unidadesPorCaja: 0,
+                        totalUnidades: 0
+                    };
+                }
+            });
+            
+            // Función para actualizar precio según tipo de venta
+            function actualizarPrecioSegunTipo() {
+                const tipoVenta = parseInt(tipoVentaSelect.value);
+                
+                if (tipoVenta === 1) {
+                    // Venta por UNIDAD
+                    precioUsadoInput.value = productoActual.precioUnitario.toFixed(2);
+                    cantidadInput.step = '1'; // Solo números enteros
+                    document.getElementById('cantidad_ayuda').textContent = 'Cantidad de unidades';
+                    document.getElementById('tipo_venta_ayuda').textContent = 'Venta por unidad individual';
+                    
+                    if (productoActual.unidadesPorCaja > 0) {
+                        cantidadInput.max = productoActual.totalUnidades;
+                    }
+                } else {
+                    // Venta por CAJA
+                    precioUsadoInput.value = productoActual.precioCaja.toFixed(2);
+                    cantidadInput.step = '0.1'; // Decimales permitidos
+                    document.getElementById('cantidad_ayuda').textContent = 'Cantidad de cajas';
+                    document.getElementById('tipo_venta_ayuda').textContent = 'Venta por caja completa';
+                    cantidadInput.max = productoActual.stockCajas;
+                }
+                
+                calcularTotal();
+            }
+            
+            // Cuando cambia el tipo de venta
+            tipoVentaSelect.addEventListener('change', function() {
+                if (productoActual.nombre) {
+                    actualizarPrecioSegunTipo();
+                    
+                    // Resetear cantidad al cambiar tipo
+                    cantidadInput.value = '';
+                    totalSpan.textContent = '$0.00';
+                    alertaConversion.style.display = 'none';
                 }
             });
             
             // Calcular total al cambiar cantidad o precio
             cantidadInput.addEventListener('input', calcularTotal);
-            precioUnitarioInput.addEventListener('input', calcularTotal);
+            precioUsadoInput.addEventListener('input', calcularTotal);
+            
+            // Validar en tiempo real
+            cantidadInput.addEventListener('input', function() {
+                const cantidad = parseFloat(this.value) || 0;
+                const tipoVenta = parseInt(tipoVentaSelect.value);
+                
+                if (tipoVenta === 1 && productoActual.unidadesPorCaja > 0) {
+                    // Validar unidades
+                    const max = productoActual.totalUnidades;
+                    if (cantidad > max) {
+                        this.value = max;
+                        alert(`⚠️ Máximo disponible: ${max} unidades`);
+                    }
+                } else {
+                    // Validar cajas
+                    const max = productoActual.stockCajas;
+                    if (cantidad > max) {
+                        this.value = max;
+                        alert(`⚠️ Máximo disponible: ${max} cajas`);
+                    }
+                }
+            });
             
             // Limpiar formulario
             formVenta.addEventListener('reset', function() {
                 setTimeout(function() {
                     productoInfo.style.display = 'none';
                     totalSpan.textContent = '$0.00';
+                    alertaConversion.style.display = 'none';
+                    cantidadInput.disabled = false;
+                    
+                    productoActual = {
+                        nombre: '',
+                        tipo: '',
+                        precioCaja: 0,
+                        precioUnitario: 0,
+                        stockCajas: 0,
+                        unidadesPorCaja: 0,
+                        totalUnidades: 0
+                    };
                 }, 10);
             });
             
@@ -901,7 +1213,8 @@ $stats_total = $conn->query($query_stats_total)->fetch_assoc();
             formVenta.addEventListener('submit', function(e) {
                 const producto = productoSelect.value;
                 const cantidad = parseFloat(cantidadInput.value);
-                const precioUnitario = parseFloat(precioUnitarioInput.value);
+                const precioUsado = parseFloat(precioUsadoInput.value);
+                const tipoVenta = parseInt(tipoVentaSelect.value);
                 
                 if (!producto) {
                     e.preventDefault();
@@ -917,18 +1230,54 @@ $stats_total = $conn->query($query_stats_total)->fetch_assoc();
                     return false;
                 }
                 
-                if (precioUnitario <= 0) {
+                if (precioUsado <= 0) {
                     e.preventDefault();
-                    alert('El precio unitario debe ser mayor a 0');
-                    precioUnitarioInput.focus();
+                    alert('El precio debe ser mayor a 0');
+                    precioUsadoInput.focus();
                     return false;
                 }
                 
-                // Confirmar venta
-                const total = cantidad * precioUnitario;
-                const productoNombre = productoSelect.options[productoSelect.selectedIndex].text;
+                // Validar stock según tipo de venta
+                if (tipoVenta === 1 && productoActual.unidadesPorCaja > 0) {
+                    // Venta por UNIDAD - Validar conversión
+                    const cajasEquivalentes = cantidad / productoActual.unidadesPorCaja;
+                    
+                    if (cajasEquivalentes > productoActual.stockCajas) {
+                        e.preventDefault();
+                        alert(`⚠️ ERROR: Stock insuficiente.\n\n` +
+                              `Intentas vender: ${cantidad} unidades (${cajasEquivalentes.toFixed(2)} cajas)\n` +
+                              `Stock disponible: ${productoActual.stockCajas} cajas (${productoActual.totalUnidades} unidades)`);
+                        return false;
+                    }
+                } else {
+                    // Venta por CAJA
+                    if (cantidad > productoActual.stockCajas) {
+                        e.preventDefault();
+                        alert(`⚠️ ERROR: Stock insuficiente.\n\n` +
+                              `Intentas vender: ${cantidad} cajas\n` +
+                              `Stock disponible: ${productoActual.stockCajas} cajas`);
+                        return false;
+                    }
+                }
                 
-                if (!confirm(`¿Confirmar venta de ${cantidad} unidades de "${productoNombre}" por un total de $${total.toFixed(2)}?`)) {
+                // Confirmar venta
+                const total = cantidad * precioUsado;
+                const productoNombre = productoSelect.options[productoSelect.selectedIndex].text;
+                const tipoVentaTexto = tipoVenta === 1 ? 'unidades' : 'cajas';
+                
+                let mensajeConfirmacion = `¿Confirmar venta?\n\n`;
+                mensajeConfirmacion += `Producto: ${productoActual.nombre}\n`;
+                mensajeConfirmacion += `Cantidad: ${cantidad} ${tipoVentaTexto}\n`;
+                
+                if (tipoVenta === 1 && productoActual.unidadesPorCaja > 0) {
+                    const cajasEquivalentes = cantidad / productoActual.unidadesPorCaja;
+                    mensajeConfirmacion += `(Equivale a ${cajasEquivalentes.toFixed(2)} cajas)\n`;
+                }
+                
+                mensajeConfirmacion += `Precio: $${precioUsado.toFixed(2)}\n`;
+                mensajeConfirmacion += `Total: $${total.toFixed(2)}`;
+                
+                if (!confirm(mensajeConfirmacion)) {
                     e.preventDefault();
                     return false;
                 }
@@ -1003,7 +1352,6 @@ $stats_total = $conn->query($query_stats_total)->fetch_assoc();
                     if (!startTimestamp) startTimestamp = timestamp;
                     const progress = Math.min((timestamp - startTimestamp) / duration, 1);
                     
-                    // Determinar si es un valor de dinero o cantidad
                     const isDollar = element.textContent.includes('$');
                     const value = progress * (end - start) + start;
                     
@@ -1026,7 +1374,6 @@ $stats_total = $conn->query($query_stats_total)->fetch_assoc();
                 const endValue = parseFloat(text);
                 
                 if (!isNaN(endValue) && endValue > 0) {
-                    const originalText = element.textContent;
                     element.textContent = element.textContent.includes('$') ? '$0.00' : '0';
                     
                     setTimeout(() => {
@@ -1045,8 +1392,14 @@ $stats_total = $conn->query($query_stats_total)->fetch_assoc();
                 });
             }
             
-            console.log('Ventas Directas cargadas correctamente');
-            console.log('Total de ventas recientes:', <?php echo $ventas_recientes->num_rows; ?>);
+            console.log('===========================================');
+            console.log('VENTAS DIRECTAS - DISTRIBUIDORA LORENA');
+            console.log('===========================================');
+            console.log('✅ Sistema cargado correctamente');
+            console.log('📦 Sistema de conversión automática activado');
+            console.log('🔒 Validaciones de stock activadas');
+            console.log('📊 Total de ventas recientes:', <?php echo $ventas_recientes->num_rows; ?>);
+            console.log('===========================================');
         });
     </script>
 </body>

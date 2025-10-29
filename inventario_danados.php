@@ -14,8 +14,17 @@ if (isset($_GET['mensaje'])) {
     $tipo_mensaje = $_GET['tipo'] ?? 'info';
 }
 
-// Obtener todos los productos activos ordenados alfabéticamente
-$productos = $conn->query("SELECT * FROM productos WHERE activo = 1 ORDER BY nombre ASC");
+// Obtener todos los productos activos con información de inventario
+$query_productos = "
+    SELECT 
+        p.*,
+        COALESCE(i.stock_actual, 0) as stock_actual
+    FROM productos p
+    LEFT JOIN inventario i ON p.id = i.producto_id
+    WHERE p.activo = 1
+    ORDER BY p.nombre ASC
+";
+$productos = $conn->query($query_productos);
 
 // Obtener historial de productos dañados con totales
 $query_danados = "
@@ -27,6 +36,7 @@ $query_danados = "
         pd.fecha_registro,
         p.nombre as producto_nombre,
         p.tipo as producto_tipo,
+        p.unidades_por_caja,
         u.nombre as usuario_nombre
     FROM productos_danados pd
     INNER JOIN productos p ON pd.producto_id = p.id
@@ -79,10 +89,6 @@ $stats['productos_afectados'] = intval($stats['productos_afectados'] ?? 0);
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="assets/css/custom.css">
     <style>
-        /* ============================================
-           ESTILOS SIMILARES A PRODUCTOS.PHP
-           ============================================ */
-        
         /* Tabla de productos dañados mejorada y responsiva */
         .table-danados {
             box-shadow: 0 2px 8px rgba(0,0,0,0.1);
@@ -105,7 +111,6 @@ $stats['productos_afectados'] = intval($stats['productos_afectados'] ?? 0);
             }
         }
         
-        /* CORREGIDO: Encabezados con fondo degradado y texto blanco */
         .table-danados thead {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
         }
@@ -242,11 +247,12 @@ $stats['productos_afectados'] = intval($stats['productos_afectados'] ?? 0);
         
         /* Formulario */
         .form-section {
-            background: white;
+            background: linear-gradient(135deg, #fff5f5 0%, #ffe9e9 100%);
             border-radius: 15px;
             padding: 25px;
             box-shadow: 0 2px 8px rgba(0,0,0,0.1);
             margin-bottom: 30px;
+            border: 2px solid #ffcccc;
         }
         
         @media (max-width: 767px) {
@@ -264,11 +270,102 @@ $stats['productos_afectados'] = intval($stats['productos_afectados'] ?? 0);
         }
         
         .form-section h4 {
-            color: #2c3e50;
+            color: #e74c3c;
             font-weight: 700;
             margin-bottom: 20px;
             padding-bottom: 10px;
             border-bottom: 3px solid #e74c3c;
+        }
+        
+        /* NUEVO: Tabla de productos dañados dinámica */
+        .tabla-productos-danados {
+            background: white;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        .tabla-productos-danados thead {
+            background: linear-gradient(135deg, #e74c3c, #c0392b);
+        }
+        
+        .tabla-productos-danados thead th {
+            color: white !important;
+            font-weight: 600;
+            padding: 12px 10px;
+            font-size: 12px;
+            text-transform: uppercase;
+        }
+        
+        .tabla-productos-danados tbody td {
+            padding: 10px;
+            vertical-align: middle;
+        }
+        
+        .tabla-productos-danados tbody tr:hover {
+            background-color: #fff3f3;
+        }
+        
+        /* Info del producto */
+        .producto-info {
+            background: #e3f2fd;
+            border-left: 4px solid #2196f3;
+            padding: 10px;
+            border-radius: 5px;
+            margin-top: 5px;
+            font-size: 11px;
+            display: none;
+        }
+        
+        .producto-info.show {
+            display: block;
+        }
+        
+        .producto-info.stock-bajo {
+            background: #fff3cd;
+            border-left-color: #f39c12;
+        }
+        
+        .producto-info.sin-stock {
+            background: #f8d7da;
+            border-left-color: #e74c3c;
+        }
+        
+        /* Switch de unidades */
+        .form-switch .form-check-input {
+            width: 50px;
+            height: 25px;
+            cursor: pointer;
+        }
+        
+        .form-switch .form-check-label {
+            cursor: pointer;
+            margin-left: 10px;
+            font-weight: 600;
+        }
+        
+        /* Badge de conversión */
+        .badge-conversion {
+            background: #e3f2fd;
+            color: #0d47a1;
+            font-size: 10px;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            display: inline-block;
+            margin-left: 5px;
+        }
+        
+        /* Badge de modo unidad */
+        .badge-modo-unidad {
+            font-size: 11px;
+            padding: 4px 8px;
+        }
+        
+        /* Botón eliminar fila */
+        .btn-eliminar-fila {
+            padding: 5px 10px;
+            font-size: 12px;
         }
         
         /* Copyright Footer */
@@ -384,7 +481,15 @@ $stats['productos_afectados'] = intval($stats['productos_afectados'] ?? 0);
             
             <div class="alert alert-info alert-custom">
                 <i class="fas fa-info-circle"></i>
-                <strong>Instrucciones:</strong> Registre productos que estén dañados, vencidos, rotos o en mal estado. Al registrar un producto dañado, se descontará automáticamente del inventario. Puede consultar el historial y ver estadísticas de productos más afectados.
+                <strong>Instrucciones:</strong> Registre productos que estén dañados, vencidos, rotos o en mal estado. 
+                Puede registrar <strong>múltiples productos a la vez</strong>. Al registrar un producto dañado, se descontará automáticamente del inventario.
+                <br><strong class="mt-2 d-block">Registro por Unidades:</strong>
+                <ul class="mb-0">
+                    <li>✅ Activa el switch "Por Unidades" para registrar en unidades individuales</li>
+                    <li>❌ Desmarcado = Registro por CAJAS</li>
+                    <li>🔄 El sistema convierte automáticamente unidades a cajas</li>
+                    <li>⚠️ Verifica el stock disponible antes de registrar</li>
+                </ul>
             </div>
             
             <!-- Mensaje de éxito/error -->
@@ -402,8 +507,8 @@ $stats['productos_afectados'] = intval($stats['productos_afectados'] ?? 0);
                     <div class="card stat-card danger">
                         <div class="card-body text-center">
                             <i class="fas fa-boxes fa-3x text-danger mb-3"></i>
-                            <h3 class="mb-0"><?php echo number_format($stats['total_cantidad'], 1); ?></h3>
-                            <p class="text-muted mb-0">Total Unidades Dañadas</p>
+                            <h3 class="mb-0"><?php echo number_format($stats['total_cantidad'], 2); ?></h3>
+                            <p class="text-muted mb-0">Total Cajas Dañadas</p>
                         </div>
                     </div>
                 </div>
@@ -428,68 +533,54 @@ $stats['productos_afectados'] = intval($stats['productos_afectados'] ?? 0);
             </div>
 
             <div class="alert alert-warning">
-                <i class="fas fa-info-circle"></i>
-                <strong>Importante:</strong> Al registrar un producto como dañado, se descontará automáticamente del inventario.
+                <i class="fas fa-exclamation-triangle"></i>
+                <strong>¡ADVERTENCIA!</strong> Al registrar un producto como dañado, se descontará automáticamente del inventario y <strong>NO SE PUEDE REVERTIR</strong>.
             </div>
 
-            <!-- Formulario para Registrar Producto Dañado -->
+            <!-- Formulario para Registrar Productos Dañados (MÚLTIPLE) -->
             <div class="form-section">
                 <h4 class="mb-3">
-                    <i class="fas fa-plus-circle"></i> Registrar Producto Dañado
+                    <i class="fas fa-plus-circle"></i> Registrar Productos Dañados (Múltiple)
                 </h4>
                 <form method="POST" action="api/inventario_api.php" id="formDanado">
-                    <input type="hidden" name="accion" value="registrar_danado">
+                    <input type="hidden" name="accion" value="registrar_danado_multiple">
                     
-                    <div class="row">
-                        <div class="col-md-4 mb-3">
-                            <label for="producto_id" class="form-label">
-                                <i class="fas fa-box"></i> Producto *
-                            </label>
-                            <select class="form-select form-select-lg" id="producto_id" name="producto_id" required>
-                                <option value="">-- Seleccione un producto --</option>
-                                <?php 
-                                $productos->data_seek(0); // Reset pointer
-                                while ($producto = $productos->fetch_assoc()): 
-                                ?>
-                                    <option value="<?php echo $producto['id']; ?>">
-                                        <?php echo htmlspecialchars($producto['nombre']); ?>
-                                        (<?php echo $producto['tipo']; ?>)
-                                    </option>
-                                <?php endwhile; ?>
-                            </select>
-                        </div>
-
-                        <div class="col-md-4 mb-3">
-                            <label for="cantidad" class="form-label">
-                                <i class="fas fa-sort-numeric-up"></i> Cantidad *
-                            </label>
-                            <input type="number" class="form-control form-control-lg" id="cantidad" 
-                                   name="cantidad" step="0.1" min="0.1" required 
-                                   placeholder="Ejemplo: 5.0">
-                            <small class="text-muted">Cantidad de unidades dañadas</small>
-                        </div>
-
-                        <div class="col-md-4 mb-3">
-                            <label for="motivo" class="form-label">
-                                <i class="fas fa-comment"></i> Motivo del Daño *
-                            </label>
-                            <input type="text" class="form-control form-control-lg" id="motivo" 
-                                   name="motivo" required 
-                                   placeholder="Ejemplo: Vencido, Roto, Derramado, etc.">
-                        </div>
+                    <!-- Tabla de productos -->
+                    <div class="table-responsive mb-3">
+                        <table class="table tabla-productos-danados table-hover mb-0" id="tablaProductos">
+                            <thead>
+                                <tr>
+                                    <th width="40" class="text-center">#</th>
+                                    <th>Producto</th>
+                                    <th width="150" class="text-center">Cantidad</th>
+                                    <th width="120" class="text-center">Por Unidades</th>
+                                    <th width="200">Motivo</th>
+                                    <th width="80" class="text-center">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="productosBody">
+                                <!-- Las filas se agregarán dinámicamente -->
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <!-- Botón para agregar producto -->
+                    <div class="mb-3">
+                        <button type="button" class="btn btn-success" id="btnAgregarProducto">
+                            <i class="fas fa-plus-circle"></i> Agregar Producto
+                        </button>
                     </div>
 
                     <div class="d-grid gap-2 d-md-flex justify-content-md-end">
-                        <button type="reset" class="btn btn-secondary btn-lg me-md-2">
-                            <i class="fas fa-eraser"></i> Limpiar
+                        <button type="button" class="btn btn-secondary btn-lg me-md-2" id="btnLimpiar">
+                            <i class="fas fa-eraser"></i> Limpiar Todo
                         </button>
                         <button type="submit" class="btn btn-danger btn-lg">
-                            <i class="fas fa-exclamation-triangle"></i> Registrar Producto Dañado
+                            <i class="fas fa-exclamation-triangle"></i> Registrar Productos Dañados
                         </button>
                     </div>
                 </form>
             </div>
-
             <!-- Resumen por Producto (Top 10) -->
             <div class="mt-5 mb-4">
                 <h3 class="mb-3">
@@ -509,7 +600,7 @@ $stats['productos_afectados'] = intval($stats['productos_afectados'] ?? 0);
                             </thead>
                             <tbody>
                                 <?php 
-                                $resumen->data_seek(0); // Reset pointer
+                                $resumen->data_seek(0);
                                 while ($res = $resumen->fetch_assoc()): 
                                 ?>
                                     <tr>
@@ -519,7 +610,7 @@ $stats['productos_afectados'] = intval($stats['productos_afectados'] ?? 0);
                                         </td>
                                         <td class="text-center">
                                             <span class="badge bg-danger" style="font-size: 13px;">
-                                                <?php echo number_format($res['total_danado'], 1); ?>
+                                                <?php echo number_format($res['total_danado'], 2); ?> cajas
                                             </span>
                                         </td>
                                         <td class="text-center hide-mobile">
@@ -537,6 +628,7 @@ $stats['productos_afectados'] = intval($stats['productos_afectados'] ?? 0);
                     </div>
                 <?php endif; ?>
             </div>
+
             <!-- Historial Completo de Productos Dañados -->
             <div class="mt-5">
                 <h3 class="mb-3">
@@ -551,7 +643,7 @@ $stats['productos_afectados'] = intval($stats['productos_afectados'] ?? 0);
                                     <th width="150">Fecha</th>
                                     <th>Producto</th>
                                     <th class="text-center hide-mobile">Tipo</th>
-                                    <th class="text-center">Cantidad</th>
+                                    <th width="180" class="text-center">Cantidad</th>
                                     <th class="hide-mobile">Motivo</th>
                                     <th class="text-center hide-mobile">Origen</th>
                                     <th class="hide-mobile">Usuario</th>
@@ -559,8 +651,20 @@ $stats['productos_afectados'] = intval($stats['productos_afectados'] ?? 0);
                             </thead>
                             <tbody>
                                 <?php 
-                                $danados->data_seek(0); // Reset pointer
+                                $danados->data_seek(0);
                                 while ($danado = $danados->fetch_assoc()): 
+                                    $cantidad_cajas = floatval($danado['cantidad']);
+                                    $unidades_por_caja = intval($danado['unidades_por_caja']);
+                                    
+                                    // Calcular si hay conversión de unidades
+                                    $es_decimal = ($cantidad_cajas != floor($cantidad_cajas));
+                                    $mostrar_conversion = ($es_decimal && $unidades_por_caja > 0);
+                                    
+                                    if ($mostrar_conversion) {
+                                        $cajas_completas = floor($cantidad_cajas);
+                                        $decimal = $cantidad_cajas - $cajas_completas;
+                                        $unidades_sueltas = round($decimal * $unidades_por_caja);
+                                    }
                                 ?>
                                     <tr>
                                         <td>
@@ -574,14 +678,27 @@ $stats['productos_afectados'] = intval($stats['productos_afectados'] ?? 0);
                                         </td>
                                         <td>
                                             <strong><?php echo htmlspecialchars($danado['producto_nombre']); ?></strong>
+                                            <?php if ($unidades_por_caja > 0): ?>
+                                                <br><small class="text-muted"><?php echo $unidades_por_caja; ?> unid/caja</small>
+                                            <?php endif; ?>
                                         </td>
                                         <td class="text-center hide-mobile">
                                             <span class="badge bg-secondary"><?php echo $danado['producto_tipo']; ?></span>
                                         </td>
                                         <td class="text-center">
                                             <span class="badge bg-danger" style="font-size: 13px;">
-                                                <?php echo number_format($danado['cantidad'], 1); ?>
+                                                <?php echo number_format($cantidad_cajas, 2); ?> cajas
                                             </span>
+                                            <?php if ($mostrar_conversion): ?>
+                                                <br>
+                                                <span class="badge-conversion">
+                                                    <i class="fas fa-box-open"></i>
+                                                    <?php if ($cajas_completas > 0): ?>
+                                                        <?php echo $cajas_completas; ?> caja<?php echo $cajas_completas != 1 ? 's' : ''; ?> + 
+                                                    <?php endif; ?>
+                                                    <?php echo $unidades_sueltas; ?> unid.
+                                                </span>
+                                            <?php endif; ?>
                                         </td>
                                         <td class="hide-mobile">
                                             <?php echo htmlspecialchars($danado['motivo']); ?>
@@ -632,10 +749,376 @@ $stats['productos_afectados'] = intval($stats['productos_afectados'] ?? 0);
         </div>
     </div>
 
+    <!-- Template de fila de producto (oculto) -->
+    <template id="templateFilaProducto">
+        <tr class="fila-producto">
+            <td class="text-center numero-fila">1</td>
+            <td>
+                <select class="form-select form-select-sm producto-select" name="productos[INDEX][producto_id]" required>
+                    <option value="">-- Seleccione un producto --</option>
+                    <?php 
+                    $productos->data_seek(0);
+                    while ($producto = $productos->fetch_assoc()): 
+                    ?>
+                        <option value="<?php echo $producto['id']; ?>" 
+                                data-unidades-por-caja="<?php echo $producto['unidades_por_caja']; ?>"
+                                data-stock-actual="<?php echo $producto['stock_actual']; ?>"
+                                data-nombre="<?php echo htmlspecialchars($producto['nombre']); ?>">
+                            <?php echo htmlspecialchars($producto['nombre']); ?>
+                        </option>
+                    <?php endwhile; ?>
+                </select>
+                <div class="producto-info">
+                    <i class="fas fa-info-circle"></i> <span class="info-texto"></span>
+                </div>
+            </td>
+            <td class="text-center">
+                <input type="number" 
+                       class="form-control form-control-sm text-center cantidad-input" 
+                       name="productos[INDEX][cantidad]" 
+                       step="1" 
+                       min="0.1" 
+                       required 
+                       placeholder="0">
+                <small class="text-muted cantidad-label">cajas</small>
+            </td>
+            <td class="text-center">
+                <div class="form-check form-switch d-flex justify-content-center">
+                    <input class="form-check-input switch-unidades" 
+                           type="checkbox" 
+                           name="productos[INDEX][por_unidades]" 
+                           value="1"
+                           disabled
+                           title="Seleccione primero un producto">
+                </div>
+            </td>
+            <td>
+                <input type="text" 
+                       class="form-control form-control-sm motivo-input" 
+                       name="productos[INDEX][motivo]" 
+                       required 
+                       placeholder="Ej: Vencido, Roto..."
+                       list="motivos-comunes">
+            </td>
+            <td class="text-center">
+                <button type="button" class="btn btn-danger btn-sm btn-eliminar-fila" title="Eliminar">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </td>
+        </tr>
+    </template>
+
+    <!-- Datalist de motivos comunes -->
+    <datalist id="motivos-comunes">
+        <option value="Vencido">
+        <option value="Roto">
+        <option value="Derramado">
+        <option value="Aplastado">
+        <option value="Fecha próxima a vencer">
+        <option value="Empaque dañado">
+        <option value="Contaminado">
+        <option value="Mal estado">
+        <option value="Sabor/Olor alterado">
+        <option value="Etiqueta ilegible">
+    </datalist>
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="assets/js/notifications.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
+            let contadorFilas = 0;
+            const productosBody = document.getElementById('productosBody');
+            const btnAgregarProducto = document.getElementById('btnAgregarProducto');
+            const btnLimpiar = document.getElementById('btnLimpiar');
+            const formDanado = document.getElementById('formDanado');
+            const template = document.getElementById('templateFilaProducto');
+            
+            // Agregar primera fila al cargar
+            agregarFilaProducto();
+            
+            // Función para agregar fila de producto
+            function agregarFilaProducto() {
+                contadorFilas++;
+                const clone = template.content.cloneNode(true);
+                const tr = clone.querySelector('tr');
+                
+                // Reemplazar INDEX con el contador
+                tr.innerHTML = tr.innerHTML.replace(/INDEX/g, contadorFilas);
+                
+                // Actualizar número de fila
+                tr.querySelector('.numero-fila').textContent = contadorFilas;
+                
+                productosBody.appendChild(tr);
+                
+                // Agregar event listeners a la nueva fila
+                const nuevaFila = productosBody.lastElementChild;
+                configurarEventosFilas(nuevaFila);
+                
+                // Scroll suave a la nueva fila
+                nuevaFila.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
+            
+            // Configurar eventos de cada fila
+            function configurarEventosFilas(fila) {
+                const productoSelect = fila.querySelector('.producto-select');
+                const cantidadInput = fila.querySelector('.cantidad-input');
+                const switchUnidades = fila.querySelector('.switch-unidades');
+                const motivoInput = fila.querySelector('.motivo-input');
+                const productoInfo = fila.querySelector('.producto-info');
+                const btnEliminar = fila.querySelector('.btn-eliminar-fila');
+                const cantidadLabel = fila.querySelector('.cantidad-label');
+                
+                // Evento al seleccionar producto
+                productoSelect.addEventListener('change', function() {
+                    const option = this.options[this.selectedIndex];
+                    const unidadesPorCaja = parseInt(option.getAttribute('data-unidades-por-caja')) || 0;
+                    const stockActual = parseFloat(option.getAttribute('data-stock-actual')) || 0;
+                    const nombreProducto = option.getAttribute('data-nombre');
+                    
+                    if (this.value) {
+                        // Verificar stock disponible
+                        let claseInfo = '';
+                        let iconoStock = '';
+                        
+                        if (stockActual <= 0) {
+                            claseInfo = 'sin-stock';
+                            iconoStock = '<i class="fas fa-times-circle text-danger"></i>';
+                        } else if (stockActual < 5) {
+                            claseInfo = 'stock-bajo';
+                            iconoStock = '<i class="fas fa-exclamation-triangle text-warning"></i>';
+                        }
+                        
+                        // Habilitar/deshabilitar switch según si tiene unidades_por_caja
+                        if (unidadesPorCaja > 0) {
+                            switchUnidades.disabled = false;
+                            switchUnidades.title = 'Activar para registrar por unidades';
+                        } else {
+                            switchUnidades.disabled = true;
+                            switchUnidades.checked = false;
+                            switchUnidades.title = 'Este producto no tiene configuradas unidades por caja';
+                            cantidadInput.setAttribute('step', '0.5');
+                            cantidadLabel.textContent = 'cajas';
+                        }
+                        
+                        // Mostrar info del producto
+                        let infoTexto = `${iconoStock} <strong>${nombreProducto}</strong><br>`;
+                        infoTexto += `Stock disponible: <strong>${stockActual.toFixed(2)} cajas</strong>`;
+                        
+                        if (unidadesPorCaja > 0) {
+                            const totalUnidades = Math.round(stockActual * unidadesPorCaja);
+                            infoTexto += ` (<strong>${totalUnidades} unidades</strong>)`;
+                            infoTexto += `<br>Configuración: <strong>${unidadesPorCaja} unidades por caja</strong>`;
+                        }
+                        
+                        if (stockActual <= 0) {
+                            infoTexto += '<br><strong class="text-danger">⚠️ SIN STOCK - No se puede registrar como dañado</strong>';
+                        } else if (stockActual < 5) {
+                            infoTexto += '<br><strong class="text-warning">⚠️ Stock bajo - Verifique la cantidad</strong>';
+                        }
+                        
+                        productoInfo.querySelector('.info-texto').innerHTML = infoTexto;
+                        productoInfo.classList.remove('stock-bajo', 'sin-stock');
+                        if (claseInfo) productoInfo.classList.add(claseInfo);
+                        productoInfo.classList.add('show');
+                    } else {
+                        productoInfo.classList.remove('show');
+                        switchUnidades.disabled = true;
+                        switchUnidades.checked = false;
+                    }
+                });
+                
+                // Evento al cambiar el switch de unidades
+                switchUnidades.addEventListener('change', function() {
+                    const option = productoSelect.options[productoSelect.selectedIndex];
+                    const unidadesPorCaja = parseInt(option.getAttribute('data-unidades-por-caja')) || 0;
+                    
+                    if (this.checked && unidadesPorCaja > 0) {
+                        // Modo UNIDADES
+                        cantidadInput.setAttribute('step', '1');
+                        cantidadInput.setAttribute('min', '1');
+                        cantidadLabel.textContent = 'unidades';
+                        cantidadInput.placeholder = 'Ej: 24';
+                        
+                        // Agregar badge visual
+                        if (!fila.querySelector('.badge-modo-unidad')) {
+                            const badge = document.createElement('span');
+                            badge.className = 'badge bg-warning text-dark ms-2 badge-modo-unidad';
+                            badge.innerHTML = '<i class="fas fa-box-open"></i> Modo: Unidades';
+                            productoSelect.parentElement.appendChild(badge);
+                        }
+                        
+                        // Convertir valor si existe
+                        if (cantidadInput.value) {
+                            const valorCajas = parseFloat(cantidadInput.value);
+                            const valorUnidades = Math.round(valorCajas * unidadesPorCaja);
+                            cantidadInput.value = valorUnidades;
+                        }
+                    } else {
+                        // Modo CAJAS
+                        cantidadInput.setAttribute('step', '0.5');
+                        cantidadInput.setAttribute('min', '0.1');
+                        cantidadLabel.textContent = 'cajas';
+                        cantidadInput.placeholder = 'Ej: 10';
+                        
+                        // Remover badge
+                        const badge = fila.querySelector('.badge-modo-unidad');
+                        if (badge) badge.remove();
+                        
+                        // Convertir valor si existe
+                        if (cantidadInput.value && unidadesPorCaja > 0) {
+                            const valorUnidades = parseFloat(cantidadInput.value);
+                            const valorCajas = (valorUnidades / unidadesPorCaja).toFixed(2);
+                            cantidadInput.value = valorCajas;
+                        }
+                    }
+                });
+                
+                // Validar cantidad en tiempo real contra stock
+                cantidadInput.addEventListener('input', function() {
+                    const valor = parseFloat(this.value) || 0;
+                    const option = productoSelect.options[productoSelect.selectedIndex];
+                    const stockActual = parseFloat(option.getAttribute('data-stock-actual')) || 0;
+                    const unidadesPorCaja = parseInt(option.getAttribute('data-unidades-por-caja')) || 0;
+                    
+                    if (valor < 0) {
+                        this.value = 0;
+                    }
+                    
+                    // Validar contra stock disponible
+                    if (productoSelect.value) {
+                        let cantidadEnCajas = valor;
+                        
+                        if (switchUnidades.checked && unidadesPorCaja > 0) {
+                            cantidadEnCajas = valor / unidadesPorCaja;
+                        }
+                        
+                        if (cantidadEnCajas > stockActual) {
+                            this.style.borderColor = '#e74c3c';
+                            this.style.backgroundColor = '#f8d7da';
+                        } else {
+                            this.style.borderColor = '';
+                            this.style.backgroundColor = '';
+                        }
+                    }
+                });
+                
+                // Formatear al perder el foco
+                cantidadInput.addEventListener('blur', function() {
+                    if (this.value && parseFloat(this.value) > 0) {
+                        if (switchUnidades.checked) {
+                            this.value = Math.round(parseFloat(this.value));
+                        } else {
+                            this.value = parseFloat(this.value).toFixed(2);
+                        }
+                    }
+                });
+                
+                // Eliminar fila
+                btnEliminar.addEventListener('click', function() {
+                    const totalFilas = productosBody.querySelectorAll('tr').length;
+                    
+                    if (totalFilas > 1) {
+                        if (confirm('¿Está seguro que desea eliminar este producto?')) {
+                            fila.remove();
+                            renumerarFilas();
+                        }
+                    } else {
+                        alert('Debe mantener al menos un producto en la lista');
+                    }
+                });
+            }
+            
+            // Renumerar filas después de eliminar
+            function renumerarFilas() {
+                const filas = productosBody.querySelectorAll('tr');
+                filas.forEach((fila, index) => {
+                    fila.querySelector('.numero-fila').textContent = index + 1;
+                });
+            }
+            
+            // Botón agregar producto
+            btnAgregarProducto.addEventListener('click', function() {
+                agregarFilaProducto();
+            });
+            
+            // Botón limpiar todo
+            btnLimpiar.addEventListener('click', function() {
+                if (confirm('¿Está seguro que desea limpiar todos los productos?')) {
+                    productosBody.innerHTML = '';
+                    contadorFilas = 0;
+                    agregarFilaProducto();
+                }
+            });
+            
+            // Validación del formulario
+            formDanado.addEventListener('submit', function(e) {
+                const filas = productosBody.querySelectorAll('tr');
+                let productosValidos = 0;
+                let errores = [];
+                
+                filas.forEach((fila, index) => {
+                    const productoSelect = fila.querySelector('.producto-select');
+                    const cantidadInput = fila.querySelector('.cantidad-input');
+                    const motivoInput = fila.querySelector('.motivo-input');
+                    const switchUnidades = fila.querySelector('.switch-unidades');
+                    
+                    const productoId = productoSelect.value;
+                    const cantidad = parseFloat(cantidadInput.value) || 0;
+                    const motivo = motivoInput.value.trim();
+                    const option = productoSelect.options[productoSelect.selectedIndex];
+                    const stockActual = parseFloat(option.getAttribute('data-stock-actual')) || 0;
+                    const unidadesPorCaja = parseInt(option.getAttribute('data-unidades-por-caja')) || 0;
+                    
+                    if (productoId && cantidad > 0 && motivo.length >= 3) {
+                        // Validar stock disponible
+                        let cantidadEnCajas = cantidad;
+                        
+                        if (switchUnidades.checked && unidadesPorCaja > 0) {
+                            cantidadEnCajas = cantidad / unidadesPorCaja;
+                        }
+                        
+                        if (stockActual <= 0) {
+                            errores.push(`Fila ${index + 1}: El producto no tiene stock disponible`);
+                        } else if (cantidadEnCajas > stockActual) {
+                            errores.push(`Fila ${index + 1}: La cantidad (${cantidadEnCajas.toFixed(2)} cajas) excede el stock disponible (${stockActual.toFixed(2)} cajas)`);
+                        } else {
+                            productosValidos++;
+                        }
+                    } else if (productoId && cantidad <= 0) {
+                        errores.push(`Fila ${index + 1}: Debe ingresar una cantidad mayor a 0`);
+                    } else if (productoId && motivo.length < 3) {
+                        errores.push(`Fila ${index + 1}: El motivo debe tener al menos 3 caracteres`);
+                    } else if (!productoId && (cantidad > 0 || motivo)) {
+                        errores.push(`Fila ${index + 1}: Debe seleccionar un producto`);
+                    }
+                });
+                
+                if (productosValidos === 0) {
+                    e.preventDefault();
+                    alert('Debe agregar al menos un producto válido con cantidad y motivo');
+                    return false;
+                }
+                
+                if (errores.length > 0) {
+                    e.preventDefault();
+                    alert('❌ ERRORES ENCONTRADOS:\n\n' + errores.join('\n'));
+                    return false;
+                }
+                
+                // Confirmación con advertencia
+                if (!confirm(`⚠️ ADVERTENCIA IMPORTANTE:\n\n¿Está seguro que desea registrar ${productosValidos} producto(s) como dañados?\n\nEsta acción:\n- Descontará automáticamente del inventario\n- NO SE PUEDE REVERTIR\n- Quedará registrada permanentemente\n\n¿Desea continuar?`)) {
+                    e.preventDefault();
+                    return false;
+                }
+                
+                // Deshabilitar botón para evitar doble envío
+                const submitBtn = this.querySelector('button[type="submit"]');
+                if (submitBtn) {
+                    submitBtn.disabled = true;
+                    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Procesando...';
+                }
+            });
+            
             // Responsive navbar
             const navbarToggler = document.querySelector('.navbar-toggler');
             const navbarCollapse = document.querySelector('.navbar-collapse');
@@ -654,54 +1137,7 @@ $stats['productos_afectados'] = intval($stats['productos_afectados'] ?? 0);
                 });
             }
             
-            // Validación del formulario
-            const formDanado = document.getElementById('formDanado');
-            if (formDanado) {
-                formDanado.addEventListener('submit', function(e) {
-                    const productoId = document.getElementById('producto_id').value;
-                    const cantidad = parseFloat(document.getElementById('cantidad').value);
-                    const motivo = document.getElementById('motivo').value.trim();
-                    
-                    // Validar producto
-                    if (!productoId || productoId === '') {
-                        e.preventDefault();
-                        alert('Debe seleccionar un producto');
-                        document.getElementById('producto_id').focus();
-                        return false;
-                    }
-                    
-                    // Validar cantidad
-                    if (isNaN(cantidad) || cantidad <= 0) {
-                        e.preventDefault();
-                        alert('La cantidad debe ser mayor a 0');
-                        document.getElementById('cantidad').focus();
-                        return false;
-                    }
-                    
-                    // Validar motivo
-                    if (motivo.length < 3) {
-                        e.preventDefault();
-                        alert('El motivo debe tener al menos 3 caracteres');
-                        document.getElementById('motivo').focus();
-                        return false;
-                    }
-                    
-                    // Confirmación
-                    if (!confirm('¿Está seguro que desea registrar este producto como dañado?\n\nEsto descontará automáticamente del inventario.')) {
-                        e.preventDefault();
-                        return false;
-                    }
-                    
-                    // Deshabilitar botón para evitar doble submit
-                    const submitBtn = this.querySelector('button[type="submit"]');
-                    if (submitBtn) {
-                        submitBtn.disabled = true;
-                        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Procesando...';
-                    }
-                });
-            }
-            
-            // Mejorar experiencia táctil en dispositivos móviles
+            // Mejorar experiencia táctil
             if ('ontouchstart' in window) {
                 document.querySelectorAll('.btn, .table-danados tbody tr').forEach(element => {
                     element.addEventListener('touchstart', function() {
@@ -716,7 +1152,7 @@ $stats['productos_afectados'] = intval($stats['productos_afectados'] ?? 0);
                 });
             }
             
-            // Manejar orientación en dispositivos móviles
+            // Manejar orientación
             function handleOrientationChange() {
                 const orientation = window.innerHeight > window.innerWidth ? 'portrait' : 'landscape';
                 document.body.setAttribute('data-orientation', orientation);
@@ -726,12 +1162,11 @@ $stats['productos_afectados'] = intval($stats['productos_afectados'] ?? 0);
             window.addEventListener('orientationchange', handleOrientationChange);
             window.addEventListener('resize', handleOrientationChange);
             
-            // Añadir clase para dispositivos táctiles
             if ('ontouchstart' in window || navigator.maxTouchPoints > 0) {
                 document.body.classList.add('touch-device');
             }
             
-            // Auto-ocultar alerta después de 5 segundos
+            // Auto-ocultar alerta
             const alert = document.querySelector('.alert-dismissible');
             if (alert) {
                 setTimeout(function() {
@@ -740,55 +1175,7 @@ $stats['productos_afectados'] = intval($stats['productos_afectados'] ?? 0);
                 }, 5000);
             }
             
-            // Formatear input de cantidad
-            const cantidadInput = document.getElementById('cantidad');
-            if (cantidadInput) {
-                cantidadInput.addEventListener('input', function() {
-                    // Permitir solo números y un punto decimal
-                    this.value = this.value.replace(/[^0-9.]/g, '');
-                    
-                    // Evitar múltiples puntos decimales
-                    const parts = this.value.split('.');
-                    if (parts.length > 2) {
-                        this.value = parts[0] + '.' + parts.slice(1).join('');
-                    }
-                });
-                
-                cantidadInput.addEventListener('blur', function() {
-                    // Formatear a un decimal al perder el foco
-                    if (this.value && !isNaN(this.value)) {
-                        this.value = parseFloat(this.value).toFixed(1);
-                    }
-                });
-            }
-            
-            // Limpiar formulario completamente
-            const resetBtn = formDanado ? formDanado.querySelector('button[type="reset"]') : null;
-            if (resetBtn) {
-                resetBtn.addEventListener('click', function() {
-                    setTimeout(() => {
-                        document.getElementById('producto_id').value = '';
-                        document.getElementById('cantidad').value = '';
-                        document.getElementById('motivo').value = '';
-                        document.getElementById('producto_id').focus();
-                    }, 10);
-                });
-            }
-            
-            // Efecto hover mejorado para filas de tabla en desktop
-            if (window.innerWidth > 768) {
-                document.querySelectorAll('.table-danados tbody tr').forEach(row => {
-                    row.addEventListener('mouseenter', function() {
-                        this.style.transform = 'scale(1.01)';
-                    });
-                    
-                    row.addEventListener('mouseleave', function() {
-                        this.style.transform = 'scale(1)';
-                    });
-                });
-            }
-            
-            // Animación de las tarjetas de estadísticas
+            // Animación de las estadísticas
             const statCards = document.querySelectorAll('.stat-card');
             statCards.forEach((card, index) => {
                 setTimeout(() => {
@@ -803,99 +1190,17 @@ $stats['productos_afectados'] = intval($stats['productos_afectados'] ?? 0);
                 }, index * 100);
             });
             
-            // Placeholder dinámico en el select de productos
-            const productoSelect = document.getElementById('producto_id');
-            if (productoSelect) {
-                productoSelect.addEventListener('change', function() {
-                    if (this.value) {
-                        document.getElementById('cantidad').focus();
-                    }
-                });
-            }
-            
-            // Sugerencias de motivos comunes
-            const motivoInput = document.getElementById('motivo');
-            if (motivoInput) {
-                const motivosComunes = [
-                    'Vencido',
-                    'Roto',
-                    'Derramado',
-                    'Aplastado',
-                    'Fecha próxima a vencer',
-                    'Empaque dañado',
-                    'Contaminado',
-                    'Mal estado'
-                ];
-                
-                // Crear datalist para sugerencias
-                const datalist = document.createElement('datalist');
-                datalist.id = 'motivos-comunes';
-                motivosComunes.forEach(motivo => {
-                    const option = document.createElement('option');
-                    option.value = motivo;
-                    datalist.appendChild(option);
-                });
-                motivoInput.setAttribute('list', 'motivos-comunes');
-                document.body.appendChild(datalist);
-            }
-            
-            // Mensaje de confirmación al resetear
-            if (resetBtn) {
-                resetBtn.addEventListener('click', function(e) {
-                    const hasData = document.getElementById('producto_id').value || 
-                                   document.getElementById('cantidad').value || 
-                                   document.getElementById('motivo').value;
-                    
-                    if (hasData) {
-                        if (!confirm('¿Está seguro que desea limpiar el formulario?')) {
-                            e.preventDefault();
-                            return false;
-                        }
-                    }
-                });
-            }
-            
-            // Resaltar filas de productos con muchas incidencias
-            document.querySelectorAll('.table-danados tbody tr').forEach(row => {
-                const incidenciasCell = row.querySelector('td:nth-last-child(1)');
-                if (incidenciasCell) {
-                    const incidencias = parseInt(incidenciasCell.textContent);
-                    if (incidencias > 10) {
-                        row.style.backgroundColor = '#fff3cd';
-                    }
-                }
-            });
-            
-            console.log('Productos Dañados cargados correctamente');
-            console.log('Total de registros:', <?php echo $stats['total_registros']; ?>);
-            console.log('Total de productos afectados:', <?php echo $stats['productos_afectados']; ?>);
-            console.log('Total de unidades dañadas:', <?php echo $stats['total_cantidad']; ?>);
+            console.log('===========================================');
+            console.log('PRODUCTOS DAÑADOS - DISTRIBUIDORA LORENA');
+            console.log('===========================================');
+            console.log('✅ Sistema cargado correctamente');
+            console.log('📦 Registro múltiple de productos activado');
+            console.log('🔄 Conversión automática unidades/cajas activada');
+            console.log('⚠️ Validación de stock activada');
+            console.log('📊 Total de productos disponibles:', <?php echo $productos->num_rows; ?>);
+            console.log('❌ Total productos dañados histórico:', <?php echo $stats['total_cantidad']; ?>);
+            console.log('===========================================');
         });
-        
-        // Función para actualizar las estadísticas en tiempo real (opcional)
-        function actualizarEstadisticas() {
-            // Esta función se puede usar para actualizar las estadísticas sin recargar la página
-            // usando AJAX si se requiere en el futuro
-            console.log('Actualizando estadísticas...');
-        }
-        
-        // Prevenir envío duplicado
-        let formSubmitted = false;
-        const formDanado = document.getElementById('formDanado');
-        if (formDanado) {
-            formDanado.addEventListener('submit', function(e) {
-                if (formSubmitted) {
-                    e.preventDefault();
-                    return false;
-                }
-                formSubmitted = true;
-            });
-        }
-        
-        // Re-habilitar envío después de 5 segundos por si hay error
-        setTimeout(() => {
-            formSubmitted = false;
-        }, 5000);
     </script>
 </body>
 </html>
