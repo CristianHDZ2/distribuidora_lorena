@@ -17,10 +17,19 @@ if (isset($_GET['mensaje'])) {
 // Fecha de hoy por defecto
 $fecha_hoy = date('Y-m-d');
 
-// Obtener todos los productos activos ordenados alfabéticamente
-$productos = $conn->query("SELECT * FROM productos WHERE activo = 1 ORDER BY nombre ASC");
+// Obtener todos los productos activos con información de inventario
+$query_productos = "
+    SELECT 
+        p.*,
+        COALESCE(i.stock_actual, 0) as stock_actual
+    FROM productos p
+    LEFT JOIN inventario i ON p.id = i.producto_id
+    WHERE p.activo = 1
+    ORDER BY p.nombre ASC
+";
+$productos = $conn->query($query_productos);
 
-// Obtener devoluciones recientes (últimas 20)
+// Obtener devoluciones recientes (últimas 20) con desglose
 $query_devoluciones = "
     SELECT 
         dd.id,
@@ -32,6 +41,7 @@ $query_devoluciones = "
         dd.fecha_registro,
         p.nombre as producto_nombre,
         p.tipo as producto_tipo,
+        p.unidades_por_caja,
         u.nombre as usuario_nombre
     FROM devoluciones_directas dd
     INNER JOIN productos p ON dd.producto_id = p.id
@@ -78,10 +88,6 @@ $stats_total = $conn->query($query_stats_total)->fetch_assoc();
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="assets/css/custom.css">
     <style>
-        /* ============================================
-           ESTILOS IGUAL A PRODUCTOS.PHP
-           ============================================ */
-        
         /* Tabla de devoluciones con diseño igual a productos */
         .table-devoluciones {
             box-shadow: 0 2px 8px rgba(0,0,0,0.1);
@@ -104,7 +110,6 @@ $stats_total = $conn->query($query_stats_total)->fetch_assoc();
             }
         }
         
-        /* CORREGIDO: Encabezados con fondo degradado y texto blanco */
         .table-devoluciones thead {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
         }
@@ -182,7 +187,7 @@ $stats_total = $conn->query($query_stats_total)->fetch_assoc();
         
         /* Formulario de devolución */
         .form-section {
-            background: white;
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
             padding: 25px;
             border-radius: 15px;
             box-shadow: 0 2px 8px rgba(0,0,0,0.1);
@@ -201,6 +206,87 @@ $stats_total = $conn->query($query_stats_total)->fetch_assoc();
                 padding: 15px;
                 border-radius: 10px;
             }
+        }
+        
+        /* NUEVO: Tabla de productos dinámica */
+        .tabla-productos-devolucion {
+            background: white;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        .tabla-productos-devolucion thead {
+            background: linear-gradient(135deg, #3498db, #2980b9);
+        }
+        
+        .tabla-productos-devolucion thead th {
+            color: white !important;
+            font-weight: 600;
+            padding: 12px 10px;
+            font-size: 12px;
+            text-transform: uppercase;
+        }
+        
+        .tabla-productos-devolucion tbody td {
+            padding: 10px;
+            vertical-align: middle;
+        }
+        
+        .tabla-productos-devolucion tbody tr:hover {
+            background-color: #e3f2fd;
+        }
+        
+        /* Info del producto */
+        .producto-info {
+            background: #e3f2fd;
+            border-left: 4px solid #2196f3;
+            padding: 10px;
+            border-radius: 5px;
+            margin-top: 5px;
+            font-size: 11px;
+            display: none;
+        }
+        
+        .producto-info.show {
+            display: block;
+        }
+        
+        /* Switch de unidades */
+        .form-switch .form-check-input {
+            width: 50px;
+            height: 25px;
+            cursor: pointer;
+        }
+        
+        .form-switch .form-check-label {
+            cursor: pointer;
+            margin-left: 10px;
+            font-weight: 600;
+        }
+        
+        /* Badge de conversión */
+        .badge-conversion {
+            background: #e3f2fd;
+            color: #0d47a1;
+            font-size: 10px;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            display: inline-block;
+            margin-left: 5px;
+        }
+        
+        /* Badge de modo unidad */
+        .badge-modo-unidad {
+            font-size: 11px;
+            padding: 4px 8px;
+        }
+        
+        /* Botón eliminar fila */
+        .btn-eliminar-fila {
+            padding: 5px 10px;
+            font-size: 12px;
         }
         
         /* Tarjetas de estadísticas */
@@ -320,51 +406,6 @@ $stats_total = $conn->query($query_stats_total)->fetch_assoc();
         
         .table-devoluciones tbody tr.fila-buena:hover {
             background-color: #d4ffd4 !important;
-        }
-        
-        /* Botones responsivos */
-        .btn-lg {
-            padding: 12px 30px;
-            font-size: 16px;
-        }
-        
-        @media (max-width: 767px) {
-            .btn-lg {
-                padding: 10px 25px;
-                font-size: 14px;
-            }
-        }
-        
-        @media (max-width: 480px) {
-            .btn-lg {
-                padding: 8px 20px;
-                font-size: 13px;
-                width: 100%;
-                margin-bottom: 10px;
-            }
-        }
-        
-        /* Formularios responsivos */
-        .form-select-lg,
-        .form-control-lg {
-            font-size: 16px;
-            padding: 12px 15px;
-        }
-        
-        @media (max-width: 767px) {
-            .form-select-lg,
-            .form-control-lg {
-                font-size: 14px;
-                padding: 10px 12px;
-            }
-        }
-        
-        @media (max-width: 480px) {
-            .form-select-lg,
-            .form-control-lg {
-                font-size: 13px;
-                padding: 8px 10px;
-            }
         }
         
         /* Título de sección */
@@ -524,7 +565,14 @@ $stats_total = $conn->query($query_stats_total)->fetch_assoc();
 
             <div class="alert alert-info alert-custom">
                 <i class="fas fa-info-circle"></i>
-                <strong>Devoluciones Directas:</strong> Registre aquí las devoluciones de productos que se reciben directamente en bodega (no provenientes de rutas).
+                <strong>Devoluciones Directas:</strong> Registre aquí las devoluciones de productos que se reciben directamente en bodega (no provenientes de rutas). 
+                Puede registrar <strong>múltiples productos a la vez</strong>.
+                <br><strong class="mt-2 d-block">Registro por Unidades:</strong>
+                <ul class="mb-0">
+                    <li>✅ Activa el switch "Por Unidades" para devolver en unidades individuales</li>
+                    <li>❌ Desmarcado = Devolución por CAJAS</li>
+                    <li>🔄 El sistema convierte automáticamente unidades a cajas</li>
+                </ul>
             </div>
 
             <div class="alert-danado">
@@ -543,7 +591,7 @@ $stats_total = $conn->query($query_stats_total)->fetch_assoc();
                         <div class="d-flex justify-content-between align-items-center">
                             <div>
                                 <p class="text-muted mb-0">Devoluciones Hoy</p>
-                                <h3><?php echo number_format($stats_hoy['total_cantidad'] ?? 0, 1); ?></h3>
+                                <h3><?php echo number_format($stats_hoy['total_cantidad'] ?? 0, 2); ?></h3>
                                 <small class="text-muted"><?php echo $stats_hoy['total_devoluciones'] ?? 0; ?> registros</small>
                             </div>
                             <i class="fas fa-undo fa-3x text-primary" style="opacity: 0.3;"></i>
@@ -555,7 +603,7 @@ $stats_total = $conn->query($query_stats_total)->fetch_assoc();
                         <div class="d-flex justify-content-between align-items-center">
                             <div>
                                 <p class="text-muted mb-0">Productos Buenos</p>
-                                <h3><?php echo number_format($stats_total['cantidad_buena'] ?? 0, 1); ?></h3>
+                                <h3><?php echo number_format($stats_total['cantidad_buena'] ?? 0, 2); ?></h3>
                                 <small class="text-muted">Devueltos al inventario</small>
                             </div>
                             <i class="fas fa-check-circle fa-3x text-success" style="opacity: 0.3;"></i>
@@ -567,7 +615,7 @@ $stats_total = $conn->query($query_stats_total)->fetch_assoc();
                         <div class="d-flex justify-content-between align-items-center">
                             <div>
                                 <p class="text-muted mb-0">Productos Dañados</p>
-                                <h3><?php echo number_format($stats_total['cantidad_danada'] ?? 0, 1); ?></h3>
+                                <h3><?php echo number_format($stats_total['cantidad_danada'] ?? 0, 2); ?></h3>
                                 <small class="text-muted">No devueltos a inventario</small>
                             </div>
                             <i class="fas fa-exclamation-triangle fa-3x text-danger" style="opacity: 0.3;"></i>
@@ -579,122 +627,85 @@ $stats_total = $conn->query($query_stats_total)->fetch_assoc();
                         <div class="d-flex justify-content-between align-items-center">
                             <div>
                                 <p class="text-muted mb-0">Total Devoluciones</p>
-                                <h3><?php echo number_format($stats_total['total_cantidad'] ?? 0, 1); ?></h3>
+                                <h3><?php echo number_format($stats_total['total_cantidad'] ?? 0, 2); ?></h3>
                                 <small class="text-muted">Histórico completo</small>
                             </div>
                             <i class="fas fa-boxes fa-3x text-warning" style="opacity: 0.3;"></i>
                         </div>
                     </div>
                 </div>
-            </div><!-- Formulario de Devolución Directa -->
+            </div>
+
+            <!-- Formulario de Devolución Directa MÚLTIPLE -->
             <div class="form-section">
                 <h4 class="section-title">
-                    <i class="fas fa-plus-circle"></i> Registrar Devolución Directa
+                    <i class="fas fa-plus-circle"></i> Registrar Devoluciones Directas (Múltiple)
                 </h4>
                 <form method="POST" action="api/inventario_api.php" id="formDevolucion">
-                    <input type="hidden" name="accion" value="registrar_devolucion_directa">
+                    <input type="hidden" name="accion" value="registrar_devolucion_multiple">
                     
-                    <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <label for="producto_id" class="form-label fw-bold">
-                                <i class="fas fa-box"></i> Producto *
-                            </label>
-                            <select class="form-select form-select-lg" id="producto_id" name="producto_id" required>
-                                <option value="">-- Seleccione un producto --</option>
-                                <?php 
-                                $productos->data_seek(0); // Reset del puntero
-                                while ($producto = $productos->fetch_assoc()): 
-                                ?>
-                                    <option value="<?php echo $producto['id']; ?>">
-                                        <?php echo htmlspecialchars($producto['nombre']); ?> 
-                                        (<?php echo $producto['tipo']; ?>)
-                                    </option>
-                                <?php endwhile; ?>
-                            </select>
-                            <small class="text-muted">Seleccione el producto que se está devolviendo</small>
-                        </div>
-
-                        <div class="col-md-6 mb-3">
-                            <label for="cantidad" class="form-label fw-bold">
-                                <i class="fas fa-calculator"></i> Cantidad *
-                            </label>
-                            <input type="number" class="form-control form-control-lg" 
-                                   id="cantidad" name="cantidad" 
-                                   step="0.1" min="0.1" required 
-                                   placeholder="Ej: 5.0">
-                            <small class="text-muted">Ingrese la cantidad devuelta (puede usar decimales)</small>
-                        </div>
-                    </div>
-
-                    <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <label for="cliente" class="form-label fw-bold">
-                                <i class="fas fa-user"></i> Cliente (Opcional)
-                            </label>
-                            <input type="text" class="form-control form-control-lg" 
-                                   id="cliente" name="cliente" 
-                                   maxlength="200" 
-                                   placeholder="Nombre del cliente">
-                            <small class="text-muted">Nombre del cliente que devuelve el producto</small>
-                        </div>
-
-                        <div class="col-md-6 mb-3">
-                            <label for="fecha" class="form-label fw-bold">
+                    <!-- Fecha y Cliente comunes -->
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="fecha_general" class="form-label fw-bold">
                                 <i class="fas fa-calendar"></i> Fecha *
                             </label>
                             <input type="date" class="form-control form-control-lg" 
-                                   id="fecha" name="fecha" 
+                                   id="fecha_general" name="fecha_general" 
                                    value="<?php echo $fecha_hoy; ?>" 
                                    max="<?php echo $fecha_hoy; ?>" 
                                    required>
-                            <small class="text-muted">Fecha de la devolución</small>
+                            <small class="text-muted">Fecha de las devoluciones</small>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="cliente_general" class="form-label fw-bold">
+                                <i class="fas fa-user"></i> Cliente (Opcional)
+                            </label>
+                            <input type="text" class="form-control form-control-lg" 
+                                   id="cliente_general" name="cliente_general" 
+                                   maxlength="200" 
+                                   placeholder="Nombre del cliente">
+                            <small class="text-muted">Se aplicará a todas las devoluciones</small>
                         </div>
                     </div>
-
+                    
+                    <!-- Tabla de productos -->
+                    <div class="table-responsive mb-3">
+                        <table class="table tabla-productos-devolucion table-hover mb-0" id="tablaProductos">
+                            <thead>
+                                <tr>
+                                    <th width="40" class="text-center">#</th>
+                                    <th>Producto</th>
+                                    <th width="150" class="text-center">Cantidad</th>
+                                    <th width="120" class="text-center">Por Unidades</th>
+                                    <th width="120" class="text-center">¿Dañado?</th>
+                                    <th width="200">Motivo</th>
+                                    <th width="80" class="text-center">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="productosBody">
+                                <!-- Las filas se agregarán dinámicamente -->
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <!-- Botón para agregar producto -->
                     <div class="mb-3">
-                        <label for="motivo" class="form-label fw-bold">
-                            <i class="fas fa-comment-alt"></i> Motivo de la Devolución *
-                        </label>
-                        <textarea class="form-control form-control-lg" 
-                                  id="motivo" name="motivo" 
-                                  rows="3" required 
-                                  placeholder="Describa el motivo de la devolución (ej: Producto vencido, error en pedido, etc.)"></textarea>
-                        <small class="text-muted">Explique por qué se está devolviendo el producto</small>
-                    </div>
-
-                    <div class="mb-4">
-                        <div class="card" style="background-color: #fff3cd; border: 2px solid #ffc107;">
-                            <div class="card-body">
-                                <div class="form-check">
-                                    <input class="form-check-input checkbox-danado" 
-                                           type="checkbox" 
-                                           id="esta_danado" 
-                                           name="esta_danado" 
-                                           value="1">
-                                    <label class="form-check-label fw-bold" for="esta_danado" style="font-size: 18px;">
-                                        <i class="fas fa-exclamation-triangle text-danger"></i>
-                                        ¿El producto está DAÑADO?
-                                    </label>
-                                </div>
-                                <small class="text-muted ms-4 ps-2 d-block mt-2" id="helpTextDanado">
-                                    Si marca esta casilla, el producto NO se agregará al inventario y se registrará como dañado.
-                                </small>
-                            </div>
-                        </div>
+                        <button type="button" class="btn btn-success" id="btnAgregarProducto">
+                            <i class="fas fa-plus-circle"></i> Agregar Producto
+                        </button>
                     </div>
 
                     <div class="d-grid gap-2 d-md-flex justify-content-md-end">
-                        <button type="reset" class="btn btn-secondary btn-lg me-md-2">
-                            <i class="fas fa-eraser"></i> Limpiar
+                        <button type="button" class="btn btn-secondary btn-lg me-md-2" id="btnLimpiar">
+                            <i class="fas fa-eraser"></i> Limpiar Todo
                         </button>
                         <button type="submit" class="btn btn-custom-primary btn-lg">
-                            <i class="fas fa-save"></i> Registrar Devolución
+                            <i class="fas fa-save"></i> Registrar Devoluciones
                         </button>
                     </div>
                 </form>
-            </div>
-
-            <!-- Devoluciones Recientes -->
+            </div><!-- Devoluciones Recientes -->
             <div class="mt-5">
                 <h3 class="section-title">
                     <i class="fas fa-history"></i> Devoluciones Recientes (Últimas 20)
@@ -705,9 +716,9 @@ $stats_total = $conn->query($query_stats_total)->fetch_assoc();
                         <table class="table table-devoluciones table-hover mb-0">
                             <thead>
                                 <tr>
-                                    <th width="120">Fecha</th>
+                                    <th width="150">Fecha</th>
                                     <th>Producto</th>
-                                    <th width="100" class="text-center">Cantidad</th>
+                                    <th width="180" class="text-center">Cantidad</th>
                                     <th width="120" class="text-center">Estado</th>
                                     <th class="hide-mobile">Motivo</th>
                                     <th width="150" class="hide-mobile">Cliente</th>
@@ -716,8 +727,20 @@ $stats_total = $conn->query($query_stats_total)->fetch_assoc();
                             </thead>
                             <tbody>
                                 <?php 
-                                $devoluciones_recientes->data_seek(0); // Reset del puntero
+                                $devoluciones_recientes->data_seek(0);
                                 while ($dev = $devoluciones_recientes->fetch_assoc()): 
+                                    $cantidad_cajas = floatval($dev['cantidad']);
+                                    $unidades_por_caja = intval($dev['unidades_por_caja']);
+                                    
+                                    // Calcular si hay conversión de unidades
+                                    $es_decimal = ($cantidad_cajas != floor($cantidad_cajas));
+                                    $mostrar_conversion = ($es_decimal && $unidades_por_caja > 0);
+                                    
+                                    if ($mostrar_conversion) {
+                                        $cajas_completas = floor($cantidad_cajas);
+                                        $decimal = $cantidad_cajas - $cajas_completas;
+                                        $unidades_sueltas = round($decimal * $unidades_por_caja);
+                                    }
                                 ?>
                                     <tr class="<?php echo $dev['esta_danado'] ? 'fila-danada' : 'fila-buena'; ?>">
                                         <td>
@@ -735,11 +758,24 @@ $stats_total = $conn->query($query_stats_total)->fetch_assoc();
                                                 <i class="fas fa-tag"></i>
                                                 <?php echo $dev['producto_tipo']; ?>
                                             </small>
+                                            <?php if ($unidades_por_caja > 0): ?>
+                                                <br><small class="text-muted"><?php echo $unidades_por_caja; ?> unid/caja</small>
+                                            <?php endif; ?>
                                         </td>
                                         <td class="text-center">
-                                            <span class="badge bg-info" style="font-size: 14px;">
-                                                <?php echo number_format($dev['cantidad'], 1); ?>
+                                            <span class="badge bg-info" style="font-size: 13px;">
+                                                <?php echo number_format($cantidad_cajas, 2); ?> cajas
                                             </span>
+                                            <?php if ($mostrar_conversion): ?>
+                                                <br>
+                                                <span class="badge-conversion">
+                                                    <i class="fas fa-box-open"></i>
+                                                    <?php if ($cajas_completas > 0): ?>
+                                                        <?php echo $cajas_completas; ?> caja<?php echo $cajas_completas != 1 ? 's' : ''; ?> + 
+                                                    <?php endif; ?>
+                                                    <?php echo $unidades_sueltas; ?> unid.
+                                                </span>
+                                            <?php endif; ?>
                                         </td>
                                         <td class="text-center">
                                             <?php if ($dev['esta_danado']): ?>
@@ -791,10 +827,356 @@ $stats_total = $conn->query($query_stats_total)->fetch_assoc();
         </div>
     </div>
 
+    <!-- Template de fila de producto (oculto) -->
+    <template id="templateFilaProducto">
+        <tr class="fila-producto">
+            <td class="text-center numero-fila">1</td>
+            <td>
+                <select class="form-select form-select-sm producto-select" name="productos[INDEX][producto_id]" required>
+                    <option value="">-- Seleccione un producto --</option>
+                    <?php 
+                    $productos->data_seek(0);
+                    while ($producto = $productos->fetch_assoc()): 
+                    ?>
+                        <option value="<?php echo $producto['id']; ?>" 
+                                data-unidades-por-caja="<?php echo $producto['unidades_por_caja']; ?>"
+                                data-stock-actual="<?php echo $producto['stock_actual']; ?>"
+                                data-nombre="<?php echo htmlspecialchars($producto['nombre']); ?>">
+                            <?php echo htmlspecialchars($producto['nombre']); ?>
+                        </option>
+                    <?php endwhile; ?>
+                </select>
+                <div class="producto-info">
+                    <i class="fas fa-info-circle"></i> <span class="info-texto"></span>
+                </div>
+            </td>
+            <td class="text-center">
+                <input type="number" 
+                       class="form-control form-control-sm text-center cantidad-input" 
+                       name="productos[INDEX][cantidad]" 
+                       step="1" 
+                       min="0.1" 
+                       required 
+                       placeholder="0">
+                <small class="text-muted cantidad-label">cajas</small>
+            </td>
+            <td class="text-center">
+                <div class="form-check form-switch d-flex justify-content-center">
+                    <input class="form-check-input switch-unidades" 
+                           type="checkbox" 
+                           name="productos[INDEX][por_unidades]" 
+                           value="1"
+                           disabled
+                           title="Seleccione primero un producto">
+                </div>
+            </td>
+            <td class="text-center">
+                <div class="form-check d-flex justify-content-center">
+                    <input class="form-check-input checkbox-danado" 
+                           type="checkbox" 
+                           name="productos[INDEX][esta_danado]" 
+                           value="1"
+                           title="Marcar si está dañado">
+                </div>
+            </td>
+            <td>
+                <input type="text" 
+                       class="form-control form-control-sm motivo-input" 
+                       name="productos[INDEX][motivo]" 
+                       required 
+                       placeholder="Ej: Vencido, Roto..."
+                       list="motivos-comunes">
+            </td>
+            <td class="text-center">
+                <button type="button" class="btn btn-danger btn-sm btn-eliminar-fila" title="Eliminar">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </td>
+        </tr>
+    </template>
+
+    <!-- Datalist de motivos comunes -->
+    <datalist id="motivos-comunes">
+        <option value="Cliente insatisfecho">
+        <option value="Producto vencido">
+        <option value="Error en pedido">
+        <option value="Producto dañado en transporte">
+        <option value="Cambio de producto">
+        <option value="Producto en mal estado">
+        <option value="Fecha próxima a vencer">
+        <option value="Empaque roto">
+        <option value="Producto equivocado">
+        <option value="Sabor/Olor alterado">
+    </datalist>
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="assets/js/notifications.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
+            let contadorFilas = 0;
+            const productosBody = document.getElementById('productosBody');
+            const btnAgregarProducto = document.getElementById('btnAgregarProducto');
+            const btnLimpiar = document.getElementById('btnLimpiar');
+            const formDevolucion = document.getElementById('formDevolucion');
+            const template = document.getElementById('templateFilaProducto');
+            
+            // Agregar primera fila al cargar
+            agregarFilaProducto();
+            
+            // Función para agregar fila de producto
+            function agregarFilaProducto() {
+                contadorFilas++;
+                const clone = template.content.cloneNode(true);
+                const tr = clone.querySelector('tr');
+                
+                // Reemplazar INDEX con el contador
+                tr.innerHTML = tr.innerHTML.replace(/INDEX/g, contadorFilas);
+                
+                // Actualizar número de fila
+                tr.querySelector('.numero-fila').textContent = contadorFilas;
+                
+                productosBody.appendChild(tr);
+                
+                // Agregar event listeners a la nueva fila
+                const nuevaFila = productosBody.lastElementChild;
+                configurarEventosFilas(nuevaFila);
+                
+                // Scroll suave a la nueva fila
+                nuevaFila.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
+            
+            // Configurar eventos de cada fila
+            function configurarEventosFilas(fila) {
+                const productoSelect = fila.querySelector('.producto-select');
+                const cantidadInput = fila.querySelector('.cantidad-input');
+                const switchUnidades = fila.querySelector('.switch-unidades');
+                const checkboxDanado = fila.querySelector('.checkbox-danado');
+                const motivoInput = fila.querySelector('.motivo-input');
+                const productoInfo = fila.querySelector('.producto-info');
+                const btnEliminar = fila.querySelector('.btn-eliminar-fila');
+                const cantidadLabel = fila.querySelector('.cantidad-label');
+                
+                // Evento al seleccionar producto
+                productoSelect.addEventListener('change', function() {
+                    const option = this.options[this.selectedIndex];
+                    const unidadesPorCaja = parseInt(option.getAttribute('data-unidades-por-caja')) || 0;
+                    const stockActual = parseFloat(option.getAttribute('data-stock-actual')) || 0;
+                    const nombreProducto = option.getAttribute('data-nombre');
+                    
+                    if (this.value) {
+                        // Habilitar/deshabilitar switch según si tiene unidades_por_caja
+                        if (unidadesPorCaja > 0) {
+                            switchUnidades.disabled = false;
+                            switchUnidades.title = 'Activar para devolver por unidades';
+                        } else {
+                            switchUnidades.disabled = true;
+                            switchUnidades.checked = false;
+                            switchUnidades.title = 'Este producto no tiene configuradas unidades por caja';
+                            cantidadInput.setAttribute('step', '0.5');
+                            cantidadLabel.textContent = 'cajas';
+                        }
+                        
+                        // Mostrar info del producto
+                        let infoTexto = `<strong>${nombreProducto}</strong><br>`;
+                        infoTexto += `Stock actual: <strong>${stockActual.toFixed(2)} cajas</strong>`;
+                        
+                        if (unidadesPorCaja > 0) {
+                            const totalUnidades = Math.round(stockActual * unidadesPorCaja);
+                            infoTexto += ` (<strong>${totalUnidades} unidades</strong>)`;
+                            infoTexto += `<br>Configuración: <strong>${unidadesPorCaja} unidades por caja</strong>`;
+                        }
+                        
+                        productoInfo.querySelector('.info-texto').innerHTML = infoTexto;
+                        productoInfo.classList.add('show');
+                    } else {
+                        productoInfo.classList.remove('show');
+                        switchUnidades.disabled = true;
+                        switchUnidades.checked = false;
+                    }
+                });
+                
+                // Evento al cambiar el switch de unidades
+                switchUnidades.addEventListener('change', function() {
+                    const option = productoSelect.options[productoSelect.selectedIndex];
+                    const unidadesPorCaja = parseInt(option.getAttribute('data-unidades-por-caja')) || 0;
+                    
+                    if (this.checked && unidadesPorCaja > 0) {
+                        // Modo UNIDADES
+                        cantidadInput.setAttribute('step', '1');
+                        cantidadInput.setAttribute('min', '1');
+                        cantidadLabel.textContent = 'unidades';
+                        cantidadInput.placeholder = 'Ej: 24';
+                        
+                        // Agregar badge visual
+                        if (!fila.querySelector('.badge-modo-unidad')) {
+                            const badge = document.createElement('span');
+                            badge.className = 'badge bg-warning text-dark ms-2 badge-modo-unidad';
+                            badge.innerHTML = '<i class="fas fa-box-open"></i> Modo: Unidades';
+                            productoSelect.parentElement.appendChild(badge);
+                        }
+                        
+                        // Convertir valor si existe
+                        if (cantidadInput.value) {
+                            const valorCajas = parseFloat(cantidadInput.value);
+                            const valorUnidades = Math.round(valorCajas * unidadesPorCaja);
+                            cantidadInput.value = valorUnidades;
+                        }
+                    } else {
+                        // Modo CAJAS
+                        cantidadInput.setAttribute('step', '0.5');
+                        cantidadInput.setAttribute('min', '0.1');
+                        cantidadLabel.textContent = 'cajas';
+                        cantidadInput.placeholder = 'Ej: 10';
+                        
+                        // Remover badge
+                        const badge = fila.querySelector('.badge-modo-unidad');
+                        if (badge) badge.remove();
+                        
+                        // Convertir valor si existe
+                        if (cantidadInput.value && unidadesPorCaja > 0) {
+                            const valorUnidades = parseFloat(cantidadInput.value);
+                            const valorCajas = (valorUnidades / unidadesPorCaja).toFixed(2);
+                            cantidadInput.value = valorCajas;
+                        }
+                    }
+                });
+                
+                // Cambiar color de fila según checkbox dañado
+                checkboxDanado.addEventListener('change', function() {
+                    if (this.checked) {
+                        fila.style.backgroundColor = '#ffe6e6';
+                    } else {
+                        fila.style.backgroundColor = '';
+                    }
+                });
+                
+                // Validar cantidad en tiempo real
+                cantidadInput.addEventListener('input', function() {
+                    const valor = parseFloat(this.value) || 0;
+                    if (valor < 0) {
+                        this.value = 0;
+                    }
+                });
+                
+                // Formatear al perder el foco
+                cantidadInput.addEventListener('blur', function() {
+                    if (this.value && parseFloat(this.value) > 0) {
+                        if (switchUnidades.checked) {
+                            // Unidades: número entero
+                            this.value = Math.round(parseFloat(this.value));
+                        } else {
+                            // Cajas: dos decimales
+                            this.value = parseFloat(this.value).toFixed(2);
+                        }
+                    }
+                });
+                
+                // Eliminar fila
+                btnEliminar.addEventListener('click', function() {
+                    const totalFilas = productosBody.querySelectorAll('tr').length;
+                    
+                    if (totalFilas > 1) {
+                        if (confirm('¿Está seguro que desea eliminar este producto?')) {
+                            fila.remove();
+                            renumerarFilas();
+                        }
+                    } else {
+                        alert('Debe mantener al menos un producto en la lista');
+                    }
+                });
+            }
+            
+            // Renumerar filas después de eliminar
+            function renumerarFilas() {
+                const filas = productosBody.querySelectorAll('tr');
+                filas.forEach((fila, index) => {
+                    fila.querySelector('.numero-fila').textContent = index + 1;
+                });
+            }
+            
+            // Botón agregar producto
+            btnAgregarProducto.addEventListener('click', function() {
+                agregarFilaProducto();
+            });
+            
+            // Botón limpiar todo
+            btnLimpiar.addEventListener('click', function() {
+                if (confirm('¿Está seguro que desea limpiar todos los productos?')) {
+                    productosBody.innerHTML = '';
+                    contadorFilas = 0;
+                    agregarFilaProducto();
+                    document.getElementById('fecha_general').value = '<?php echo $fecha_hoy; ?>';
+                    document.getElementById('cliente_general').value = '';
+                }
+            });
+            
+            // Validación del formulario
+            formDevolucion.addEventListener('submit', function(e) {
+                const filas = productosBody.querySelectorAll('tr');
+                let productosValidos = 0;
+                let errores = [];
+                let productosDanados = 0;
+                let productosBuenos = 0;
+                
+                filas.forEach((fila, index) => {
+                    const productoSelect = fila.querySelector('.producto-select');
+                    const cantidadInput = fila.querySelector('.cantidad-input');
+                    const switchUnidades = fila.querySelector('.switch-unidades');
+                    const checkboxDanado = fila.querySelector('.checkbox-danado');
+                    const motivoInput = fila.querySelector('.motivo-input');
+                    
+                    const productoId = productoSelect.value;
+                    const cantidad = parseFloat(cantidadInput.value) || 0;
+                    const motivo = motivoInput.value.trim();
+                    const estaDanado = checkboxDanado.checked;
+                    
+                    if (productoId && cantidad > 0 && motivo.length >= 3) {
+                        productosValidos++;
+                        if (estaDanado) {
+                            productosDanados++;
+                        } else {
+                            productosBuenos++;
+                        }
+                    } else if (productoId && cantidad <= 0) {
+                        errores.push(`Fila ${index + 1}: Debe ingresar una cantidad mayor a 0`);
+                    } else if (productoId && motivo.length < 3) {
+                        errores.push(`Fila ${index + 1}: El motivo debe tener al menos 3 caracteres`);
+                    } else if (!productoId && (cantidad > 0 || motivo)) {
+                        errores.push(`Fila ${index + 1}: Debe seleccionar un producto`);
+                    }
+                });
+                
+                if (productosValidos === 0) {
+                    e.preventDefault();
+                    alert('Debe agregar al menos un producto válido con cantidad y motivo');
+                    return false;
+                }
+                
+                if (errores.length > 0) {
+                    e.preventDefault();
+                    alert('❌ ERRORES ENCONTRADOS:\n\n' + errores.join('\n'));
+                    return false;
+                }
+                
+                // Confirmación detallada
+                let mensajeConfirmacion = `¿Confirmar devolución de ${productosValidos} producto(s)?\n\n`;
+                mensajeConfirmacion += `✅ Productos buenos: ${productosBuenos} (se agregarán al inventario)\n`;
+                mensajeConfirmacion += `❌ Productos dañados: ${productosDanados} (NO se agregarán al inventario)\n\n`;
+                mensajeConfirmacion += '¿Desea continuar?';
+                
+                if (!confirm(mensajeConfirmacion)) {
+                    e.preventDefault();
+                    return false;
+                }
+                
+                // Deshabilitar botón para evitar doble envío
+                const submitBtn = this.querySelector('button[type="submit"]');
+                if (submitBtn) {
+                    submitBtn.disabled = true;
+                    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Procesando...';
+                }
+            });
+            
             // Responsive navbar
             const navbarToggler = document.querySelector('.navbar-toggler');
             const navbarCollapse = document.querySelector('.navbar-collapse');
@@ -813,11 +1195,11 @@ $stats_total = $conn->query($query_stats_total)->fetch_assoc();
                 });
             }
             
-            // Mejorar experiencia táctil en dispositivos móviles
+            // Mejorar experiencia táctil
             if ('ontouchstart' in window) {
-                document.querySelectorAll('.btn').forEach(element => {
+                document.querySelectorAll('.btn, .table-devoluciones tbody tr').forEach(element => {
                     element.addEventListener('touchstart', function() {
-                        this.style.opacity = '0.7';
+                        this.style.opacity = '0.8';
                     });
                     
                     element.addEventListener('touchend', function() {
@@ -828,7 +1210,7 @@ $stats_total = $conn->query($query_stats_total)->fetch_assoc();
                 });
             }
             
-            // Manejar orientación en dispositivos móviles
+            // Manejar orientación
             function handleOrientationChange() {
                 const orientation = window.innerHeight > window.innerWidth ? 'portrait' : 'landscape';
                 document.body.setAttribute('data-orientation', orientation);
@@ -838,12 +1220,11 @@ $stats_total = $conn->query($query_stats_total)->fetch_assoc();
             window.addEventListener('orientationchange', handleOrientationChange);
             window.addEventListener('resize', handleOrientationChange);
             
-            // Añadir clase para dispositivos táctiles
             if ('ontouchstart' in window || navigator.maxTouchPoints > 0) {
                 document.body.classList.add('touch-device');
             }
             
-            // Auto-ocultar alerta después de 5 segundos
+            // Auto-ocultar alerta
             const alert = document.querySelector('.alert-dismissible');
             if (alert) {
                 setTimeout(function() {
@@ -852,110 +1233,14 @@ $stats_total = $conn->query($query_stats_total)->fetch_assoc();
                 }, 5000);
             }
             
-            // Validación del formulario
-            const form = document.getElementById('formDevolucion');
-            
-            form.addEventListener('submit', function(e) {
-                const cantidad = parseFloat(document.getElementById('cantidad').value);
-                const motivo = document.getElementById('motivo').value.trim();
-                
-                // Validar cantidad
-                if (cantidad <= 0) {
-                    e.preventDefault();
-                    alert('La cantidad debe ser mayor a 0');
-                    return false;
-                }
-                
-                // Validar motivo
-                if (motivo.length < 10) {
-                    e.preventDefault();
-                    alert('El motivo debe tener al menos 10 caracteres');
-                    return false;
-                }
-                
-                // Confirmación antes de enviar
-                const estaDanado = document.getElementById('esta_danado').checked;
-                const productoSelect = document.getElementById('producto_id');
-                const productoNombre = productoSelect.options[productoSelect.selectedIndex].text;
-                
-                let mensaje = `¿Confirmar devolución de ${cantidad} unidades de "${productoNombre}"?`;
-                
-                if (estaDanado) {
-                    mensaje += '\n\n⚠️ ATENCIÓN: El producto está marcado como DAÑADO y NO se agregará al inventario.';
-                } else {
-                    mensaje += '\n\n✓ El producto se agregará al inventario disponible.';
-                }
-                
-                if (!confirm(mensaje)) {
-                    e.preventDefault();
-                    return false;
-                }
-                
-                // Deshabilitar botón para evitar doble envío
-                const submitBtn = form.querySelector('button[type="submit"]');
-                submitBtn.disabled = true;
-                submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Procesando...';
-            });
-            
-            // Cambiar el color del help text según el checkbox
-            const checkboxDanado = document.getElementById('esta_danado');
-            const helpTextDanado = document.getElementById('helpTextDanado');
-            
-            checkboxDanado.addEventListener('change', function() {
-                if (this.checked) {
-                    helpTextDanado.innerHTML = '<strong class="text-danger">⚠️ PRODUCTO DAÑADO: NO se agregará al inventario y se registrará en productos dañados.</strong>';
-                    helpTextDanado.classList.remove('text-muted');
-                    helpTextDanado.classList.add('text-danger');
-                } else {
-                    helpTextDanado.innerHTML = '✓ El producto se agregará al inventario disponible.';
-                    helpTextDanado.classList.remove('text-danger');
-                    helpTextDanado.classList.add('text-muted');
-                }
-            });
-            
-            // Prevenir valores negativos en cantidad
-            document.getElementById('cantidad').addEventListener('input', function() {
-                if (this.value < 0) {
-                    this.value = 0;
-                }
-            });
-            
-            // Límite de caracteres para el motivo
-            const motivoTextarea = document.getElementById('motivo');
-            const maxLength = 500;
-            
-            motivoTextarea.addEventListener('input', function() {
-                if (this.value.length > maxLength) {
-                    this.value = this.value.substring(0, maxLength);
-                }
-            });
-            
-            // Efecto hover mejorado para filas de tabla en desktop
-            if (window.innerWidth > 768) {
-                document.querySelectorAll('.table-devoluciones tbody tr').forEach(row => {
-                    row.addEventListener('mouseenter', function() {
-                        this.style.transform = 'scale(1.01)';
-                    });
-                    
-                    row.addEventListener('mouseleave', function() {
-                        this.style.transform = 'scale(1)';
-                    });
-                });
-            }
-            
-            // Resetear el formulario completamente al hacer clic en limpiar
-            form.addEventListener('reset', function() {
-                setTimeout(() => {
-                    // Resetear el help text del checkbox
-                    checkboxDanado.checked = false;
-                    helpTextDanado.innerHTML = 'Si marca esta casilla, el producto NO se agregará al inventario y se registrará como dañado.';
-                    helpTextDanado.classList.remove('text-danger');
-                    helpTextDanado.classList.add('text-muted');
-                }, 10);
-            });
-            
-            console.log('Devoluciones Directas cargadas correctamente');
-            console.log('Total de devoluciones recientes:', <?php echo $devoluciones_recientes->num_rows; ?>);
+            console.log('===========================================');
+            console.log('DEVOLUCIONES MÚLTIPLES - DISTRIBUIDORA LORENA');
+            console.log('===========================================');
+            console.log('✅ Sistema cargado correctamente');
+            console.log('📦 Devolución múltiple de productos activada');
+            console.log('🔄 Conversión automática unidades/cajas activada');
+            console.log('📊 Total de productos disponibles:', <?php echo $productos->num_rows; ?>);
+            console.log('===========================================');
         });
     </script>
 </body>
