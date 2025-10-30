@@ -16,14 +16,14 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         $nombre = limpiarInput($_POST['nombre']);
         $precio_caja = floatval($_POST['precio_caja']);
         $precio_unitario = !empty($_POST['precio_unitario']) ? floatval($_POST['precio_unitario']) : null;
-        $unidades_por_caja = !empty($_POST['unidades_por_caja']) ? intval($_POST['unidades_por_caja']) : null; // NUEVO
+        $unidades_por_caja = !empty($_POST['unidades_por_caja']) ? intval($_POST['unidades_por_caja']) : null;
         $tipo = $_POST['tipo'];
         $etiqueta_propietario = $_POST['etiqueta_propietario'];
         $etiqueta_declaracion = $_POST['etiqueta_declaracion'];
         
         if (!empty($nombre) && $precio_caja > 0) {
-            $stmt = $conn->prepare("INSERT INTO productos (nombre, precio_caja, precio_unitario, unidades_por_caja, tipo, etiqueta_propietario, etiqueta_declaracion) VALUES (?, ?, ?, ?, ?, ?, ?)"); // MODIFICADO
-            $stmt->bind_param("sddisss", $nombre, $precio_caja, $precio_unitario, $unidades_por_caja, $tipo, $etiqueta_propietario, $etiqueta_declaracion); // MODIFICADO
+            $stmt = $conn->prepare("INSERT INTO productos (nombre, precio_caja, precio_unitario, unidades_por_caja, tipo, etiqueta_propietario, etiqueta_declaracion) VALUES (?, ?, ?, ?, ?, ?, ?)");
+            $stmt->bind_param("sddisss", $nombre, $precio_caja, $precio_unitario, $unidades_por_caja, $tipo, $etiqueta_propietario, $etiqueta_declaracion);
             
             if ($stmt->execute()) {
                 $mensaje = 'Producto agregado exitosamente';
@@ -46,14 +46,14 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         $nombre = limpiarInput($_POST['nombre']);
         $precio_caja = floatval($_POST['precio_caja']);
         $precio_unitario = !empty($_POST['precio_unitario']) ? floatval($_POST['precio_unitario']) : null;
-        $unidades_por_caja = !empty($_POST['unidades_por_caja']) ? intval($_POST['unidades_por_caja']) : null; // NUEVO
+        $unidades_por_caja = !empty($_POST['unidades_por_caja']) ? intval($_POST['unidades_por_caja']) : null;
         $tipo = $_POST['tipo'];
         $etiqueta_propietario = $_POST['etiqueta_propietario'];
         $etiqueta_declaracion = $_POST['etiqueta_declaracion'];
         
         if (!empty($nombre) && $precio_caja > 0 && $id > 0) {
-            $stmt = $conn->prepare("UPDATE productos SET nombre = ?, precio_caja = ?, precio_unitario = ?, unidades_por_caja = ?, tipo = ?, etiqueta_propietario = ?, etiqueta_declaracion = ? WHERE id = ?"); // MODIFICADO
-            $stmt->bind_param("sddisssi", $nombre, $precio_caja, $precio_unitario, $unidades_por_caja, $tipo, $etiqueta_propietario, $etiqueta_declaracion, $id); // MODIFICADO
+            $stmt = $conn->prepare("UPDATE productos SET nombre = ?, precio_caja = ?, precio_unitario = ?, unidades_por_caja = ?, tipo = ?, etiqueta_propietario = ?, etiqueta_declaracion = ? WHERE id = ?");
+            $stmt->bind_param("sddisssi", $nombre, $precio_caja, $precio_unitario, $unidades_por_caja, $tipo, $etiqueta_propietario, $etiqueta_declaracion, $id);
             
             if ($stmt->execute()) {
                 $mensaje = 'Producto actualizado exitosamente';
@@ -145,39 +145,109 @@ if (!empty($params)) {
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="assets/css/custom.css">
     <style>
-        /* Estilos específicos para productos */
+        /* ============================================
+           ESTILOS IDÉNTICOS A INVENTARIO_MOVIMIENTOS.PHP
+           ============================================ */
+        
+        /* Tabla de productos con diseño de inventario_movimientos.php */
         .table-productos {
             box-shadow: 0 2px 8px rgba(0,0,0,0.1);
             border-radius: 10px;
             overflow: hidden;
+            background: white;
         }
         
+        @media (max-width: 767px) {
+            .table-productos {
+                border-radius: 8px;
+                font-size: 12px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .table-productos {
+                border-radius: 6px;
+                font-size: 11px;
+            }
+        }
+        
+        /* Encabezado con gradiente morado */
         .table-productos thead {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
         }
 
         .table-productos thead th {
             color: white !important;
-            font-weight: 600;
+            font-weight: 600 !important;
             text-transform: uppercase;
             font-size: 13px;
             letter-spacing: 0.5px;
-            padding: 18px 15px;
+            padding: 18px 15px !important;
             border: none !important;
             vertical-align: middle;
+            background: transparent !important;
+        }
+        
+        @media (max-width: 991px) {
+            .table-productos thead th {
+                padding: 15px 12px !important;
+                font-size: 12px;
+            }
+        }
+        
+        @media (max-width: 767px) {
+            .table-productos thead th {
+                padding: 12px 8px !important;
+                font-size: 11px;
+                letter-spacing: 0.3px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .table-productos thead th {
+                padding: 10px 5px !important;
+                font-size: 10px;
+            }
         }
         
         .table-productos tbody tr {
             transition: all 0.3s ease;
             border-bottom: 1px solid #e9ecef;
+            background: white;
         }
         
         .table-productos tbody tr:hover {
-            background-color: #f8f9ff;
+            background-color: #f8f9ff !important;
             transform: scale(1.01);
             box-shadow: 0 3px 10px rgba(0,0,0,0.08);
         }
         
+        .table-productos tbody td {
+            padding: 15px;
+            vertical-align: middle;
+            color: #2c3e50;
+        }
+        
+        @media (max-width: 991px) {
+            .table-productos tbody td {
+                padding: 12px 10px;
+            }
+        }
+        
+        @media (max-width: 767px) {
+            .table-productos tbody td {
+                padding: 10px 8px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .table-productos tbody td {
+                padding: 8px 5px;
+                font-size: 11px;
+            }
+        }
+        
+        /* Número de orden circular */
         .numero-orden {
             font-weight: 700;
             font-size: 16px;
@@ -191,6 +261,31 @@ if (!empty($params)) {
             justify-content: center;
         }
         
+        @media (max-width: 991px) {
+            .numero-orden {
+                width: 35px;
+                height: 35px;
+                font-size: 14px;
+            }
+        }
+        
+        @media (max-width: 767px) {
+            .numero-orden {
+                width: 30px;
+                height: 30px;
+                font-size: 12px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .numero-orden {
+                width: 25px;
+                height: 25px;
+                font-size: 11px;
+            }
+        }
+        
+        /* Botones de acción */
         .btn-action {
             padding: 8px 15px;
             border-radius: 8px;
@@ -199,6 +294,20 @@ if (!empty($params)) {
             transition: all 0.3s ease;
             border: none;
             margin: 2px;
+        }
+        
+        @media (max-width: 767px) {
+            .btn-action {
+                padding: 6px 10px;
+                font-size: 11px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .btn-action {
+                padding: 5px 8px;
+                font-size: 10px;
+            }
         }
         
         .btn-editar {
@@ -225,10 +334,26 @@ if (!empty($params)) {
             box-shadow: 0 4px 12px rgba(231, 76, 60, 0.4);
         }
         
+        /* Badges personalizados */
         .badge-propietario {
             font-size: 11px;
-            padding: 5px 10px;
-            border-radius: 15px;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-weight: 600;
+        }
+        
+        @media (max-width: 767px) {
+            .badge-propietario {
+                font-size: 10px;
+                padding: 5px 10px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .badge-propietario {
+                font-size: 9px;
+                padding: 4px 8px;
+            }
         }
         
         .badge-lorena {
@@ -251,6 +376,7 @@ if (!empty($params)) {
             color: white;
         }
         
+        /* Card de filtros */
         .filtros-card {
             background: white;
             padding: 20px;
@@ -259,6 +385,21 @@ if (!empty($params)) {
             margin-bottom: 20px;
         }
         
+        @media (max-width: 767px) {
+            .filtros-card {
+                padding: 15px;
+                border-radius: 8px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .filtros-card {
+                padding: 12px;
+                border-radius: 6px;
+            }
+        }
+        
+        /* Total de productos */
         .total-productos {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
@@ -268,10 +409,36 @@ if (!empty($params)) {
             box-shadow: 0 4px 15px rgba(0,0,0,0.1);
         }
         
+        @media (max-width: 767px) {
+            .total-productos {
+                padding: 15px;
+                border-radius: 8px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .total-productos {
+                padding: 12px;
+                border-radius: 6px;
+            }
+        }
+        
         .total-productos h5 {
             margin: 0;
             font-weight: 600;
             font-size: 18px;
+        }
+        
+        @media (max-width: 767px) {
+            .total-productos h5 {
+                font-size: 16px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .total-productos h5 {
+                font-size: 14px;
+            }
         }
         
         .total-productos .numero {
@@ -279,6 +446,19 @@ if (!empty($params)) {
             font-weight: 700;
         }
         
+        @media (max-width: 767px) {
+            .total-productos .numero {
+                font-size: 24px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .total-productos .numero {
+                font-size: 20px;
+            }
+        }
+        
+        /* Copyright Footer */
         .copyright-footer {
             background: white;
             border-radius: 15px;
@@ -298,17 +478,24 @@ if (!empty($params)) {
         }
         
         @media (max-width: 767px) {
+            .copyright-footer {
+                padding: 15px;
+                font-size: 12px;
+            }
+            
+            .copyright-footer strong {
+                font-size: 14px;
+            }
+        }
+        
+        /* Ocultar columnas en móviles */
+        @media (max-width: 767px) {
             .hide-mobile {
                 display: none !important;
             }
             
             .btn-action span {
                 display: none;
-            }
-            
-            .btn-action {
-                padding: 6px 10px;
-                font-size: 11px;
             }
         }
     </style>
@@ -468,13 +655,13 @@ if (!empty($params)) {
                         <tr>
                             <th width="60" class="text-center">#</th>
                             <th>Producto</th>
-                            <th width="100" class="text-center">Precio Caja</th>
-                            <th width="100" class="text-center hide-mobile">Precio Unit.</th>
-                            <th width="100" class="text-center hide-mobile">Unid/Caja</th> <!-- NUEVO -->
+                            <th width="120" class="text-center">Precio Caja</th>
+                            <th width="120" class="text-center hide-mobile">Precio Unit.</th>
+                            <th width="100" class="text-center hide-mobile">Unid/Caja</th>
                             <th width="100" class="text-center hide-mobile">Tipo</th>
                             <th width="120" class="text-center hide-mobile">Propietario</th>
                             <th width="120" class="text-center hide-mobile">Declaración</th>
-                            <th width="180" class="text-center">Acciones</th>
+                            <th width="200" class="text-center">Acciones</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -492,25 +679,24 @@ if (!empty($params)) {
                                         <strong><?php echo htmlspecialchars($producto['nombre']); ?></strong>
                                     </td>
                                     <td class="text-center">
-                                        <span class="badge bg-success">$<?php echo number_format($producto['precio_caja'], 2); ?></span>
+                                        <span class="badge bg-success" style="font-size: 12px;">$<?php echo number_format($producto['precio_caja'], 2); ?></span>
                                     </td>
                                     <td class="text-center hide-mobile">
                                         <?php if ($producto['precio_unitario']): ?>
-                                            <span class="badge bg-info">$<?php echo number_format($producto['precio_unitario'], 2); ?></span>
+                                            <span class="badge bg-info" style="font-size: 12px;">$<?php echo number_format($producto['precio_unitario'], 2); ?></span>
                                         <?php else: ?>
                                             <span class="text-muted">-</span>
                                         <?php endif; ?>
                                     </td>
-                                    <!-- NUEVO: Mostrar unidades por caja -->
                                     <td class="text-center hide-mobile">
                                         <?php if ($producto['unidades_por_caja']): ?>
-                                            <span class="badge bg-warning text-dark"><?php echo $producto['unidades_por_caja']; ?> unid.</span>
+                                            <span class="badge bg-warning text-dark" style="font-size: 12px;"><?php echo $producto['unidades_por_caja']; ?> unid.</span>
                                         <?php else: ?>
                                             <span class="text-muted">-</span>
                                         <?php endif; ?>
                                     </td>
                                     <td class="text-center hide-mobile">
-                                        <span class="badge bg-secondary"><?php echo htmlspecialchars($producto['tipo']); ?></span>
+                                        <span class="badge bg-secondary" style="font-size: 12px;"><?php echo htmlspecialchars($producto['tipo']); ?></span>
                                     </td>
                                     <td class="text-center hide-mobile">
                                         <span class="badge badge-propietario badge-<?php echo strtolower($producto['etiqueta_propietario']); ?>">
@@ -571,7 +757,9 @@ if (!empty($params)) {
                 <small>Desarrollado por: Cristian Hernandez</small>
             </p>
         </div>
-    </div><!-- Modal Agregar Producto -->
+    </div>
+
+    <!-- Modal Agregar Producto -->
     <div class="modal fade" id="modalAgregar" tabindex="-1">
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
@@ -606,7 +794,6 @@ if (!empty($params)) {
                                 </div>
                             </div>
                             
-                            <!-- NUEVO: Campo unidades por caja -->
                             <div class="col-md-12 mb-3">
                                 <label class="form-label fw-bold">
                                     <input type="checkbox" id="agregar_unidades_caja" onchange="toggleUnidadesCajaAgregar()">
@@ -693,7 +880,6 @@ if (!empty($params)) {
                                 </div>
                             </div>
                             
-                            <!-- NUEVO: Campo unidades por caja en editar -->
                             <div class="col-md-12 mb-3">
                                 <label class="form-label fw-bold">
                                     <input type="checkbox" id="editar_unidades_caja" onchange="toggleUnidadesCajaEditar()">
@@ -778,8 +964,7 @@ if (!empty($params)) {
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="assets/js/notifications.js"></script>
-    <script>
+    <script src="assets/js/notifications.js"></script><script>
         console.log('Productos cargados correctamente');
         console.log('Total de productos:', <?php echo $productos->num_rows; ?>);
         
@@ -815,7 +1000,7 @@ if (!empty($params)) {
             }
         }
         
-        // NUEVO: Toggle unidades por caja en agregar
+        // Toggle unidades por caja en agregar
         function toggleUnidadesCajaAgregar() {
             const checkbox = document.getElementById('agregar_unidades_caja');
             const container = document.getElementById('unidades_caja_agregar_container');
@@ -831,7 +1016,7 @@ if (!empty($params)) {
             }
         }
         
-        // NUEVO: Toggle unidades por caja en editar
+        // Toggle unidades por caja en editar
         function toggleUnidadesCajaEditar() {
             const checkbox = document.getElementById('editar_unidades_caja');
             const container = document.getElementById('unidades_caja_editar_container');
@@ -847,13 +1032,13 @@ if (!empty($params)) {
             }
         }
         
-        // Función para editar producto - ACTUALIZADA
+        // Función para editar producto
         function editarProducto(button) {
             const id = button.getAttribute('data-id');
             const nombre = button.getAttribute('data-nombre');
             const precioCaja = button.getAttribute('data-precio-caja');
             const precioUnitario = button.getAttribute('data-precio-unitario');
-            const unidadesCaja = button.getAttribute('data-unidades-caja'); // NUEVO
+            const unidadesCaja = button.getAttribute('data-unidades-caja');
             const tipo = button.getAttribute('data-tipo');
             const propietario = button.getAttribute('data-propietario');
             const declaracion = button.getAttribute('data-declaracion');
@@ -882,7 +1067,7 @@ if (!empty($params)) {
                 inputPrecio.required = false;
             }
             
-            // NUEVO: Manejar unidades por caja
+            // Manejar unidades por caja
             const checkboxUnidades = document.getElementById('editar_unidades_caja');
             const containerUnidades = document.getElementById('unidades_caja_editar_container');
             const inputUnidades = document.getElementById('edit_unidades_por_caja');
@@ -909,7 +1094,9 @@ if (!empty($params)) {
             
             const modal = new bootstrap.Modal(document.getElementById('modalEliminar'));
             modal.show();
-        }// Responsive navbar
+        }
+
+        // Responsive navbar
         document.addEventListener('DOMContentLoaded', function() {
             const navbarToggler = document.querySelector('.navbar-toggler');
             const navbarCollapse = document.querySelector('.navbar-collapse');
@@ -930,9 +1117,9 @@ if (!empty($params)) {
             
             // Mejorar experiencia táctil en dispositivos móviles
             if ('ontouchstart' in window) {
-                document.querySelectorAll('.btn').forEach(element => {
+                document.querySelectorAll('.btn, .table-productos tbody tr').forEach(element => {
                     element.addEventListener('touchstart', function() {
-                        this.style.opacity = '0.7';
+                        this.style.opacity = '0.8';
                     });
                     
                     element.addEventListener('touchend', function() {
@@ -957,6 +1144,19 @@ if (!empty($params)) {
             if ('ontouchstart' in window || navigator.maxTouchPoints > 0) {
                 document.body.classList.add('touch-device');
             }
+            
+            // Animación de aparición de filas en la tabla
+            const rowsProductos = document.querySelectorAll('.table-productos tbody tr');
+            rowsProductos.forEach((row, index) => {
+                row.style.opacity = '0';
+                row.style.transform = 'translateY(20px)';
+                
+                setTimeout(() => {
+                    row.style.transition = 'all 0.3s ease';
+                    row.style.opacity = '1';
+                    row.style.transform = 'translateY(0)';
+                }, index * 50);
+            });
         });
         
         // Auto-ocultar alerta después de 5 segundos
@@ -987,7 +1187,7 @@ if (!empty($params)) {
                 return false;
             }
             
-            // NUEVO: Validar unidades por caja si está marcado
+            // Validar unidades por caja si está marcado
             const checkboxUnidades = document.getElementById('agregar_unidades_caja');
             if (checkboxUnidades.checked) {
                 const unidadesCaja = parseInt(this.querySelector('[name="unidades_por_caja"]').value);
@@ -1015,7 +1215,7 @@ if (!empty($params)) {
                 return false;
             }
             
-            // NUEVO: Validar unidades por caja si está marcado
+            // Validar unidades por caja si está marcado
             const checkboxUnidades = document.getElementById('editar_unidades_caja');
             if (checkboxUnidades.checked) {
                 const unidadesCaja = parseInt(this.querySelector('[name="unidades_por_caja"]').value);
@@ -1041,17 +1241,17 @@ if (!empty($params)) {
         document.getElementById('modalAgregar').addEventListener('hidden.bs.modal', function() {
             document.getElementById('formAgregar').reset();
             document.getElementById('precio_unitario_agregar_container').style.display = 'none';
-            document.getElementById('unidades_caja_agregar_container').style.display = 'none'; // NUEVO
+            document.getElementById('unidades_caja_agregar_container').style.display = 'none';
             document.getElementById('agregar_precio_unitario').checked = false;
-            document.getElementById('agregar_unidades_caja').checked = false; // NUEVO
+            document.getElementById('agregar_unidades_caja').checked = false;
         });
         
         document.getElementById('modalEditar').addEventListener('hidden.bs.modal', function() {
             document.getElementById('formEditar').reset();
             document.getElementById('precio_unitario_editar_container').style.display = 'none';
-            document.getElementById('unidades_caja_editar_container').style.display = 'none'; // NUEVO
+            document.getElementById('unidades_caja_editar_container').style.display = 'none';
             document.getElementById('editar_precio_unitario').checked = false;
-            document.getElementById('editar_unidades_caja').checked = false; // NUEVO
+            document.getElementById('editar_unidades_caja').checked = false;
         });
         
         // Efecto hover mejorado para filas de tabla en desktop
@@ -1103,6 +1303,7 @@ if (!empty($params)) {
         console.log('🔍 Filtros aplicados:', filtroTipo !== 'todos' || busqueda !== '' ? 'Sí' : 'No');
         console.log('📱 Dispositivo:', 'ontouchstart' in window ? 'Táctil' : 'Desktop');
         console.log('🖥️ Ancho de pantalla:', window.innerWidth + 'px');
+        console.log('🎨 Estilo idéntico a inventario_movimientos.php aplicado');
         console.log('===========================================');
     </script>
 </body>

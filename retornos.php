@@ -156,10 +156,10 @@ if (isset($_GET['mensaje'])) {
     <link rel="stylesheet" href="assets/css/custom.css">
     <style>
         /* ============================================
-           ESTILOS IDÉNTICOS A PRODUCTOS.PHP
+           ESTILOS IDÉNTICOS A RECARGAS.PHP
            ============================================ */
         
-        /* Tabla de retornos mejorada y responsiva */
+        /* Tabla de retornos con diseño similar a recargas */
         .table-retornos {
             box-shadow: 0 2px 8px rgba(0,0,0,0.1);
             border-radius: 10px;
@@ -167,6 +167,21 @@ if (isset($_GET['mensaje'])) {
             background: white;
         }
 
+        @media (max-width: 767px) {
+            .table-retornos {
+                border-radius: 8px;
+                font-size: 12px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .table-retornos {
+                border-radius: 6px;
+                font-size: 11px;
+            }
+        }
+
+        /* Encabezados con fondo degradado y texto blanco */
         .table-retornos thead {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
         }
@@ -184,10 +199,6 @@ if (isset($_GET['mensaje'])) {
         }
 
         @media (max-width: 991px) {
-            .table-retornos {
-                font-size: 13px;
-            }
-            
             .table-retornos thead th {
                 padding: 15px 12px !important;
                 font-size: 12px;
@@ -195,11 +206,6 @@ if (isset($_GET['mensaje'])) {
         }
 
         @media (max-width: 767px) {
-            .table-retornos {
-                border-radius: 8px;
-                font-size: 12px;
-            }
-            
             .table-retornos thead th {
                 padding: 12px 8px !important;
                 font-size: 11px;
@@ -208,11 +214,6 @@ if (isset($_GET['mensaje'])) {
         }
 
         @media (max-width: 480px) {
-            .table-retornos {
-                border-radius: 6px;
-                font-size: 11px;
-            }
-            
             .table-retornos thead th {
                 padding: 10px 5px !important;
                 font-size: 10px;
@@ -255,140 +256,63 @@ if (isset($_GET['mensaje'])) {
                 font-size: 11px;
             }
         }
-        
-        /* Número de orden */
-        .numero-orden {
-            font-weight: 700;
-            font-size: 16px;
-            color: #667eea;
-            background: #f0f3ff;
-            border-radius: 50%;
-            width: 40px;
-            height: 40px;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-        }
-        
-        @media (max-width: 991px) {
-            .numero-orden {
-                width: 35px;
-                height: 35px;
-                font-size: 14px;
-            }
-        }
-        
-        @media (max-width: 767px) {
-            .numero-orden {
-                width: 30px;
-                height: 30px;
-                font-size: 12px;
-            }
-        }
-        
-        @media (max-width: 480px) {
-            .numero-orden {
-                width: 25px;
-                height: 25px;
-                font-size: 11px;
-            }
-        }
-        
-        /* Información del producto */
-        .producto-info h6 {
-            color: #2c3e50;
-            font-weight: 700;
-            margin-bottom: 5px;
-            font-size: 15px;
-        }
-        
-        .producto-info p {
-            color: #7f8c8d;
-            margin: 0;
-            font-size: 13px;
-        }
-        
-        @media (max-width: 767px) {
-            .producto-info h6 {
-                font-size: 13px;
-                margin-bottom: 3px;
-            }
-            
-            .producto-info p {
-                font-size: 11px;
-            }
-        }
-        
-        @media (max-width: 480px) {
-            .producto-info h6 {
-                font-size: 12px;
-            }
-            
-            .producto-info p {
-                font-size: 10px;
-            }
-        }
-        
+
         /* Input de cantidad */
-        .input-cantidad {
-            width: 100px;
+        .form-control-cantidad {
+            max-width: 120px;
             text-align: center;
             font-weight: 600;
-            border: 2px solid #dfe6e9;
+            font-size: 16px;
+            border: 2px solid #e9ecef;
             border-radius: 8px;
             padding: 8px;
-            transition: all 0.3s ease;
         }
-        
-        .input-cantidad:focus {
+
+        @media (max-width: 767px) {
+            .form-control-cantidad {
+                max-width: 100px;
+                font-size: 14px;
+                padding: 6px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .form-control-cantidad {
+                max-width: 80px;
+                font-size: 13px;
+                padding: 5px;
+            }
+        }
+
+        .form-control-cantidad:focus {
             border-color: #667eea;
             box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
         }
-        
-        @media (max-width: 767px) {
-            .input-cantidad {
-                width: 80px;
-                padding: 6px;
-                font-size: 12px;
-            }
+
+        /* Badges */
+        .badge {
+            padding: 8px 12px;
+            font-size: 12px;
+            font-weight: 600;
+            border-radius: 6px;
         }
-        
-        @media (max-width: 480px) {
-            .input-cantidad {
-                width: 60px;
-                padding: 5px;
+
+        @media (max-width: 767px) {
+            .badge {
+                padding: 6px 10px;
                 font-size: 11px;
             }
         }
-        
-        /* Badges de tipo */
-        .badge-tipo {
-            font-size: 11px;
-            padding: 5px 10px;
-            border-radius: 20px;
-            font-weight: 600;
-        }
-        
-        @media (max-width: 767px) {
-            .badge-tipo {
-                font-size: 9px;
-                padding: 3px 8px;
+
+        @media (max-width: 480px) {
+            .badge {
+                padding: 5px 8px;
+                font-size: 10px;
             }
         }
-        
-        /* Ocultar columnas en móviles */
-        .hide-mobile {
-            display: table-cell;
-        }
-        
-        @media (max-width: 767px) {
-            .hide-mobile {
-                display: none !important;
-            }
-        }
-        
-        /* Info Card Ruta */
-        .info-ruta-card {
+
+        /* Selector de ruta */
+        .selector-ruta {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
             padding: 20px;
@@ -396,99 +320,119 @@ if (isset($_GET['mensaje'])) {
             margin-bottom: 20px;
             box-shadow: 0 4px 15px rgba(0,0,0,0.1);
         }
-        
-        .info-ruta-card h4 {
-            margin: 0 0 10px 0;
-            font-weight: 700;
-        }
-        
-        .info-ruta-card p {
-            margin: 0;
-            opacity: 0.9;
-        }
-        
-        @media (max-width: 767px) {
-            .info-ruta-card {
-                padding: 15px;
-                border-radius: 8px;
-            }
-            
-            .info-ruta-card h4 {
-                font-size: 16px;
-            }
-            
-            .info-ruta-card p {
-                font-size: 13px;
-            }
-        }
-        
-        /* Botones */
-        .btn-custom-primary {
-            background: linear-gradient(135deg, #667eea, #764ba2);
-            border: none;
-            color: white;
-            padding: 12px 30px;
-            border-radius: 8px;
-            font-weight: 600;
-            transition: all 0.3s ease;
-        }
-        
-        .btn-custom-primary:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
-            color: white;
-        }
-        
-        .btn-custom-secondary {
-            background: linear-gradient(135deg, #95a5a6, #7f8c8d);
-            border: none;
-            color: white;
-            padding: 12px 30px;
-            border-radius: 8px;
-            font-weight: 600;
-            transition: all 0.3s ease;
-        }
-        
-        .btn-custom-secondary:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 20px rgba(149, 165, 166, 0.4);
-            color: white;
-        }
-        
-        @media (max-width: 767px) {
-            .btn-custom-primary,
-            .btn-custom-secondary {
-                padding: 10px 20px;
-                font-size: 14px;
-                width: 100%;
-                margin-bottom: 10px;
-            }
-        }
-        
-        @media (max-width: 480px) {
-            .btn-custom-primary,
-            .btn-custom-secondary {
-                padding: 8px 15px;
-                font-size: 13px;
-            }
-        }
-        
-        /* Selector de ruta */
-        .selector-ruta {
-            background: white;
-            padding: 20px;
-            border-radius: 10px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-            margin-bottom: 20px;
-        }
-        
+
         @media (max-width: 767px) {
             .selector-ruta {
                 padding: 15px;
                 border-radius: 8px;
             }
         }
-        
+
+        @media (max-width: 480px) {
+            .selector-ruta {
+                padding: 12px;
+                border-radius: 6px;
+            }
+        }
+
+        .selector-ruta .form-select {
+            font-size: 16px;
+            font-weight: 600;
+            padding: 12px;
+            border-radius: 8px;
+        }
+
+        @media (max-width: 767px) {
+            .selector-ruta .form-select {
+                font-size: 14px;
+                padding: 10px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .selector-ruta .form-select {
+                font-size: 13px;
+                padding: 8px;
+            }
+        }
+
+        /* Información de productos */
+        .producto-info h6 {
+            color: #2c3e50;
+            font-weight: 700;
+            margin-bottom: 5px;
+            font-size: 15px;
+        }
+
+        @media (max-width: 767px) {
+            .producto-info h6 {
+                font-size: 14px;
+                margin-bottom: 3px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .producto-info h6 {
+                font-size: 13px;
+                margin-bottom: 2px;
+            }
+        }
+
+        .producto-info small {
+            color: #7f8c8d;
+            display: block;
+            font-size: 13px;
+        }
+
+        @media (max-width: 767px) {
+            .producto-info small {
+                font-size: 12px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .producto-info small {
+                font-size: 11px;
+            }
+        }
+
+        /* Botón guardar retorno */
+        .btn-guardar-retorno {
+            padding: 15px 40px;
+            font-size: 18px;
+            font-weight: 700;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            transition: all 0.3s ease;
+        }
+
+        @media (max-width: 767px) {
+            .btn-guardar-retorno {
+                padding: 12px 30px;
+                font-size: 16px;
+                width: 100%;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .btn-guardar-retorno {
+                padding: 10px 25px;
+                font-size: 14px;
+            }
+        }
+
+        .btn-guardar-retorno:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.3);
+        }
+
+        /* Ocultar columnas en móviles */
+        @media (max-width: 767px) {
+            .hide-mobile {
+                display: none !important;
+            }
+        }
+
         /* Copyright Footer */
         .copyright-footer {
             background: white;
@@ -500,20 +444,20 @@ if (isset($_GET['mensaje'])) {
             color: #7f8c8d;
             font-size: 14px;
         }
-        
+
         .copyright-footer strong {
             color: #2c3e50;
             display: block;
             margin-bottom: 5px;
             font-size: 16px;
         }
-        
+
         @media (max-width: 767px) {
             .copyright-footer {
                 padding: 15px;
                 font-size: 12px;
             }
-            
+
             .copyright-footer strong {
                 font-size: 14px;
             }
@@ -616,23 +560,26 @@ if (isset($_GET['mensaje'])) {
 
             <!-- Selector de Ruta -->
             <div class="selector-ruta">
-                <form method="GET" action="retornos.php">
-                    <div class="row align-items-end">
-                        <div class="col-md-8 col-sm-12 mb-3 mb-md-0">
-                            <label class="form-label fw-bold">
-                                <i class="fas fa-route"></i> Seleccione la Ruta
+                <form method="GET" id="formSelectorRuta">
+                    <div class="row align-items-center">
+                        <div class="col-md-8 mb-3 mb-md-0">
+                            <label class="form-label fw-bold mb-2">
+                                <i class="fas fa-route"></i> Seleccione la Ruta:
                             </label>
-                            <select class="form-select" name="ruta" required onchange="this.form.submit()">
-                                <option value="">-- Seleccione una ruta --</option>
-                                <?php while ($ruta = $rutas->fetch_assoc()): ?>
-                                    <option value="<?php echo $ruta['id']; ?>" <?php echo ($ruta['id'] == $ruta_id) ? 'selected' : ''; ?>>
+                            <select class="form-select" name="ruta" id="selector_ruta" required>
+                                <option value="">-- Seleccionar Ruta --</option>
+                                <?php 
+                                $rutas->data_seek(0);
+                                while ($ruta = $rutas->fetch_assoc()): 
+                                ?>
+                                    <option value="<?php echo $ruta['id']; ?>" <?php echo $ruta_id == $ruta['id'] ? 'selected' : ''; ?>>
                                         <?php echo htmlspecialchars($ruta['nombre']); ?>
                                     </option>
                                 <?php endwhile; ?>
                             </select>
                         </div>
-                        <div class="col-md-4 col-sm-12">
-                            <button type="submit" class="btn btn-custom-primary w-100">
+                        <div class="col-md-4">
+                            <button type="submit" class="btn btn-light w-100" style="margin-top: 30px;">
                                 <i class="fas fa-search"></i> Cargar Productos
                             </button>
                         </div>
@@ -640,19 +587,25 @@ if (isset($_GET['mensaje'])) {
                 </form>
             </div>
 
-            <?php if ($ruta_info): ?>
+            <?php if ($ruta_id > 0 && $ruta_info): ?>
                 <!-- Información de la Ruta -->
-                <div class="info-ruta-card">
-                    <h4><i class="fas fa-map-marker-alt"></i> <?php echo htmlspecialchars($ruta_info['nombre']); ?></h4>
-                    <p><i class="fas fa-calendar"></i> Fecha: <?php echo date('d/m/Y', strtotime($fecha_hoy)); ?></p>
-                    <?php if (!empty($ruta_info['descripcion'])): ?>
-                        <p><i class="fas fa-info-circle"></i> <?php echo htmlspecialchars($ruta_info['descripcion']); ?></p>
-                    <?php endif; ?>
+                <div class="alert alert-success">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h5 class="mb-1">
+                                <i class="fas fa-map-marked-alt"></i> 
+                                <?php echo htmlspecialchars($ruta_info['nombre']); ?>
+                            </h5>
+                            <small>
+                                <i class="fas fa-calendar"></i> Fecha: <?php echo date('d/m/Y', strtotime($fecha_hoy)); ?>
+                            </small>
+                        </div>
+                    </div>
                 </div>
 
-                <?php if (count($productos_disponibles) > 0): ?>
+                <?php if (!empty($productos_disponibles)): ?>
                     <!-- Formulario de Retornos -->
-                    <form method="POST" action="retornos.php" id="formRetornos">
+                    <form method="POST" id="formRetornos">
                         <input type="hidden" name="ruta_id" value="<?php echo $ruta_id; ?>">
                         <input type="hidden" name="fecha" value="<?php echo $fecha_hoy; ?>">
                         
@@ -660,58 +613,76 @@ if (isset($_GET['mensaje'])) {
                             <table class="table table-retornos table-hover mb-0">
                                 <thead>
                                     <tr>
-                                        <th width="60" class="text-center">#</th>
-                                        <th>Producto</th>
-                                        <th width="120" class="text-center hide-mobile">Salió + Recarga</th>
-                                        <th width="150" class="text-center">Cantidad Retorno</th>
+                                        <th width="5%" class="text-center">#</th>
+                                        <th width="35%">Producto</th>
+                                        <th width="15%" class="text-center hide-mobile">Salió + Recarga</th>
+                                        <th width="15%" class="text-center">Retorno Anterior</th>
+                                        <th width="15%" class="text-center">Nuevo Retorno</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     <?php 
                                     $contador = 1;
                                     foreach ($productos_disponibles as $producto_id => $producto): 
-                                        $retorno_existente = $retornos_existentes[$producto_id] ?? 0;
+                                        $retorno_anterior = $retornos_existentes[$producto_id] ?? 0;
                                     ?>
                                         <tr>
                                             <td class="text-center">
-                                                <span class="numero-orden"><?php echo $contador; ?></span>
+                                                <strong><?php echo $contador; ?></strong>
                                             </td>
                                             <td>
                                                 <div class="producto-info">
                                                     <h6><?php echo htmlspecialchars($producto['nombre']); ?></h6>
-                                                    <p>
-                                                        <span class="badge badge-tipo bg-<?php echo $producto['tipo'] == 'Big Cola' ? 'primary' : ($producto['tipo'] == 'Varios' ? 'success' : 'info'); ?>">
-                                                            <?php echo $producto['tipo']; ?>
-                                                        </span>
+                                                    <small>
+                                                        <span class="badge bg-secondary"><?php echo htmlspecialchars($producto['tipo']); ?></span>
                                                         <?php if ($producto['usa_precio_unitario']): ?>
-                                                            <span class="badge bg-warning text-dark">
-                                                                <i class="fas fa-box-open"></i> Precio Unitario
+                                                            <span class="badge bg-info">
+                                                                <i class="fas fa-box-open"></i> Precio Unitario: $<?php echo number_format($producto['precio_usado'], 2); ?>
                                                             </span>
                                                         <?php else: ?>
-                                                            <span class="badge bg-info">
-                                                                <i class="fas fa-boxes"></i> Precio Caja
+                                                            <span class="badge bg-primary">
+                                                                <i class="fas fa-box"></i> Precio Caja: $<?php echo number_format($producto['precio_usado'], 2); ?>
                                                             </span>
                                                         <?php endif; ?>
-                                                    </p>
+                                                    </small>
                                                 </div>
                                             </td>
                                             <td class="text-center hide-mobile">
-                                                <strong class="text-primary">
+                                                <span class="badge bg-warning text-dark" style="font-size: 14px; padding: 10px 15px;">
                                                     <?php echo number_format($producto['cantidad_total'], 1); ?>
-                                                </strong>
+                                                </span>
                                             </td>
                                             <td class="text-center">
+                                                <?php if ($retorno_anterior > 0): ?>
+                                                    <span class="badge bg-info" style="font-size: 14px; padding: 10px 15px;">
+                                                        <?php echo number_format($retorno_anterior, 1); ?>
+                                                    </span>
+                                                <?php else: ?>
+                                                    <span class="text-muted">-</span>
+                                                <?php endif; ?>
+                                            </td>
+                                            <td class="text-center">
+                                                <!-- Campo oculto para enviar usa_precio_unitario -->
+                                                <input type="hidden" 
+                                                       name="productos[<?php echo $producto_id; ?>][usa_precio_unitario]" 
+                                                       value="<?php echo $producto['usa_precio_unitario']; ?>">
+                                                
+                                                <!-- Campo oculto para enviar precio_usado -->
+                                                <input type="hidden" 
+                                                       name="productos[<?php echo $producto_id; ?>][precio_usado]" 
+                                                       value="<?php echo $producto['precio_usado']; ?>">
+                                                
                                                 <input type="number" 
-                                                       class="input-cantidad" 
+                                                       class="form-control form-control-cantidad" 
                                                        name="productos[<?php echo $producto_id; ?>][cantidad]" 
-                                                       min="0" 
+                                                       id="cantidad_<?php echo $producto_id; ?>"
+                                                       value="<?php echo $retorno_anterior > 0 ? number_format($retorno_anterior, 1, '.', '') : ''; ?>"
+                                                       step="<?php echo $producto['usa_precio_unitario'] ? '1' : '0.5'; ?>"
+                                                       min="0"
                                                        max="<?php echo $producto['cantidad_total']; ?>"
-                                                       step="<?php echo $producto['usa_precio_unitario'] ? '1' : '0.5'; ?>" 
-                                                       value="<?php echo $retorno_existente; ?>"
-                                                       placeholder="0">
-                                                <!-- Campos ocultos para heredar información -->
-                                                <input type="hidden" name="productos[<?php echo $producto_id; ?>][usa_precio_unitario]" value="<?php echo $producto['usa_precio_unitario']; ?>">
-                                                <input type="hidden" name="productos[<?php echo $producto_id; ?>][precio_usado]" value="<?php echo $producto['precio_usado']; ?>">
+                                                       placeholder="0"
+                                                       data-total="<?php echo $producto['cantidad_total']; ?>"
+                                                       data-unitario="<?php echo $producto['usa_precio_unitario']; ?>">
                                             </td>
                                         </tr>
                                     <?php 
@@ -721,22 +692,23 @@ if (isset($_GET['mensaje'])) {
                                 </tbody>
                             </table>
                         </div>
-
+                        
+                        <!-- Botón Guardar -->
                         <div class="text-center mt-4">
-                            <button type="submit" class="btn btn-custom-primary btn-lg me-2">
+                            <button type="submit" class="btn btn-success btn-guardar-retorno">
                                 <i class="fas fa-save"></i> Guardar Retornos
                             </button>
-                            <a href="retornos.php" class="btn btn-custom-secondary btn-lg">
-                                <i class="fas fa-times"></i> Cancelar
-                            </a>
                         </div>
                     </form>
                 <?php else: ?>
-                    <div class="alert alert-warning text-center">
-                        <i class="fas fa-exclamation-triangle fa-3x mb-3 d-block"></i>
+                    <!-- No hay productos para retornar -->
+                    <div class="alert alert-warning text-center py-5">
+                        <i class="fas fa-inbox fa-3x mb-3 d-block"></i>
                         <h5>No hay productos disponibles para retorno</h5>
-                        <p>Esta ruta no tiene productos registrados en salidas para el día de hoy.</p>
-                        <a href="salidas.php" class="btn btn-primary mt-2">
+                        <p class="mb-0">
+                            Esta ruta no tiene salidas registradas el día de hoy.
+                        </p>
+                        <a href="salidas.php" class="btn btn-primary mt-3">
                             <i class="fas fa-arrow-up"></i> Ir a Registrar Salidas
                         </a>
                     </div>
@@ -754,7 +726,9 @@ if (isset($_GET['mensaje'])) {
                 <small>Desarrollado por: Cristian Hernandez</small>
             </p>
         </div>
-    </div><script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="assets/js/notifications.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
@@ -776,11 +750,114 @@ if (isset($_GET['mensaje'])) {
                 });
             }
             
+            // Auto-submit selector de ruta al cambiar
+            document.getElementById('selector_ruta').addEventListener('change', function() {
+                if (this.value) {
+                    document.getElementById('formSelectorRuta').submit();
+                }
+            });
+            
+            // Validación de cantidades en tiempo real
+            const inputsCantidad = document.querySelectorAll('.form-control-cantidad');
+            
+            inputsCantidad.forEach(input => {
+                input.addEventListener('input', function() {
+                    const esUnitario = parseInt(this.getAttribute('data-unitario'));
+                    const totalDisponible = parseFloat(this.getAttribute('data-total'));
+                    const valor = parseFloat(this.value);
+                    
+                    // Validar que no exceda el total disponible
+                    if (valor > totalDisponible) {
+                        this.value = totalDisponible;
+                        alert(`La cantidad no puede exceder el total disponible (${totalDisponible})`);
+                        return;
+                    }
+                    
+                    // Validar según tipo de precio
+                    if (esUnitario) {
+                        // Para precio unitario: solo números enteros
+                        if (valor !== Math.floor(valor)) {
+                            this.value = Math.floor(valor);
+                            alert('Para productos con precio unitario, solo se permiten números enteros');
+                        }
+                    } else {
+                        // Para precio por caja: enteros o con .5
+                        const decimal = valor - Math.floor(valor);
+                        if (decimal !== 0 && decimal !== 0.5) {
+                            // Redondear al .5 más cercano
+                            const redondeado = Math.floor(valor) + (decimal >= 0.25 && decimal < 0.75 ? 0.5 : (decimal >= 0.75 ? 1 : 0));
+                            this.value = redondeado;
+                            alert('Para productos por caja, solo se permiten cantidades enteras o con .5 (ej: 5, 5.5, 6)');
+                        }
+                    }
+                    
+                    // Validar que no sea negativo
+                    if (valor < 0) {
+                        this.value = 0;
+                    }
+                });
+                
+                // Validación al perder el foco
+                input.addEventListener('blur', function() {
+                    if (this.value === '' || parseFloat(this.value) === 0) {
+                        this.value = '';
+                    }
+                });
+            });
+            
+            // Validación del formulario antes de enviar
+            const formRetornos = document.getElementById('formRetornos');
+            
+            if (formRetornos) {
+                formRetornos.addEventListener('submit', function(e) {
+                    // Verificar que al menos un producto tenga cantidad
+                    let tieneProductos = false;
+                    const inputs = this.querySelectorAll('.form-control-cantidad');
+                    
+                    inputs.forEach(input => {
+                        const valor = parseFloat(input.value);
+                        if (!isNaN(valor) && valor > 0) {
+                            tieneProductos = true;
+                        }
+                    });
+                    
+                    if (!tieneProductos) {
+                        e.preventDefault();
+                        alert('Debe ingresar al menos una cantidad para guardar el retorno');
+                        return false;
+                    }
+                    
+                    // Confirmación antes de guardar
+                    if (!confirm('¿Está seguro de guardar los retornos?\n\nEsto actualizará el inventario y no se podrá deshacer.')) {
+                        e.preventDefault();
+                        return false;
+                    }
+                    
+                    // Deshabilitar botón de envío para evitar doble submit
+                    const submitBtn = this.querySelector('button[type="submit"]');
+                    if (submitBtn) {
+                        submitBtn.disabled = true;
+                        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando...';
+                    }
+                });
+            }
+            
+            // Auto-cerrar alertas después de 5 segundos
+            window.addEventListener('load', function() {
+                const alert = document.querySelector('.alert-dismissible');
+                if (alert) {
+                    setTimeout(function() {
+                        const bsAlert = new bootstrap.Alert(alert);
+                        bsAlert.close();
+                    }, 5000);
+                }
+            });
+            
             // Mejorar experiencia táctil en dispositivos móviles
             if ('ontouchstart' in window) {
-                document.querySelectorAll('.btn, .input-cantidad').forEach(element => {
+                document.querySelectorAll('.btn').forEach(element => {
                     element.addEventListener('touchstart', function() {
-                        this.style.opacity = '0.8';
+                        this.style.opacity = '0.7';
                     });
                     
                     element.addEventListener('touchend', function() {
@@ -806,218 +883,9 @@ if (isset($_GET['mensaje'])) {
                 document.body.classList.add('touch-device');
             }
             
-            // Validación del formulario de retornos
-            const formRetornos = document.getElementById('formRetornos');
-            
-            if (formRetornos) {
-                formRetornos.addEventListener('submit', function(e) {
-                    let hayRetornos = false;
-                    let errores = [];
-                    
-                    // Validar que haya al menos un retorno
-                    const inputs = this.querySelectorAll('.input-cantidad');
-                    inputs.forEach(input => {
-                        const valor = parseFloat(input.value) || 0;
-                        if (valor > 0) {
-                            hayRetornos = true;
-                            
-                            // Validar que no exceda el máximo
-                            const max = parseFloat(input.max);
-                            if (valor > max) {
-                                errores.push(`La cantidad de retorno no puede exceder ${max} para el producto`);
-                            }
-                            
-                            // Validar step (enteros o .5)
-                            const step = parseFloat(input.step);
-                            const usaPrecioUnitario = step === 1;
-                            
-                            if (usaPrecioUnitario) {
-                                // Debe ser entero
-                                if (valor !== Math.floor(valor)) {
-                                    errores.push('Los productos con precio unitario solo aceptan cantidades enteras');
-                                }
-                            } else {
-                                // Debe ser entero o con .5
-                                const decimal = valor - Math.floor(valor);
-                                if (decimal !== 0 && decimal !== 0.5) {
-                                    errores.push('Los productos por caja solo aceptan cantidades enteras o con .5');
-                                }
-                            }
-                        }
-                    });
-                    
-                    if (!hayRetornos) {
-                        e.preventDefault();
-                        alert('Debe ingresar al menos un retorno.');
-                        return false;
-                    }
-                    
-                    if (errores.length > 0) {
-                        e.preventDefault();
-                        alert('Errores encontrados:\n\n' + errores.join('\n'));
-                        return false;
-                    }
-                    
-                    // Confirmación antes de enviar
-                    if (!confirm('¿Está seguro de guardar estos retornos?\n\nEsta acción aumentará el stock de inventario de los productos seleccionados.')) {
-                        e.preventDefault();
-                        return false;
-                    }
-                    
-                    // Deshabilitar botón de envío para evitar doble submit
-                    const submitBtn = this.querySelector('button[type="submit"]');
-                    if (submitBtn) {
-                        submitBtn.disabled = true;
-                        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando...';
-                        
-                        // Re-habilitar después de 5 segundos por si hay error
-                        setTimeout(() => {
-                            submitBtn.disabled = false;
-                            submitBtn.innerHTML = '<i class="fas fa-save"></i> Guardar Retornos';
-                        }, 5000);
-                    }
-                });
-                
-                // Validación en tiempo real de las cantidades
-                const inputsCantidad = formRetornos.querySelectorAll('.input-cantidad');
-                inputsCantidad.forEach(input => {
-                    input.addEventListener('input', function() {
-                        const valor = parseFloat(this.value) || 0;
-                        const max = parseFloat(this.max);
-                        const step = parseFloat(this.step);
-                        const usaPrecioUnitario = step === 1;
-                        
-                        // Validar máximo
-                        if (valor > max) {
-                            this.setCustomValidity(`No puede exceder ${max}`);
-                            this.style.borderColor = '#e74c3c';
-                        } 
-                        // Validar step
-                        else if (usaPrecioUnitario && valor !== Math.floor(valor)) {
-                            this.setCustomValidity('Solo cantidades enteras para precio unitario');
-                            this.style.borderColor = '#e74c3c';
-                        } 
-                        else if (!usaPrecioUnitario) {
-                            const decimal = valor - Math.floor(valor);
-                            if (decimal !== 0 && decimal !== 0.5) {
-                                this.setCustomValidity('Solo cantidades enteras o con .5 para precio por caja');
-                                this.style.borderColor = '#e74c3c';
-                            } else {
-                                this.setCustomValidity('');
-                                this.style.borderColor = '#dfe6e9';
-                            }
-                        }
-                        else {
-                            this.setCustomValidity('');
-                            this.style.borderColor = '#dfe6e9';
-                        }
-                    });
-                    
-                    // Limpiar validación al enfocarse
-                    input.addEventListener('focus', function() {
-                        this.setCustomValidity('');
-                        if (this.value == 0) {
-                            this.select();
-                        }
-                    });
-                    
-                    // Validar al perder foco
-                    input.addEventListener('blur', function() {
-                        if (this.value === '' || this.value < 0) {
-                            this.value = 0;
-                        }
-                    });
-                });
-                
-                // Atajos de teclado
-                document.addEventListener('keydown', function(e) {
-                    // Ctrl+S o Cmd+S para guardar
-                    if ((e.ctrlKey || e.metaKey) && e.key === 's') {
-                        e.preventDefault();
-                        if (formRetornos) {
-                            formRetornos.requestSubmit();
-                        }
-                    }
-                    
-                    // Escape para cancelar
-                    if (e.key === 'Escape') {
-                        if (confirm('¿Desea cancelar y limpiar el formulario?')) {
-                            window.location.href = 'retornos.php';
-                        }
-                    }
-                });
-            }
-            
-            // Auto-ocultar alertas después de 5 segundos
-            window.addEventListener('load', function() {
-                const alert = document.querySelector('.alert-dismissible');
-                if (alert) {
-                    setTimeout(function() {
-                        const bsAlert = new bootstrap.Alert(alert);
-                        bsAlert.close();
-                    }, 5000);
-                }
-            });
-            
-            // Calcular y mostrar total de retornos
-            if (formRetornos) {
-                const inputsCantidad = formRetornos.querySelectorAll('.input-cantidad');
-                
-                function calcularTotal() {
-                    let totalProductos = 0;
-                    let totalCantidad = 0;
-                    
-                    inputsCantidad.forEach(input => {
-                        const valor = parseFloat(input.value) || 0;
-                        if (valor > 0) {
-                            totalProductos++;
-                            totalCantidad += valor;
-                        }
-                    });
-                    
-                    // Mostrar en consola para debug
-                    console.log(`Productos con retorno: ${totalProductos}`);
-                    console.log(`Cantidad total: ${totalCantidad.toFixed(1)}`);
-                }
-                
-                inputsCantidad.forEach(input => {
-                    input.addEventListener('input', calcularTotal);
-                });
-                
-                calcularTotal(); // Calcular al cargar
-            }
-            
-            // Navegación mejorada con teclas
-            if (formRetornos) {
-                const inputs = Array.from(formRetornos.querySelectorAll('.input-cantidad'));
-                
-                inputs.forEach((input, index) => {
-                    input.addEventListener('keydown', function(e) {
-                        // Enter o flecha abajo: ir al siguiente
-                        if (e.key === 'Enter' || e.key === 'ArrowDown') {
-                            e.preventDefault();
-                            if (index < inputs.length - 1) {
-                                inputs[index + 1].focus();
-                                inputs[index + 1].select();
-                            }
-                        }
-                        
-                        // Flecha arriba: ir al anterior
-                        if (e.key === 'ArrowUp') {
-                            e.preventDefault();
-                            if (index > 0) {
-                                inputs[index - 1].focus();
-                                inputs[index - 1].select();
-                            }
-                        }
-                    });
-                });
-            }
-            
             // Efecto hover mejorado para filas de tabla en desktop
             if (window.innerWidth > 768) {
-                const filas = document.querySelectorAll('.table-retornos tbody tr');
-                filas.forEach(row => {
+                document.querySelectorAll('.table-retornos tbody tr').forEach(row => {
                     row.addEventListener('mouseenter', function() {
                         this.style.transform = 'scale(1.01)';
                     });
@@ -1028,119 +896,82 @@ if (isset($_GET['mensaje'])) {
                 });
             }
             
-            // Mensaje de ayuda para usuarios nuevos
-            const hayProductos = document.querySelectorAll('.input-cantidad').length > 0;
-            if (hayProductos) {
-                console.log('='.repeat(60));
-                console.log('AYUDA - REGISTRO DE RETORNOS');
-                console.log('='.repeat(60));
-                console.log('• Ingrese las cantidades que retornan a bodega');
-                console.log('• Los retornos SIEMPRE son productos en buen estado');
-                console.log('• Use Enter o flechas ↑↓ para navegar entre campos');
-                console.log('• Ctrl+S para guardar | Escape para cancelar');
-                console.log('• Productos con precio unitario: solo enteros');
-                console.log('• Productos por caja: enteros o con .5');
-                console.log('='.repeat(60));
-            }
-            
-            // Verificar si hay retornos guardados
-            const hayRetornosGuardados = <?php echo count($retornos_existentes) > 0 ? 'true' : 'false'; ?>;
-            if (hayRetornosGuardados) {
-                console.log('ℹ️ Esta ruta ya tiene retornos registrados para hoy');
-                console.log('Los valores actuales se cargarán automáticamente');
-            }
-            
-            // Información de la ruta actual
-            <?php if ($ruta_info): ?>
-            console.log('Ruta actual: <?php echo addslashes($ruta_info['nombre']); ?>');
-            console.log('Productos disponibles: <?php echo count($productos_disponibles); ?>');
-            console.log('Fecha: <?php echo date('d/m/Y', strtotime($fecha_hoy)); ?>');
-            <?php endif; ?>
-            
-            // Advertencia sobre edición de retornos existentes
-            if (hayRetornosGuardados && formRetornos) {
-                const alertaEdicion = document.createElement('div');
-                alertaEdicion.className = 'alert alert-warning mt-3';
-                alertaEdicion.innerHTML = '<i class="fas fa-exclamation-triangle"></i> <strong>Nota:</strong> Al guardar nuevamente, los retornos anteriores serán reemplazados por los nuevos valores.';
-                
-                const tabla = document.querySelector('.table-responsive');
-                if (tabla) {
-                    tabla.parentNode.insertBefore(alertaEdicion, tabla);
+            // Atajos de teclado
+            document.addEventListener('keydown', function(e) {
+                // Ctrl + S para guardar (si hay formulario)
+                if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+                    e.preventDefault();
+                    if (formRetornos) {
+                        formRetornos.submit();
+                    }
                 }
+                
+                // Escape para limpiar todos los campos
+                if (e.key === 'Escape') {
+                    if (confirm('¿Desea limpiar todos los campos de cantidad?')) {
+                        inputsCantidad.forEach(input => {
+                            input.value = '';
+                        });
+                    }
+                }
+            });
+            
+            // Navegación con teclado (Enter para ir al siguiente input)
+            inputsCantidad.forEach((input, index) => {
+                input.addEventListener('keypress', function(e) {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        
+                        // Ir al siguiente input
+                        if (index < inputsCantidad.length - 1) {
+                            inputsCantidad[index + 1].focus();
+                        } else {
+                            // Si es el último, enviar el formulario
+                            if (confirm('¿Desea guardar los retornos?')) {
+                                formRetornos.submit();
+                            }
+                        }
+                    }
+                });
+            });
+            
+            // Focus en el primer input de cantidad al cargar
+            const primerInput = document.querySelector('.form-control-cantidad');
+            if (primerInput) {
+                setTimeout(() => {
+                    primerInput.focus();
+                }, 500);
             }
             
-            // Prevenir pérdida de datos al salir sin guardar
-            let formularioModificado = false;
-            
-            if (formRetornos) {
-                const inputs = formRetornos.querySelectorAll('.input-cantidad');
-                inputs.forEach(input => {
-                    // Guardar valor inicial
-                    input.dataset.valorInicial = input.value;
-                    
-                    input.addEventListener('input', function() {
-                        if (this.value != this.dataset.valorInicial) {
-                            formularioModificado = true;
-                        }
-                    });
-                });
+            // Prevenir recarga accidental de la página
+            window.addEventListener('beforeunload', function(e) {
+                const inputs = document.querySelectorAll('.form-control-cantidad');
+                let tieneDatos = false;
                 
-                // Advertir antes de salir
-                window.addEventListener('beforeunload', function(e) {
-                    if (formularioModificado) {
-                        e.preventDefault();
-                        e.returnValue = '¿Está seguro de salir? Los cambios no guardados se perderán.';
-                        return e.returnValue;
+                inputs.forEach(input => {
+                    if (input.value && parseFloat(input.value) > 0) {
+                        tieneDatos = true;
                     }
                 });
                 
-                // No advertir si se está enviando el formulario
-                formRetornos.addEventListener('submit', function() {
-                    formularioModificado = false;
-                });
-            }
-            
-            // Auto-focus en primer input si hay productos
-            if (formRetornos) {
-                const primerInput = formRetornos.querySelector('.input-cantidad');
-                if (primerInput) {
-                    setTimeout(() => {
-                        primerInput.focus();
-                        primerInput.select();
-                    }, 300);
+                if (tieneDatos) {
+                    e.preventDefault();
+                    e.returnValue = '';
+                    return '';
                 }
-            }
+            });
             
-            console.log('Sistema de retornos cargado correctamente');
+            // Log de información para debug
+            console.log('=== RETORNOS CARGADOS ===');
+            console.log('Ruta ID:', <?php echo $ruta_id; ?>);
+            console.log('Fecha:', '<?php echo $fecha_hoy; ?>');
+            console.log('Total de productos disponibles:', <?php echo count($productos_disponibles); ?>);
+            console.log('Total de retornos anteriores:', <?php echo count($retornos_existentes); ?>);
+            
+            <?php if (!empty($productos_disponibles)): ?>
+                console.log('Productos cargados correctamente');
+            <?php endif; ?>
         });
-        
-        // Función para limpiar formulario
-        function limpiarFormulario() {
-            if (confirm('¿Está seguro de limpiar todas las cantidades?')) {
-                const inputs = document.querySelectorAll('.input-cantidad');
-                inputs.forEach(input => {
-                    input.value = 0;
-                });
-                
-                const primerInput = inputs[0];
-                if (primerInput) {
-                    primerInput.focus();
-                    primerInput.select();
-                }
-            }
-        }
-        
-        // Función para llenar con máximos (retornar todo)
-        function retornarTodo() {
-            if (confirm('¿Desea marcar TODOS los productos para retorno completo?')) {
-                const inputs = document.querySelectorAll('.input-cantidad');
-                inputs.forEach(input => {
-                    input.value = input.max;
-                });
-                
-                alert('Se ha marcado el retorno completo de todos los productos.');
-            }
-        }
     </script>
 </body>
 </html>

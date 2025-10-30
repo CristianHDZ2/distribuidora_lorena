@@ -89,7 +89,11 @@ $stats['productos_afectados'] = intval($stats['productos_afectados'] ?? 0);
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="assets/css/custom.css">
     <style>
-        /* Tabla de productos dañados mejorada y responsiva */
+        /* ============================================
+           ESTILOS IDÉNTICOS A INVENTARIO_MOVIMIENTOS.PHP
+           ============================================ */
+        
+        /* Tabla de productos dañados con diseño de inventario_movimientos.php */
         .table-danados {
             box-shadow: 0 2px 8px rgba(0,0,0,0.1);
             border-radius: 10px;
@@ -111,6 +115,7 @@ $stats['productos_afectados'] = intval($stats['productos_afectados'] ?? 0);
             }
         }
         
+        /* Encabezado con gradiente morado */
         .table-danados thead {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
         }
@@ -186,6 +191,44 @@ $stats['productos_afectados'] = intval($stats['productos_afectados'] ?? 0);
             }
         }
         
+        /* Número de orden circular */
+        .numero-orden {
+            font-weight: 700;
+            font-size: 16px;
+            color: #667eea;
+            background: #f0f3ff;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        @media (max-width: 991px) {
+            .numero-orden {
+                width: 35px;
+                height: 35px;
+                font-size: 14px;
+            }
+        }
+        
+        @media (max-width: 767px) {
+            .numero-orden {
+                width: 30px;
+                height: 30px;
+                font-size: 12px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .numero-orden {
+                width: 25px;
+                height: 25px;
+                font-size: 11px;
+            }
+        }
+        
         /* Ocultar columnas en móviles */
         .hide-mobile {
             display: table-cell;
@@ -199,9 +242,24 @@ $stats['productos_afectados'] = intval($stats['productos_afectados'] ?? 0);
         
         /* Badges de origen */
         .badge-origen {
-            font-size: 10px;
-            padding: 4px 8px;
+            font-size: 11px;
+            padding: 6px 12px;
             font-weight: 600;
+            border-radius: 6px;
+        }
+        
+        @media (max-width: 767px) {
+            .badge-origen {
+                font-size: 10px;
+                padding: 5px 10px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .badge-origen {
+                font-size: 9px;
+                padding: 4px 8px;
+            }
         }
         
         .badge-inventario {
@@ -250,7 +308,7 @@ $stats['productos_afectados'] = intval($stats['productos_afectados'] ?? 0);
             background: linear-gradient(135deg, #fff5f5 0%, #ffe9e9 100%);
             border-radius: 15px;
             padding: 25px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
             margin-bottom: 30px;
             border: 2px solid #ffcccc;
         }
@@ -258,14 +316,14 @@ $stats['productos_afectados'] = intval($stats['productos_afectados'] ?? 0);
         @media (max-width: 767px) {
             .form-section {
                 padding: 20px;
-                border-radius: 10px;
+                border-radius: 12px;
             }
         }
         
         @media (max-width: 480px) {
             .form-section {
                 padding: 15px;
-                border-radius: 8px;
+                border-radius: 10px;
             }
         }
         
@@ -277,33 +335,116 @@ $stats['productos_afectados'] = intval($stats['productos_afectados'] ?? 0);
             border-bottom: 3px solid #e74c3c;
         }
         
-        /* NUEVO: Tabla de productos dañados dinámica */
-        .tabla-productos-danados {
-            background: white;
-            border-radius: 10px;
-            overflow: hidden;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        @media (max-width: 767px) {
+            .form-section h4 {
+                font-size: 18px;
+                margin-bottom: 15px;
+            }
         }
         
+        @media (max-width: 480px) {
+            .form-section h4 {
+                font-size: 16px;
+                margin-bottom: 10px;
+            }
+        }
+        
+        /* TABLA DE PRODUCTOS DAÑADOS - MISMO ESTILO QUE MOVIMIENTOS */
+        .tabla-productos-danados {
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            border-radius: 10px;
+            overflow: hidden;
+            background: white;
+        }
+        
+        @media (max-width: 767px) {
+            .tabla-productos-danados {
+                border-radius: 8px;
+                font-size: 12px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .tabla-productos-danados {
+                border-radius: 6px;
+                font-size: 11px;
+            }
+        }
+        
+        /* MISMO GRADIENTE MORADO QUE MOVIMIENTOS */
         .tabla-productos-danados thead {
-            background: linear-gradient(135deg, #e74c3c, #c0392b);
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
         }
         
         .tabla-productos-danados thead th {
             color: white !important;
-            font-weight: 600;
-            padding: 12px 10px;
-            font-size: 12px;
+            font-weight: 600 !important;
             text-transform: uppercase;
+            font-size: 13px;
+            letter-spacing: 0.5px;
+            padding: 18px 15px !important;
+            border: none !important;
+            vertical-align: middle;
+            background: transparent !important;
         }
         
-        .tabla-productos-danados tbody td {
-            padding: 10px;
-            vertical-align: middle;
+        @media (max-width: 991px) {
+            .tabla-productos-danados thead th {
+                padding: 15px 12px !important;
+                font-size: 12px;
+            }
+        }
+        
+        @media (max-width: 767px) {
+            .tabla-productos-danados thead th {
+                padding: 12px 8px !important;
+                font-size: 11px;
+                letter-spacing: 0.3px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .tabla-productos-danados thead th {
+                padding: 10px 5px !important;
+                font-size: 10px;
+            }
+        }
+        
+        .tabla-productos-danados tbody tr {
+            transition: all 0.3s ease;
+            border-bottom: 1px solid #e9ecef;
+            background: white;
         }
         
         .tabla-productos-danados tbody tr:hover {
-            background-color: #fff3f3;
+            background-color: #f8f9ff !important;
+            transform: scale(1.01);
+            box-shadow: 0 3px 10px rgba(0,0,0,0.08);
+        }
+        
+        .tabla-productos-danados tbody td {
+            padding: 15px;
+            vertical-align: middle;
+            color: #2c3e50;
+        }
+        
+        @media (max-width: 991px) {
+            .tabla-productos-danados tbody td {
+                padding: 12px 10px;
+            }
+        }
+        
+        @media (max-width: 767px) {
+            .tabla-productos-danados tbody td {
+                padding: 10px 8px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .tabla-productos-danados tbody td {
+                padding: 8px 5px;
+                font-size: 11px;
+            }
         }
         
         /* Info del producto */
@@ -399,8 +540,7 @@ $stats['productos_afectados'] = intval($stats['productos_afectados'] ?? 0);
         }
     </style>
 </head>
-<body>
-    <!-- Navbar -->
+<body><!-- Navbar -->
     <nav class="navbar navbar-expand-lg navbar-light navbar-custom">
         <div class="container-fluid">
             <a class="navbar-brand" href="index.php">
@@ -545,17 +685,17 @@ $stats['productos_afectados'] = intval($stats['productos_afectados'] ?? 0);
                 <form method="POST" action="api/inventario_api.php" id="formDanado">
                     <input type="hidden" name="accion" value="registrar_danado_multiple">
                     
-                    <!-- Tabla de productos -->
+                    <!-- Tabla de productos con mismo estilo que movimientos -->
                     <div class="table-responsive mb-3">
                         <table class="table tabla-productos-danados table-hover mb-0" id="tablaProductos">
                             <thead>
                                 <tr>
-                                    <th width="40" class="text-center">#</th>
+                                    <th width="60" class="text-center">#</th>
                                     <th>Producto</th>
                                     <th width="150" class="text-center">Cantidad</th>
-                                    <th width="120" class="text-center">Por Unidades</th>
+                                    <th width="140" class="text-center">Por Unidades</th>
                                     <th width="200">Motivo</th>
-                                    <th width="80" class="text-center">Acciones</th>
+                                    <th width="100" class="text-center">Acciones</th>
                                 </tr>
                             </thead>
                             <tbody id="productosBody">
@@ -581,6 +721,7 @@ $stats['productos_afectados'] = intval($stats['productos_afectados'] ?? 0);
                     </div>
                 </form>
             </div>
+
             <!-- Resumen por Producto (Top 10) -->
             <div class="mt-5 mb-4">
                 <h3 class="mb-3">
@@ -592,6 +733,7 @@ $stats['productos_afectados'] = intval($stats['productos_afectados'] ?? 0);
                         <table class="table table-danados table-hover mb-0">
                             <thead>
                                 <tr>
+                                    <th width="60" class="text-center">#</th>
                                     <th>Producto</th>
                                     <th class="text-center hide-mobile">Tipo</th>
                                     <th class="text-center">Total Dañado</th>
@@ -601,23 +743,30 @@ $stats['productos_afectados'] = intval($stats['productos_afectados'] ?? 0);
                             <tbody>
                                 <?php 
                                 $resumen->data_seek(0);
+                                $contador_resumen = 1;
                                 while ($res = $resumen->fetch_assoc()): 
                                 ?>
                                     <tr>
+                                        <td class="text-center">
+                                            <span class="numero-orden"><?php echo $contador_resumen; ?></span>
+                                        </td>
                                         <td><strong><?php echo htmlspecialchars($res['nombre']); ?></strong></td>
                                         <td class="text-center hide-mobile">
                                             <span class="badge bg-secondary"><?php echo $res['tipo']; ?></span>
                                         </td>
                                         <td class="text-center">
-                                            <span class="badge bg-danger" style="font-size: 13px;">
-                                                <?php echo number_format($res['total_danado'], 2); ?> cajas
-                                            </span>
+                                            <strong class="text-danger">
+                                                <?php echo number_format($res['total_danado'], 1); ?>
+                                            </strong>
                                         </td>
                                         <td class="text-center hide-mobile">
                                             <?php echo $res['num_incidencias']; ?>
                                         </td>
                                     </tr>
-                                <?php endwhile; ?>
+                                <?php 
+                                $contador_resumen++;
+                                endwhile; 
+                                ?>
                             </tbody>
                         </table>
                     </div>
@@ -640,18 +789,20 @@ $stats['productos_afectados'] = intval($stats['productos_afectados'] ?? 0);
                         <table class="table table-danados table-hover mb-0">
                             <thead>
                                 <tr>
-                                    <th width="150">Fecha</th>
+                                    <th width="60" class="text-center">#</th>
+                                    <th width="140" class="text-center">Fecha y Hora</th>
                                     <th>Producto</th>
                                     <th class="text-center hide-mobile">Tipo</th>
-                                    <th width="180" class="text-center">Cantidad</th>
+                                    <th width="150" class="text-center">Cantidad</th>
                                     <th class="hide-mobile">Motivo</th>
                                     <th class="text-center hide-mobile">Origen</th>
-                                    <th class="hide-mobile">Usuario</th>
+                                    <th width="120" class="hide-mobile">Usuario</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 <?php 
                                 $danados->data_seek(0);
+                                $contador = 1;
                                 while ($danado = $danados->fetch_assoc()): 
                                     $cantidad_cajas = floatval($danado['cantidad']);
                                     $unidades_por_caja = intval($danado['unidades_por_caja']);
@@ -667,28 +818,27 @@ $stats['productos_afectados'] = intval($stats['productos_afectados'] ?? 0);
                                     }
                                 ?>
                                     <tr>
-                                        <td>
-                                            <small>
-                                                <i class="fas fa-calendar"></i>
-                                                <?php echo date('d/m/Y', strtotime($danado['fecha_registro'])); ?>
-                                                <br>
-                                                <i class="fas fa-clock"></i>
-                                                <?php echo date('H:i', strtotime($danado['fecha_registro'])); ?>
-                                            </small>
+                                        <td class="text-center">
+                                            <span class="numero-orden"><?php echo $contador; ?></span>
+                                        </td>
+                                        <td class="text-center">
+                                            <strong><?php echo date('d/m/Y', strtotime($danado['fecha_registro'])); ?></strong>
+                                            <br>
+                                            <small class="text-muted"><?php echo date('H:i:s', strtotime($danado['fecha_registro'])); ?></small>
                                         </td>
                                         <td>
                                             <strong><?php echo htmlspecialchars($danado['producto_nombre']); ?></strong>
                                             <?php if ($unidades_por_caja > 0): ?>
-                                                <br><small class="text-muted"><?php echo $unidades_por_caja; ?> unid/caja</small>
+                                                <br><small class="text-muted"><i class="fas fa-box"></i> <?php echo $unidades_por_caja; ?> unid/caja</small>
                                             <?php endif; ?>
                                         </td>
                                         <td class="text-center hide-mobile">
                                             <span class="badge bg-secondary"><?php echo $danado['producto_tipo']; ?></span>
                                         </td>
                                         <td class="text-center">
-                                            <span class="badge bg-danger" style="font-size: 13px;">
-                                                <?php echo number_format($cantidad_cajas, 2); ?> cajas
-                                            </span>
+                                            <strong class="text-danger">
+                                                <?php echo number_format($cantidad_cajas, 1); ?>
+                                            </strong>
                                             <?php if ($mostrar_conversion): ?>
                                                 <br>
                                                 <span class="badge-conversion">
@@ -701,7 +851,9 @@ $stats['productos_afectados'] = intval($stats['productos_afectados'] ?? 0);
                                             <?php endif; ?>
                                         </td>
                                         <td class="hide-mobile">
-                                            <?php echo htmlspecialchars($danado['motivo']); ?>
+                                            <small class="text-muted">
+                                                <?php echo htmlspecialchars($danado['motivo']); ?>
+                                            </small>
                                         </td>
                                         <td class="text-center hide-mobile">
                                             <?php 
@@ -717,19 +869,22 @@ $stats['productos_afectados'] = intval($stats['productos_afectados'] ?? 0);
                                             </span>
                                         </td>
                                         <td class="hide-mobile">
-                                            <small class="text-muted">
+                                            <small>
                                                 <i class="fas fa-user"></i>
                                                 <?php echo htmlspecialchars($danado['usuario_nombre']); ?>
                                             </small>
                                         </td>
                                     </tr>
-                                <?php endwhile; ?>
+                                <?php 
+                                $contador++;
+                                endwhile; 
+                                ?>
                             </tbody>
                         </table>
                     </div>
                 <?php else: ?>
                     <div class="text-center py-5 text-muted">
-                        <i class="fas fa-inbox fa-3x mb-3"></i>
+                        <i class="fas fa-inbox fa-3x mb-3 d-block"></i>
                         <h5>No hay productos dañados registrados</h5>
                         <p>Los productos dañados aparecerán aquí cuando se registren</p>
                     </div>
@@ -752,7 +907,9 @@ $stats['productos_afectados'] = intval($stats['productos_afectados'] ?? 0);
     <!-- Template de fila de producto (oculto) -->
     <template id="templateFilaProducto">
         <tr class="fila-producto">
-            <td class="text-center numero-fila">1</td>
+            <td class="text-center">
+                <span class="numero-orden numero-fila">1</span>
+            </td>
             <td>
                 <select class="form-select form-select-sm producto-select" name="productos[INDEX][producto_id]" required>
                     <option value="">-- Seleccione un producto --</option>
@@ -823,8 +980,7 @@ $stats['productos_afectados'] = intval($stats['productos_afectados'] ?? 0);
     </datalist>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="assets/js/notifications.js"></script>
-    <script>
+    <script src="assets/js/notifications.js"></script><script>
         document.addEventListener('DOMContentLoaded', function() {
             let contadorFilas = 0;
             const productosBody = document.getElementById('productosBody');
@@ -846,7 +1002,10 @@ $stats['productos_afectados'] = intval($stats['productos_afectados'] ?? 0);
                 tr.innerHTML = tr.innerHTML.replace(/INDEX/g, contadorFilas);
                 
                 // Actualizar número de fila
-                tr.querySelector('.numero-fila').textContent = contadorFilas;
+                const numeroOrden = tr.querySelector('.numero-fila');
+                if (numeroOrden) {
+                    numeroOrden.textContent = contadorFilas;
+                }
                 
                 productosBody.appendChild(tr);
                 
@@ -1032,7 +1191,10 @@ $stats['productos_afectados'] = intval($stats['productos_afectados'] ?? 0);
             function renumerarFilas() {
                 const filas = productosBody.querySelectorAll('tr');
                 filas.forEach((fila, index) => {
-                    fila.querySelector('.numero-fila').textContent = index + 1;
+                    const numeroOrden = fila.querySelector('.numero-orden');
+                    if (numeroOrden) {
+                        numeroOrden.textContent = index + 1;
+                    }
                 });
             }
             
@@ -1178,16 +1340,27 @@ $stats['productos_afectados'] = intval($stats['productos_afectados'] ?? 0);
             // Animación de las estadísticas
             const statCards = document.querySelectorAll('.stat-card');
             statCards.forEach((card, index) => {
+                card.style.opacity = '0';
+                card.style.transform = 'translateY(20px)';
+                
                 setTimeout(() => {
-                    card.style.opacity = '0';
-                    card.style.transform = 'translateY(20px)';
-                    
-                    setTimeout(() => {
-                        card.style.transition = 'all 0.5s ease';
-                        card.style.opacity = '1';
-                        card.style.transform = 'translateY(0)';
-                    }, 50);
+                    card.style.transition = 'all 0.5s ease';
+                    card.style.opacity = '1';
+                    card.style.transform = 'translateY(0)';
                 }, index * 100);
+            });
+            
+            // Animación de aparición de filas en las tablas
+            const rowsHistorial = document.querySelectorAll('.table-danados tbody tr');
+            rowsHistorial.forEach((row, index) => {
+                row.style.opacity = '0';
+                row.style.transform = 'translateY(20px)';
+                
+                setTimeout(() => {
+                    row.style.transition = 'all 0.3s ease';
+                    row.style.opacity = '1';
+                    row.style.transform = 'translateY(0)';
+                }, index * 50);
             });
             
             console.log('===========================================');
@@ -1199,6 +1372,7 @@ $stats['productos_afectados'] = intval($stats['productos_afectados'] ?? 0);
             console.log('⚠️ Validación de stock activada');
             console.log('📊 Total de productos disponibles:', <?php echo $productos->num_rows; ?>);
             console.log('❌ Total productos dañados histórico:', <?php echo $stats['total_cantidad']; ?>);
+            console.log('🎨 Estilo idéntico a inventario_movimientos.php aplicado');
             console.log('===========================================');
         });
     </script>

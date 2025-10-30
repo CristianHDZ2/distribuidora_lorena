@@ -57,7 +57,11 @@ $ultimos_ingresos = $conn->query($query_ultimos);
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="assets/css/custom.css">
     <style>
-        /* Tabla de ingresos con diseño similar */
+        /* ============================================
+           ESTILOS IDÉNTICOS A INVENTARIO_MOVIMIENTOS.PHP
+           ============================================ */
+        
+        /* Tabla de ingresos con diseño de inventario_movimientos.php */
         .table-ingresos {
             box-shadow: 0 2px 8px rgba(0,0,0,0.1);
             border-radius: 10px;
@@ -79,6 +83,7 @@ $ultimos_ingresos = $conn->query($query_ultimos);
             }
         }
         
+        /* Encabezado con gradiente morado */
         .table-ingresos thead {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
         }
@@ -154,6 +159,44 @@ $ultimos_ingresos = $conn->query($query_ultimos);
             }
         }
         
+        /* Número de orden circular */
+        .numero-orden {
+            font-weight: 700;
+            font-size: 16px;
+            color: #667eea;
+            background: #f0f3ff;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        @media (max-width: 991px) {
+            .numero-orden {
+                width: 35px;
+                height: 35px;
+                font-size: 14px;
+            }
+        }
+        
+        @media (max-width: 767px) {
+            .numero-orden {
+                width: 30px;
+                height: 30px;
+                font-size: 12px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .numero-orden {
+                width: 25px;
+                height: 25px;
+                font-size: 11px;
+            }
+        }
+        
         /* Formulario de ingreso */
         .form-section {
             background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
@@ -199,33 +242,102 @@ $ultimos_ingresos = $conn->query($query_ultimos);
             }
         }
         
-        /* NUEVO: Tabla de productos dinámica */
+        /* TABLA DE PRODUCTOS INGRESO - MISMO ESTILO QUE MOVIMIENTOS */
         .tabla-productos-ingreso {
-            background: white;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
             border-radius: 10px;
             overflow: hidden;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            background: white;
         }
         
+        @media (max-width: 767px) {
+            .tabla-productos-ingreso {
+                border-radius: 8px;
+                font-size: 12px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .tabla-productos-ingreso {
+                border-radius: 6px;
+                font-size: 11px;
+            }
+        }
+        
+        /* MISMO GRADIENTE MORADO QUE MOVIMIENTOS */
         .tabla-productos-ingreso thead {
-            background: linear-gradient(135deg, #27ae60, #229954);
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
         }
         
         .tabla-productos-ingreso thead th {
             color: white !important;
-            font-weight: 600;
-            padding: 12px 10px;
-            font-size: 12px;
+            font-weight: 600 !important;
             text-transform: uppercase;
+            font-size: 13px;
+            letter-spacing: 0.5px;
+            padding: 18px 15px !important;
+            border: none !important;
+            vertical-align: middle;
+            background: transparent !important;
         }
         
-        .tabla-productos-ingreso tbody td {
-            padding: 10px;
-            vertical-align: middle;
+        @media (max-width: 991px) {
+            .tabla-productos-ingreso thead th {
+                padding: 15px 12px !important;
+                font-size: 12px;
+            }
+        }
+        
+        @media (max-width: 767px) {
+            .tabla-productos-ingreso thead th {
+                padding: 12px 8px !important;
+                font-size: 11px;
+                letter-spacing: 0.3px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .tabla-productos-ingreso thead th {
+                padding: 10px 5px !important;
+                font-size: 10px;
+            }
+        }
+        
+        .tabla-productos-ingreso tbody tr {
+            transition: all 0.3s ease;
+            border-bottom: 1px solid #e9ecef;
+            background: white;
         }
         
         .tabla-productos-ingreso tbody tr:hover {
-            background-color: #e8f5e9;
+            background-color: #f8f9ff !important;
+            transform: scale(1.01);
+            box-shadow: 0 3px 10px rgba(0,0,0,0.08);
+        }
+        
+        .tabla-productos-ingreso tbody td {
+            padding: 15px;
+            vertical-align: middle;
+            color: #2c3e50;
+        }
+        
+        @media (max-width: 991px) {
+            .tabla-productos-ingreso tbody td {
+                padding: 12px 10px;
+            }
+        }
+        
+        @media (max-width: 767px) {
+            .tabla-productos-ingreso tbody td {
+                padding: 10px 8px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .tabla-productos-ingreso tbody td {
+                padding: 8px 5px;
+                font-size: 11px;
+            }
         }
         
         /* Info del producto */
@@ -361,8 +473,7 @@ $ultimos_ingresos = $conn->query($query_ultimos);
         }
     </style>
 </head>
-<body>
-    <!-- Navbar -->
+<body><!-- Navbar -->
     <nav class="navbar navbar-expand-lg navbar-light navbar-custom">
         <div class="container-fluid">
             <a class="navbar-brand" href="index.php">
@@ -473,16 +584,16 @@ $ultimos_ingresos = $conn->query($query_ultimos);
                 <form method="POST" action="api/inventario_api.php" id="formIngreso">
                     <input type="hidden" name="accion" value="registrar_ingreso_multiple">
                     
-                    <!-- Tabla de productos -->
+                    <!-- Tabla de productos con mismo estilo que movimientos -->
                     <div class="table-responsive mb-3">
                         <table class="table tabla-productos-ingreso table-hover mb-0" id="tablaProductos">
                             <thead>
                                 <tr>
-                                    <th width="40" class="text-center">#</th>
+                                    <th width="60" class="text-center">#</th>
                                     <th>Producto</th>
                                     <th width="150" class="text-center">Cantidad</th>
-                                    <th width="120" class="text-center">Por Unidades</th>
-                                    <th width="80" class="text-center">Acciones</th>
+                                    <th width="140" class="text-center">Por Unidades</th>
+                                    <th width="100" class="text-center">Acciones</th>
                                 </tr>
                             </thead>
                             <tbody id="productosBody">
@@ -517,7 +628,9 @@ $ultimos_ingresos = $conn->query($query_ultimos);
                         </button>
                     </div>
                 </form>
-            </div><!-- Últimos Ingresos -->
+            </div>
+
+            <!-- Últimos Ingresos -->
             <div class="form-section">
                 <h4><i class="fas fa-history"></i> Últimos 10 Ingresos Registrados</h4>
                 
@@ -526,7 +639,8 @@ $ultimos_ingresos = $conn->query($query_ultimos);
                         <table class="table table-ingresos table-hover mb-0">
                             <thead>
                                 <tr>
-                                    <th width="180">Fecha y Hora</th>
+                                    <th width="60" class="text-center">#</th>
+                                    <th width="140" class="text-center">Fecha y Hora</th>
                                     <th>Producto</th>
                                     <th width="150" class="text-center">Cantidad</th>
                                     <th width="100" class="text-center hide-mobile">Stock Anterior</th>
@@ -536,7 +650,9 @@ $ultimos_ingresos = $conn->query($query_ultimos);
                                 </tr>
                             </thead>
                             <tbody>
-                                <?php while ($ingreso = $ultimos_ingresos->fetch_assoc()): 
+                                <?php 
+                                $contador = 1;
+                                while ($ingreso = $ultimos_ingresos->fetch_assoc()): 
                                     $cantidad_cajas = floatval($ingreso['cantidad']);
                                     $unidades_por_caja = intval($ingreso['unidades_por_caja']);
                                     
@@ -551,25 +667,24 @@ $ultimos_ingresos = $conn->query($query_ultimos);
                                     }
                                 ?>
                                     <tr>
-                                        <td>
-                                            <small>
-                                                <i class="fas fa-calendar"></i> 
-                                                <?php echo date('d/m/Y', strtotime($ingreso['fecha_movimiento'])); ?>
-                                                <br>
-                                                <i class="fas fa-clock"></i> 
-                                                <?php echo date('H:i:s', strtotime($ingreso['fecha_movimiento'])); ?>
-                                            </small>
+                                        <td class="text-center">
+                                            <span class="numero-orden"><?php echo $contador; ?></span>
+                                        </td>
+                                        <td class="text-center">
+                                            <strong><?php echo date('d/m/Y', strtotime($ingreso['fecha_movimiento'])); ?></strong>
+                                            <br>
+                                            <small class="text-muted"><?php echo date('H:i:s', strtotime($ingreso['fecha_movimiento'])); ?></small>
                                         </td>
                                         <td>
                                             <strong><?php echo htmlspecialchars($ingreso['producto_nombre']); ?></strong>
                                             <?php if ($unidades_por_caja > 0): ?>
-                                                <br><small class="text-muted"><?php echo $unidades_por_caja; ?> unid/caja</small>
+                                                <br><small class="text-muted"><i class="fas fa-box"></i> <?php echo $unidades_por_caja; ?> unid/caja</small>
                                             <?php endif; ?>
                                         </td>
                                         <td class="text-center">
-                                            <span class="badge bg-success" style="font-size: 13px;">
-                                                +<?php echo number_format($cantidad_cajas, 2); ?> cajas
-                                            </span>
+                                            <strong class="text-success">
+                                                +<?php echo number_format($cantidad_cajas, 1); ?>
+                                            </strong>
                                             <?php if ($mostrar_conversion): ?>
                                                 <br>
                                                 <span class="badge-conversion">
@@ -582,36 +697,32 @@ $ultimos_ingresos = $conn->query($query_ultimos);
                                             <?php endif; ?>
                                         </td>
                                         <td class="text-center hide-mobile">
-                                            <small class="text-muted">
-                                                <?php echo number_format($ingreso['stock_anterior'], 2); ?>
-                                            </small>
+                                            <span class="text-muted"><?php echo number_format($ingreso['stock_anterior'], 1); ?></span>
                                         </td>
                                         <td class="text-center">
-                                            <strong class="text-success">
-                                                <?php echo number_format($ingreso['stock_nuevo'], 2); ?>
-                                            </strong>
+                                            <strong><?php echo number_format($ingreso['stock_nuevo'], 1); ?></strong>
                                         </td>
                                         <td class="hide-mobile">
                                             <small class="text-muted">
-                                                <?php echo !empty($ingreso['descripcion']) ? htmlspecialchars($ingreso['descripcion']) : '<em>Sin descripción</em>'; ?>
+                                                <?php echo !empty($ingreso['descripcion']) ? htmlspecialchars($ingreso['descripcion']) : 'Sin descripción'; ?>
                                             </small>
                                         </td>
                                         <td class="hide-mobile">
-                                            <small>
-                                                <i class="fas fa-user"></i> 
-                                                <?php echo htmlspecialchars($ingreso['usuario_nombre']); ?>
-                                            </small>
+                                            <small><i class="fas fa-user"></i> <?php echo htmlspecialchars($ingreso['usuario_nombre']); ?></small>
                                         </td>
                                     </tr>
-                                <?php endwhile; ?>
+                                <?php 
+                                $contador++;
+                                endwhile; 
+                                ?>
                             </tbody>
                         </table>
                     </div>
                 <?php else: ?>
                     <div class="text-center py-5 text-muted">
-                        <i class="fas fa-inbox fa-3x mb-3"></i>
-                        <p>No hay ingresos registrados aún</p>
-                        <small>Los ingresos aparecerán aquí una vez que se registren</small>
+                        <i class="fas fa-inbox fa-3x mb-3 d-block"></i>
+                        <h5>No hay ingresos registrados aún</h5>
+                        <p>Los ingresos aparecerán aquí una vez que se registren</p>
                     </div>
                 <?php endif; ?>
             </div>
@@ -632,7 +743,9 @@ $ultimos_ingresos = $conn->query($query_ultimos);
     <!-- Template de fila de producto (oculto) -->
     <template id="templateFilaProducto">
         <tr class="fila-producto">
-            <td class="text-center numero-fila">1</td>
+            <td class="text-center">
+                <span class="numero-orden numero-fila">1</span>
+            </td>
             <td>
                 <select class="form-select form-select-sm producto-select" name="productos[INDEX][producto_id]" required>
                     <option value="">-- Seleccione un producto --</option>
@@ -681,8 +794,7 @@ $ultimos_ingresos = $conn->query($query_ultimos);
     </template>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="assets/js/notifications.js"></script>
-    <script>
+    <script src="assets/js/notifications.js"></script><script>
         document.addEventListener('DOMContentLoaded', function() {
             let contadorFilas = 0;
             const productosBody = document.getElementById('productosBody');
@@ -704,7 +816,10 @@ $ultimos_ingresos = $conn->query($query_ultimos);
                 tr.innerHTML = tr.innerHTML.replace(/INDEX/g, contadorFilas);
                 
                 // Actualizar número de fila
-                tr.querySelector('.numero-fila').textContent = contadorFilas;
+                const numeroOrden = tr.querySelector('.numero-fila');
+                if (numeroOrden) {
+                    numeroOrden.textContent = contadorFilas;
+                }
                 
                 productosBody.appendChild(tr);
                 
@@ -850,7 +965,10 @@ $ultimos_ingresos = $conn->query($query_ultimos);
             function renumerarFilas() {
                 const filas = productosBody.querySelectorAll('tr');
                 filas.forEach((fila, index) => {
-                    fila.querySelector('.numero-fila').textContent = index + 1;
+                    const numeroOrden = fila.querySelector('.numero-orden');
+                    if (numeroOrden) {
+                        numeroOrden.textContent = index + 1;
+                    }
                 });
             }
             
@@ -973,6 +1091,19 @@ $ultimos_ingresos = $conn->query($query_ultimos);
                 }, 5000);
             }
             
+            // Animación de aparición de filas en la tabla de últimos ingresos
+            const rowsIngresos = document.querySelectorAll('.table-ingresos tbody tr');
+            rowsIngresos.forEach((row, index) => {
+                row.style.opacity = '0';
+                row.style.transform = 'translateY(20px)';
+                
+                setTimeout(() => {
+                    row.style.transition = 'all 0.3s ease';
+                    row.style.opacity = '1';
+                    row.style.transform = 'translateY(0)';
+                }, index * 50);
+            });
+            
             console.log('===========================================');
             console.log('INGRESOS MÚLTIPLES - DISTRIBUIDORA LORENA');
             console.log('===========================================');
@@ -980,6 +1111,7 @@ $ultimos_ingresos = $conn->query($query_ultimos);
             console.log('📦 Ingreso múltiple de productos activado');
             console.log('🔄 Conversión automática unidades/cajas activada');
             console.log('📊 Total de productos disponibles:', <?php echo $productos->num_rows; ?>);
+            console.log('🎨 Estilo idéntico a inventario_movimientos.php aplicado');
             console.log('===========================================');
         });
     </script>
