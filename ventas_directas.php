@@ -539,7 +539,8 @@ $stats_total = $conn->query($query_stats_total)->fetch_assoc();
         }
     </style>
 </head>
-<body><!-- Navbar -->
+<body>
+    <!-- Navbar -->
     <nav class="navbar navbar-expand-lg navbar-light navbar-custom">
         <div class="container-fluid">
             <a class="navbar-brand" href="index.php">
@@ -722,7 +723,7 @@ $stats_total = $conn->query($query_stats_total)->fetch_assoc();
                             <label for="fecha" class="form-label">
                                 <i class="fas fa-calendar"></i> Fecha de Venta *
                             </label>
-                            <input type="date" class="form-control" id="fecha" name="fecha" value="<?php echo $fecha_hoy; ?>" required>
+                            <input type="date" class="form-control" id="fecha" name="fecha" value="<?php echo $fecha_hoy; ?>" max="<?php echo $fecha_hoy; ?>" required>
                         </div>
                     </div>
                     
@@ -783,7 +784,7 @@ $stats_total = $conn->query($query_stats_total)->fetch_assoc();
                             <label for="cantidad" class="form-label">
                                 <i class="fas fa-sort-numeric-up"></i> Cantidad *
                             </label>
-                            <input type="number" class="form-control" id="cantidad" name="cantidad" step="0.1" min="0.1" required placeholder="Ej: 5">
+                            <input type="number" class="form-control" id="cantidad" name="cantidad" step="any" min="0.01" required placeholder="Ej: 5">
                             <small class="text-muted" id="cantidad_ayuda">Cantidad de cajas</small>
                         </div>
                         
@@ -931,7 +932,9 @@ $stats_total = $conn->query($query_stats_total)->fetch_assoc();
                 </p>
             </div>
         </div>
-    </div><script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="assets/js/notifications.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
@@ -1126,30 +1129,32 @@ $stats_total = $conn->query($query_stats_total)->fetch_assoc();
             });
             
             // Función para actualizar precio según tipo de venta
-            function actualizarPrecioSegunTipo() {
-                const tipoVenta = parseInt(tipoVentaSelect.value);
-                
-                if (tipoVenta === 1) {
-                    // Venta por UNIDAD
-                    precioUsadoInput.value = productoActual.precioUnitario.toFixed(2);
-                    cantidadInput.step = '1'; // Solo números enteros
-                    document.getElementById('cantidad_ayuda').textContent = 'Cantidad de unidades';
-                    document.getElementById('tipo_venta_ayuda').textContent = 'Venta por unidad individual';
-                    
-                    if (productoActual.unidadesPorCaja > 0) {
-                        cantidadInput.max = productoActual.totalUnidades;
-                    }
-                } else {
-                    // Venta por CAJA
-                    precioUsadoInput.value = productoActual.precioCaja.toFixed(2);
-                    cantidadInput.step = '0.1'; // Decimales permitidos
-                    document.getElementById('cantidad_ayuda').textContent = 'Cantidad de cajas';
-                    document.getElementById('tipo_venta_ayuda').textContent = 'Venta por caja completa';
-                    cantidadInput.max = productoActual.stockCajas;
-                }
-                
-                calcularTotal();
-            }
+function actualizarPrecioSegunTipo() {
+    const tipoVenta = parseInt(tipoVentaSelect.value);
+    
+    if (tipoVenta === 1) {
+        // Venta por UNIDAD
+        precioUsadoInput.value = productoActual.precioUnitario.toFixed(2);
+        cantidadInput.step = 'any'; // ✅ CAMBIO: Permitir cualquier valor
+        cantidadInput.min = '1'; // ✅ Mínimo 1 unidad
+        document.getElementById('cantidad_ayuda').textContent = 'Cantidad de unidades';
+        document.getElementById('tipo_venta_ayuda').textContent = 'Venta por unidad individual';
+        
+        if (productoActual.unidadesPorCaja > 0) {
+            cantidadInput.max = productoActual.totalUnidades;
+        }
+    } else {
+        // Venta por CAJA
+        precioUsadoInput.value = productoActual.precioCaja.toFixed(2);
+        cantidadInput.step = 'any'; // Decimales permitidos
+        cantidadInput.min = '0.01'; // ✅ Mínimo 0.01 cajas
+        document.getElementById('cantidad_ayuda').textContent = 'Cantidad de cajas';
+        document.getElementById('tipo_venta_ayuda').textContent = 'Venta por caja completa';
+        cantidadInput.max = productoActual.stockCajas;
+    }
+    
+    calcularTotal();
+}
             
             // Cuando cambia el tipo de venta
             tipoVentaSelect.addEventListener('change', function() {
@@ -1306,37 +1311,7 @@ $stats_total = $conn->query($query_stats_total)->fetch_assoc();
                 });
             }
             
-            // Mejorar experiencia táctil en dispositivos móviles
-            if ('ontouchstart' in window) {
-                document.querySelectorAll('.btn').forEach(element => {
-                    element.addEventListener('touchstart', function() {
-                        this.style.opacity = '0.7';
-                    });
-                    
-                    element.addEventListener('touchend', function() {
-                        setTimeout(() => {
-                            this.style.opacity = '1';
-                        }, 200);
-                    });
-                });
-            }
-            
-            // Manejar orientación en dispositivos móviles
-            function handleOrientationChange() {
-                const orientation = window.innerHeight > window.innerWidth ? 'portrait' : 'landscape';
-                document.body.setAttribute('data-orientation', orientation);
-            }
-            
-            handleOrientationChange();
-            window.addEventListener('orientationchange', handleOrientationChange);
-            window.addEventListener('resize', handleOrientationChange);
-            
-            // Añadir clase para dispositivos táctiles
-            if ('ontouchstart' in window || navigator.maxTouchPoints > 0) {
-                document.body.classList.add('touch-device');
-            }
-            
-            // Auto-ocultar alerta después de 5 segundos
+            // Auto-ocultar alerta
             const alert = document.querySelector('.alert-dismissible');
             if (alert) {
                 setTimeout(function() {
@@ -1345,60 +1320,13 @@ $stats_total = $conn->query($query_stats_total)->fetch_assoc();
                 }, 5000);
             }
             
-            // Animación de los números de estadísticas
-            function animateValue(element, start, end, duration) {
-                let startTimestamp = null;
-                const step = (timestamp) => {
-                    if (!startTimestamp) startTimestamp = timestamp;
-                    const progress = Math.min((timestamp - startTimestamp) / duration, 1);
-                    
-                    const isDollar = element.textContent.includes('$');
-                    const value = progress * (end - start) + start;
-                    
-                    if (isDollar) {
-                        element.textContent = '$' + value.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-                    } else {
-                        element.textContent = Math.floor(value).toLocaleString();
-                    }
-                    
-                    if (progress < 1) {
-                        window.requestAnimationFrame(step);
-                    }
-                };
-                window.requestAnimationFrame(step);
-            }
-            
-            // Animar estadísticas al cargar la página
-            document.querySelectorAll('.stat-card h3').forEach(element => {
-                const text = element.textContent.replace(/[$,]/g, '');
-                const endValue = parseFloat(text);
-                
-                if (!isNaN(endValue) && endValue > 0) {
-                    element.textContent = element.textContent.includes('$') ? '$0.00' : '0';
-                    
-                    setTimeout(() => {
-                        animateValue(element, 0, endValue, 1000);
-                    }, 100);
-                }
-            });
-            
-            // Prevenir zoom en inputs en iOS
-            if (/iPhone|iPad|iPod/i.test(navigator.userAgent)) {
-                const inputs = document.querySelectorAll('input, select, textarea');
-                inputs.forEach(input => {
-                    input.addEventListener('focus', function() {
-                        this.style.fontSize = '16px';
-                    });
-                });
-            }
-            
             console.log('===========================================');
             console.log('VENTAS DIRECTAS - DISTRIBUIDORA LORENA');
             console.log('===========================================');
             console.log('✅ Sistema cargado correctamente');
             console.log('📦 Sistema de conversión automática activado');
             console.log('🔒 Validaciones de stock activadas');
-            console.log('📊 Total de ventas recientes:', <?php echo $ventas_recientes->num_rows; ?>);
+            console.log('🔧 CORRECCIÓN: step="any" permite valores decimales');
             console.log('===========================================');
         });
     </script>

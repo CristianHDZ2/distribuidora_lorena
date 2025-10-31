@@ -580,7 +580,8 @@ $stats_total = $conn->query($query_stats_total)->fetch_assoc();
         }
     </style>
 </head>
-<body><!-- Navbar -->
+<body>
+    <!-- Navbar -->
     <nav class="navbar navbar-expand-lg navbar-light navbar-custom">
         <div class="container-fluid">
             <a class="navbar-brand" href="index.php">
@@ -977,8 +978,8 @@ $stats_total = $conn->query($query_stats_total)->fetch_assoc();
                 <input type="number" 
                        class="form-control form-control-sm text-center cantidad-input" 
                        name="productos[INDEX][cantidad]" 
-                       step="1" 
-                       min="0.1" 
+                       step="any" 
+                       min="0.01" 
                        required 
                        placeholder="0">
                 <small class="text-muted cantidad-label">cajas</small>
@@ -1033,7 +1034,8 @@ $stats_total = $conn->query($query_stats_total)->fetch_assoc();
     </datalist>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="assets/js/notifications.js"></script><script>
+    <script src="assets/js/notifications.js"></script>
+    <script>
         document.addEventListener('DOMContentLoaded', function() {
             let contadorFilas = 0;
             const productosBody = document.getElementById('productosBody');
@@ -1097,7 +1099,7 @@ $stats_total = $conn->query($query_stats_total)->fetch_assoc();
                             switchUnidades.disabled = true;
                             switchUnidades.checked = false;
                             switchUnidades.title = 'Este producto no tiene configuradas unidades por caja';
-                            cantidadInput.setAttribute('step', '0.5');
+                            cantidadInput.setAttribute('step', 'any');
                             cantidadLabel.textContent = 'cajas';
                         }
                         
@@ -1148,8 +1150,8 @@ $stats_total = $conn->query($query_stats_total)->fetch_assoc();
                         }
                     } else {
                         // Modo CAJAS
-                        cantidadInput.setAttribute('step', '0.5');
-                        cantidadInput.setAttribute('min', '0.1');
+                        cantidadInput.setAttribute('step', 'any');
+                        cantidadInput.setAttribute('min', '0.01');
                         cantidadLabel.textContent = 'cajas';
                         cantidadInput.placeholder = 'Ej: 10';
                         
@@ -1395,6 +1397,7 @@ $stats_total = $conn->query($query_stats_total)->fetch_assoc();
             console.log('🔄 Conversión automática unidades/cajas activada');
             console.log('📊 Total de productos disponibles:', <?php echo $productos->num_rows; ?>);
             console.log('🎨 Estilo idéntico a inventario_movimientos.php aplicado');
+            console.log('🔧 CORRECCIÓN: step="any" permite valores decimales sin restricciones');
             console.log('===========================================');
         });
     </script>

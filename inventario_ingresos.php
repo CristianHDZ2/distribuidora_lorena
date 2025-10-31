@@ -769,8 +769,8 @@ $ultimos_ingresos = $conn->query($query_ultimos);
                 <input type="number" 
                        class="form-control form-control-sm text-center cantidad-input" 
                        name="productos[INDEX][cantidad]" 
-                       step="1" 
-                       min="0.1" 
+                       step="any" 
+                       min="0.01" 
                        required 
                        placeholder="0">
                 <small class="text-muted cantidad-label">cajas</small>
@@ -856,7 +856,7 @@ $ultimos_ingresos = $conn->query($query_ultimos);
                             switchUnidades.disabled = true;
                             switchUnidades.checked = false;
                             switchUnidades.title = 'Este producto no tiene configuradas unidades por caja';
-                            cantidadInput.setAttribute('step', '0.5');
+                            cantidadInput.setAttribute('step', 'any');
                             cantidadLabel.textContent = 'cajas';
                         }
                         
@@ -907,8 +907,8 @@ $ultimos_ingresos = $conn->query($query_ultimos);
                         }
                     } else {
                         // Modo CAJAS
-                        cantidadInput.setAttribute('step', '0.5');
-                        cantidadInput.setAttribute('min', '0.1');
+                        cantidadInput.setAttribute('step', 'any');
+                        cantidadInput.setAttribute('min', '0.01');
                         cantidadLabel.textContent = 'cajas';
                         cantidadInput.placeholder = 'Ej: 10';
                         
@@ -985,9 +985,7 @@ $ultimos_ingresos = $conn->query($query_ultimos);
                     agregarFilaProducto();
                     document.getElementById('descripcion_general').value = '';
                 }
-            });
-            
-            // Validación del formulario
+            });// Validación del formulario
             formIngreso.addEventListener('submit', function(e) {
                 const filas = productosBody.querySelectorAll('tr');
                 let productosValidos = 0;
@@ -1112,6 +1110,7 @@ $ultimos_ingresos = $conn->query($query_ultimos);
             console.log('🔄 Conversión automática unidades/cajas activada');
             console.log('📊 Total de productos disponibles:', <?php echo $productos->num_rows; ?>);
             console.log('🎨 Estilo idéntico a inventario_movimientos.php aplicado');
+            console.log('🔧 CORRECCIÓN: step="any" permite valores decimales sin restricciones');
             console.log('===========================================');
         });
     </script>

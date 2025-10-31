@@ -17,10 +17,19 @@ if (isset($_GET['mensaje'])) {
 // Fecha de hoy por defecto
 $fecha_hoy = date('Y-m-d');
 
-// Obtener todos los productos activos ordenados alfabéticamente
-$productos = $conn->query("SELECT * FROM productos WHERE activo = 1 ORDER BY nombre ASC");
+// Obtener todos los productos activos con información de inventario
+$query_productos = "
+    SELECT 
+        p.*,
+        COALESCE(i.stock_actual, 0) as stock_actual
+    FROM productos p
+    LEFT JOIN inventario i ON p.id = i.producto_id
+    WHERE p.activo = 1
+    ORDER BY p.nombre ASC
+";
+$productos = $conn->query($query_productos);
 
-// Obtener consumos internos recientes (últimos 20)
+// Obtener consumos internos recientes (últimos 20) con desglose
 $query_consumos = "
     SELECT 
         ci.id,
@@ -31,6 +40,7 @@ $query_consumos = "
         ci.fecha_registro,
         p.nombre as producto_nombre,
         p.tipo as producto_tipo,
+        p.unidades_por_caja,
         u.nombre as usuario_nombre
     FROM consumo_interno ci
     INNER JOIN productos p ON ci.producto_id = p.id
@@ -303,6 +313,46 @@ $areas_top = $conn->query($query_areas);
             }
         }
         
+        /* Info del producto */
+        .producto-info {
+            background: #e3f2fd;
+            border-left: 4px solid #2196f3;
+            padding: 10px;
+            border-radius: 5px;
+            margin-top: 10px;
+            font-size: 13px;
+            display: none;
+        }
+        
+        .producto-info.show {
+            display: block;
+        }
+        
+        /* Switch de unidades */
+        .form-switch .form-check-input {
+            width: 50px;
+            height: 25px;
+            cursor: pointer;
+        }
+        
+        .form-switch .form-check-label {
+            cursor: pointer;
+            margin-left: 10px;
+            font-weight: 600;
+        }
+        
+        /* Badge de conversión */
+        .badge-conversion {
+            background: #e3f2fd;
+            color: #0d47a1;
+            font-size: 10px;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            display: inline-block;
+            margin-left: 5px;
+        }
+        
         /* Ocultar columnas en móviles */
         @media (max-width: 767px) {
             .hide-mobile {
@@ -485,6 +535,12 @@ $areas_top = $conn->query($query_areas);
                 <i class="fas fa-info-circle"></i>
                 <strong>Consumo Interno:</strong> Registre aquí los productos que se utilizan internamente en la empresa 
                 (reuniones, eventos, muestras, uso del personal, etc.). Cada registro disminuirá automáticamente el inventario.
+                <br><strong class="mt-2 d-block">Registro por Unidades:</strong>
+                <ul class="mb-0">
+                    <li>✅ Activa el switch "Por Unidades" para consumir en unidades individuales</li>
+                    <li>❌ Desmarcado = Consumo por CAJAS</li>
+                    <li>🔄 El sistema convierte automáticamente unidades a cajas</li>
+                </ul>
             </div>
 
             <!-- Estadísticas -->
@@ -528,6 +584,7 @@ $areas_top = $conn->query($query_areas);
                 </h4>
                 <form method="POST" action="api/inventario_api.php" id="formConsumo">
                     <input type="hidden" name="accion" value="registrar_consumo_interno">
+                    <input type="hidden" name="por_unidades" id="por_unidades" value="0">
                     
                     <div class="row">
                         <div class="col-md-6 mb-3">
@@ -537,15 +594,21 @@ $areas_top = $conn->query($query_areas);
                             <select class="form-select form-select-lg" id="producto_id" name="producto_id" required>
                                 <option value="">-- Seleccione un producto --</option>
                                 <?php 
-                                $productos->data_seek(0); // Reset pointer
+                                $productos->data_seek(0);
                                 while ($producto = $productos->fetch_assoc()): 
                                 ?>
-                                    <option value="<?php echo $producto['id']; ?>">
+                                    <option value="<?php echo $producto['id']; ?>"
+                                            data-unidades-por-caja="<?php echo $producto['unidades_por_caja']; ?>"
+                                            data-stock-actual="<?php echo $producto['stock_actual']; ?>"
+                                            data-nombre="<?php echo htmlspecialchars($producto['nombre']); ?>">
                                         <?php echo htmlspecialchars($producto['nombre']); ?>
                                         (<?php echo $producto['tipo']; ?>)
                                     </option>
                                 <?php endwhile; ?>
                             </select>
+                            <div class="producto-info" id="productoInfo">
+                                <i class="fas fa-info-circle"></i> <span id="infoTexto"></span>
+                            </div>
                         </div>
 
                         <div class="col-md-3 mb-3">
@@ -553,16 +616,32 @@ $areas_top = $conn->query($query_areas);
                                 <i class="fas fa-sort-numeric-up"></i> Cantidad *
                             </label>
                             <input type="number" class="form-control form-control-lg" id="cantidad" 
-                                   name="cantidad" step="0.1" min="0.1" required 
+                                   name="cantidad" step="any" min="0.01" required 
                                    placeholder="Ejemplo: 3.0">
+                            <small class="text-muted" id="cantidadLabel">cajas</small>
                         </div>
 
                         <div class="col-md-3 mb-3">
                             <label for="fecha" class="form-label fw-bold">
                                 <i class="fas fa-calendar"></i> Fecha *
                             </label>
-                            <input type="date" class="form-control" id="fecha" 
-                                   name="fecha" value="<?php echo $fecha_hoy; ?>" required>
+                            <input type="date" class="form-control form-control-lg" id="fecha" 
+                                   name="fecha" value="<?php echo $fecha_hoy; ?>" 
+                                   max="<?php echo $fecha_hoy; ?>" required>
+                        </div>
+                    </div>
+
+                    <!-- Switch Por Unidades -->
+                    <div class="row mb-3">
+                        <div class="col-12">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="switchUnidades" disabled>
+                                <label class="form-check-label" for="switchUnidades">
+                                    <i class="fas fa-box-open"></i> Registrar por Unidades
+                                </label>
+                                <br>
+                                <small class="text-muted">Activar para consumir en unidades individuales. El sistema convertirá automáticamente a cajas.</small>
+                            </div>
                         </div>
                     </div>
 
@@ -571,7 +650,7 @@ $areas_top = $conn->query($query_areas);
                             <label for="area_departamento" class="form-label fw-bold">
                                 <i class="fas fa-building"></i> Área / Departamento
                             </label>
-                            <input type="text" class="form-control" id="area_departamento" 
+                            <input type="text" class="form-control form-control-lg" id="area_departamento" 
                                    name="area_departamento" 
                                    placeholder="Ejemplo: Administración, Ventas, Bodega, etc.">
                             <small class="text-muted">Opcional: Especifique el área que consumió el producto</small>
@@ -581,7 +660,7 @@ $areas_top = $conn->query($query_areas);
                             <label for="motivo" class="form-label fw-bold">
                                 <i class="fas fa-comment"></i> Motivo del Consumo *
                             </label>
-                            <input type="text" class="form-control" id="motivo" 
+                            <input type="text" class="form-control form-control-lg" id="motivo" 
                                    name="motivo" required 
                                    placeholder="Ejemplo: Reunión de equipo, Evento, Muestra, etc.">
                         </div>
@@ -593,7 +672,9 @@ $areas_top = $conn->query($query_areas);
                         </button>
                     </div>
                 </form>
-            </div><!-- Resumen por Áreas/Departamentos -->
+            </div>
+
+            <!-- Resumen por Áreas/Departamentos -->
             <?php if ($areas_top->num_rows > 0): ?>
                 <div class="area-card">
                     <h4 class="mb-3">
@@ -661,7 +742,7 @@ $areas_top = $conn->query($query_areas);
                                     <th width="50" class="text-center">#</th>
                                     <th width="120" class="text-center">Fecha</th>
                                     <th>Producto</th>
-                                    <th width="100" class="text-center">Cantidad</th>
+                                    <th width="150" class="text-center">Cantidad</th>
                                     <th class="hide-mobile">Motivo</th>
                                     <th width="150" class="text-center hide-mobile">Área</th>
                                     <th width="120" class="text-center hide-mobile">Usuario</th>
@@ -672,6 +753,18 @@ $areas_top = $conn->query($query_areas);
                                 $contador = 1;
                                 $consumos_recientes->data_seek(0);
                                 while ($consumo = $consumos_recientes->fetch_assoc()): 
+                                    $cantidad_cajas = floatval($consumo['cantidad']);
+                                    $unidades_por_caja = intval($consumo['unidades_por_caja']);
+                                    
+                                    // Calcular si hay conversión de unidades
+                                    $es_decimal = ($cantidad_cajas != floor($cantidad_cajas));
+                                    $mostrar_conversion = ($es_decimal && $unidades_por_caja > 0);
+                                    
+                                    if ($mostrar_conversion) {
+                                        $cajas_completas = floor($cantidad_cajas);
+                                        $decimal = $cantidad_cajas - $cajas_completas;
+                                        $unidades_sueltas = round($decimal * $unidades_por_caja);
+                                    }
                                 ?>
                                     <tr>
                                         <td class="text-center">
@@ -690,11 +783,24 @@ $areas_top = $conn->query($query_areas);
                                                 <i class="fas fa-tag"></i> 
                                                 <?php echo htmlspecialchars($consumo['producto_tipo']); ?>
                                             </small>
+                                            <?php if ($unidades_por_caja > 0): ?>
+                                                <br><small class="text-muted"><i class="fas fa-box"></i> <?php echo $unidades_por_caja; ?> unid/caja</small>
+                                            <?php endif; ?>
                                         </td>
                                         <td class="text-center">
                                             <span class="badge bg-warning text-dark" style="font-size: 13px;">
-                                                <?php echo number_format($consumo['cantidad'], 1); ?>
+                                                <?php echo number_format($cantidad_cajas, 1); ?>
                                             </span>
+                                            <?php if ($mostrar_conversion): ?>
+                                                <br>
+                                                <span class="badge-conversion">
+                                                    <i class="fas fa-box-open"></i>
+                                                    <?php if ($cajas_completas > 0): ?>
+                                                        <?php echo $cajas_completas; ?> caja<?php echo $cajas_completas != 1 ? 's' : ''; ?> + 
+                                                    <?php endif; ?>
+                                                    <?php echo $unidades_sueltas; ?> unid.
+                                                </span>
+                                            <?php endif; ?>
                                         </td>
                                         <td class="hide-mobile">
                                             <i class="fas fa-comment-dots text-info me-1"></i>
@@ -749,6 +855,129 @@ $areas_top = $conn->query($query_areas);
     <script src="assets/js/notifications.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
+            const productoSelect = document.getElementById('producto_id');
+            const cantidadInput = document.getElementById('cantidad');
+            const switchUnidades = document.getElementById('switchUnidades');
+            const porUnidadesInput = document.getElementById('por_unidades');
+            const productoInfo = document.getElementById('productoInfo');
+            const infoTexto = document.getElementById('infoTexto');
+            const cantidadLabel = document.getElementById('cantidadLabel');
+            
+            // Evento al seleccionar producto
+            productoSelect.addEventListener('change', function() {
+                const option = this.options[this.selectedIndex];
+                const unidadesPorCaja = parseInt(option.getAttribute('data-unidades-por-caja')) || 0;
+                const stockActual = parseFloat(option.getAttribute('data-stock-actual')) || 0;
+                const nombreProducto = option.getAttribute('data-nombre');
+                
+                if (this.value) {
+                    // Habilitar/deshabilitar switch según si tiene unidades_por_caja
+                    if (unidadesPorCaja > 0) {
+                        switchUnidades.disabled = false;
+                        switchUnidades.title = 'Activar para consumir por unidades';
+                    } else {
+                        switchUnidades.disabled = true;
+                        switchUnidades.checked = false;
+                        switchUnidades.title = 'Este producto no tiene configuradas unidades por caja';
+                        cantidadInput.setAttribute('step', 'any');
+                        cantidadLabel.textContent = 'cajas';
+                        porUnidadesInput.value = '0';
+                    }
+                    
+                    // Mostrar info del producto
+                    let texto = `<strong>${nombreProducto}</strong><br>`;
+                    texto += `Stock actual: <strong>${stockActual.toFixed(2)} cajas</strong>`;
+                    
+                    if (unidadesPorCaja > 0) {
+                        const totalUnidades = Math.round(stockActual * unidadesPorCaja);
+                        texto += ` (<strong>${totalUnidades} unidades</strong>)`;
+                        texto += `<br>Configuración: <strong>${unidadesPorCaja} unidades por caja</strong>`;
+                    }
+                    
+                    infoTexto.innerHTML = texto;
+                    productoInfo.classList.add('show');
+                } else {
+                    productoInfo.classList.remove('show');
+                    switchUnidades.disabled = true;
+                    switchUnidades.checked = false;
+                }
+            });
+            
+            // Evento al cambiar el switch de unidades
+            switchUnidades.addEventListener('change', function() {
+                const option = productoSelect.options[productoSelect.selectedIndex];
+                const unidadesPorCaja = parseInt(option.getAttribute('data-unidades-por-caja')) || 0;
+                
+                if (this.checked && unidadesPorCaja > 0) {
+                    // Modo UNIDADES
+                    cantidadInput.setAttribute('step', '1');
+                    cantidadInput.setAttribute('min', '1');
+                    cantidadLabel.textContent = 'unidades';
+                    cantidadInput.placeholder = 'Ej: 24';
+                    porUnidadesInput.value = '1';
+                    
+                    // Convertir valor si existe
+                    if (cantidadInput.value) {
+                        const valorCajas = parseFloat(cantidadInput.value);
+                        const valorUnidades = Math.round(valorCajas * unidadesPorCaja);
+                        cantidadInput.value = valorUnidades;
+                    }
+                } else {
+                    // Modo CAJAS
+                    cantidadInput.setAttribute('step', 'any');
+                    cantidadInput.setAttribute('min', '0.01');
+                    cantidadLabel.textContent = 'cajas';
+                    cantidadInput.placeholder = 'Ej: 10';
+                    porUnidadesInput.value = '0';
+                    
+                    // Convertir valor si existe
+                    if (cantidadInput.value && unidadesPorCaja > 0) {
+                        const valorUnidades = parseFloat(cantidadInput.value);
+                        const valorCajas = (valorUnidades / unidadesPorCaja).toFixed(2);
+                        cantidadInput.value = valorCajas;
+                    }
+                }
+            });
+            
+            // Validación del formulario
+            document.getElementById('formConsumo').addEventListener('submit', function(e) {
+                const producto_id = productoSelect.value;
+                const cantidad = parseFloat(cantidadInput.value);
+                const motivo = document.getElementById('motivo').value.trim();
+                
+                if (!producto_id || producto_id === '') {
+                    e.preventDefault();
+                    alert('Debe seleccionar un producto');
+                    productoSelect.focus();
+                    return false;
+                }
+                
+                if (isNaN(cantidad) || cantidad <= 0) {
+                    e.preventDefault();
+                    alert('La cantidad debe ser mayor a 0');
+                    cantidadInput.focus();
+                    return false;
+                }
+                
+                if (motivo.length < 3) {
+                    e.preventDefault();
+                    alert('Debe especificar un motivo válido (mínimo 3 caracteres)');
+                    document.getElementById('motivo').focus();
+                    return false;
+                }
+                
+                if (!confirm('¿Está seguro de registrar este consumo interno?\n\nEsta acción disminuirá el inventario.')) {
+                    e.preventDefault();
+                    return false;
+                }
+                
+                const submitBtn = this.querySelector('button[type="submit"]');
+                if (submitBtn) {
+                    submitBtn.disabled = true;
+                    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Procesando...';
+                }
+            });
+            
             // Responsive navbar
             const navbarToggler = document.querySelector('.navbar-toggler');
             const navbarCollapse = document.querySelector('.navbar-collapse');
@@ -767,91 +996,7 @@ $areas_top = $conn->query($query_areas);
                 });
             }
             
-            // Mejorar experiencia táctil en dispositivos móviles
-            if ('ontouchstart' in window) {
-                document.querySelectorAll('.btn, .table-consumos tbody tr').forEach(element => {
-                    element.addEventListener('touchstart', function() {
-                        this.style.opacity = '0.7';
-                    });
-                    
-                    element.addEventListener('touchend', function() {
-                        setTimeout(() => {
-                            this.style.opacity = '1';
-                        }, 200);
-                    });
-                });
-            }
-            
-            // Manejar orientación en dispositivos móviles
-            function handleOrientationChange() {
-                const orientation = window.innerHeight > window.innerWidth ? 'portrait' : 'landscape';
-                document.body.setAttribute('data-orientation', orientation);
-            }
-            
-            handleOrientationChange();
-            window.addEventListener('orientationchange', handleOrientationChange);
-            window.addEventListener('resize', handleOrientationChange);
-            
-            // Añadir clase para dispositivos táctiles
-            if ('ontouchstart' in window || navigator.maxTouchPoints > 0) {
-                document.body.classList.add('touch-device');
-            }
-            
-            console.log('Consumo Interno cargado correctamente');
-        });
-        
-        // Validación del formulario
-        document.getElementById('formConsumo').addEventListener('submit', function(e) {
-            const producto_id = document.getElementById('producto_id').value;
-            const cantidad = parseFloat(document.getElementById('cantidad').value);
-            const motivo = document.getElementById('motivo').value.trim();
-            
-            // Validar producto seleccionado
-            if (!producto_id || producto_id === '') {
-                e.preventDefault();
-                alert('Debe seleccionar un producto');
-                document.getElementById('producto_id').focus();
-                return false;
-            }
-            
-            // Validar cantidad
-            if (isNaN(cantidad) || cantidad <= 0) {
-                e.preventDefault();
-                alert('La cantidad debe ser mayor a 0');
-                document.getElementById('cantidad').focus();
-                return false;
-            }
-            
-            // Validar motivo
-            if (motivo.length < 3) {
-                e.preventDefault();
-                alert('Debe especificar un motivo válido (mínimo 3 caracteres)');
-                document.getElementById('motivo').focus();
-                return false;
-            }
-            
-            // Confirmación antes de enviar
-            if (!confirm('¿Está seguro de registrar este consumo interno?\n\nEsta acción disminuirá el inventario.')) {
-                e.preventDefault();
-                return false;
-            }
-            
-            // Deshabilitar botón para evitar doble envío
-            const submitBtn = this.querySelector('button[type="submit"]');
-            if (submitBtn) {
-                submitBtn.disabled = true;
-                submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Procesando...';
-                
-                // Re-habilitar después de 3 segundos por si hay error
-                setTimeout(() => {
-                    submitBtn.disabled = false;
-                    submitBtn.innerHTML = '<i class="fas fa-save"></i> Registrar Consumo';
-                }, 3000);
-            }
-        });
-        
-        // Auto-ocultar alerta después de 5 segundos
-        window.addEventListener('load', function() {
+            // Auto-ocultar alerta
             const alert = document.querySelector('.alert-dismissible');
             if (alert) {
                 setTimeout(function() {
@@ -859,127 +1004,22 @@ $areas_top = $conn->query($query_areas);
                     bsAlert.close();
                 }, 5000);
             }
-        });
-        
-        // Limpiar formulario después de envío exitoso
-        const urlParams = new URLSearchParams(window.location.search);
-        if (urlParams.get('tipo') === 'success') {
-            document.getElementById('formConsumo').reset();
-            document.getElementById('fecha').value = '<?php echo $fecha_hoy; ?>';
-        }
-        
-        // Validación en tiempo real de la cantidad
-        document.getElementById('cantidad').addEventListener('input', function() {
-            const valor = parseFloat(this.value);
             
-            if (isNaN(valor) || valor <= 0) {
-                this.classList.add('is-invalid');
-            } else {
-                this.classList.remove('is-invalid');
-            }
-        });
-        
-        // Validación en tiempo real del motivo
-        document.getElementById('motivo').addEventListener('input', function() {
-            const valor = this.value.trim();
-            
-            if (valor.length < 3) {
-                this.classList.add('is-invalid');
-            } else {
-                this.classList.remove('is-invalid');
-            }
-        });
-        
-        // Autocompletar sugerencias de área/departamento (opcional)
-        const areasSugeridas = [
-            'Administración',
-            'Ventas',
-            'Bodega',
-            'Distribución',
-            'Recursos Humanos',
-            'Contabilidad',
-            'Marketing',
-            'Producción',
-            'Logística',
-            'Servicio al Cliente'
-        ];
-        
-        const areaInput = document.getElementById('area_departamento');
-        
-        areaInput.addEventListener('focus', function() {
-            // Crear datalist si no existe
-            let datalist = document.getElementById('areas-list');
-            if (!datalist) {
-                datalist = document.createElement('datalist');
-                datalist.id = 'areas-list';
-                areasSugeridas.forEach(area => {
-                    const option = document.createElement('option');
-                    option.value = area;
-                    datalist.appendChild(option);
-                });
-                document.body.appendChild(datalist);
-                areaInput.setAttribute('list', 'areas-list');
-            }
-        });
-        
-        // Efecto hover mejorado para filas de tabla en desktop
-        if (window.innerWidth > 768) {
-            document.querySelectorAll('.table-consumos tbody tr').forEach(row => {
-                row.addEventListener('mouseenter', function() {
-                    this.style.transform = 'scale(1.01)';
-                });
-                
-                row.addEventListener('mouseleave', function() {
-                    this.style.transform = 'scale(1)';
-                });
+            // Formatear cantidad al perder el foco
+            cantidadInput.addEventListener('blur', function() {
+                if (this.value && parseFloat(this.value) > 0) {
+                    if (switchUnidades.checked) {
+                        // Unidades: número entero
+                        this.value = Math.round(parseFloat(this.value));
+                    } else {
+                        // Cajas: dos decimales
+                        this.value = parseFloat(this.value).toFixed(2);
+                    }
+                }
             });
-        }
-        
-        // Formatear cantidad automáticamente
-        document.getElementById('cantidad').addEventListener('blur', function() {
-            const valor = parseFloat(this.value);
-            if (!isNaN(valor) && valor > 0) {
-                this.value = valor.toFixed(1);
-            }
-        });
-        
-        // Prevenir valores negativos en cantidad
-        document.getElementById('cantidad').addEventListener('keypress', function(e) {
-            // Permitir solo números y punto decimal
-            if (!/[\d.]/.test(e.key) && e.key !== 'Backspace' && e.key !== 'Delete' && e.key !== 'Tab') {
-                e.preventDefault();
-            }
-        });
-        
-        // Limitar fecha máxima a hoy
-        document.getElementById('fecha').setAttribute('max', '<?php echo $fecha_hoy; ?>');
-        
-        // Advertencia si se intenta poner fecha futura
-        document.getElementById('fecha').addEventListener('change', function() {
-            const fechaSeleccionada = new Date(this.value);
-            const fechaHoy = new Date('<?php echo $fecha_hoy; ?>');
             
-            if (fechaSeleccionada > fechaHoy) {
-                alert('No se puede registrar consumo con fecha futura');
-                this.value = '<?php echo $fecha_hoy; ?>';
-            }
+            console.log('✅ Consumo Interno con conversión unidades/cajas cargado correctamente');
         });
-        
-        // Capitalizar primera letra del motivo
-        document.getElementById('motivo').addEventListener('blur', function() {
-            if (this.value.trim()) {
-                this.value = this.value.charAt(0).toUpperCase() + this.value.slice(1);
-            }
-        });
-        
-        // Capitalizar primera letra del área
-        document.getElementById('area_departamento').addEventListener('blur', function() {
-            if (this.value.trim()) {
-                this.value = this.value.charAt(0).toUpperCase() + this.value.slice(1);
-            }
-        });
-        
-        console.log('Todas las validaciones y funcionalidades cargadas correctamente');
     </script>
 </body>
 </html>

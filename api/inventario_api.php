@@ -19,8 +19,9 @@ $usuario_id = $_SESSION['usuario_id'];
 
 // ============================================
 // FUNCIÓN: ACTUALIZAR O CREAR REGISTRO DE INVENTARIO
+// ✅ CORRECCIÓN: Parámetros opcionales AL FINAL
 // ============================================
-function actualizarInventario($conn, $producto_id, $cantidad_cambio, $tipo_movimiento, $referencia_id = null, $referencia_tabla = null, $descripcion = '', $usuario_id) {
+function actualizarInventario($conn, $producto_id, $cantidad_cambio, $tipo_movimiento, $usuario_id, $referencia_id = null, $referencia_tabla = null, $descripcion = '') {
     // Verificar si el producto ya tiene registro en inventario
     $stmt = $conn->prepare("SELECT id, stock_actual FROM inventario WHERE producto_id = ?");
     $stmt->bind_param("i", $producto_id);
@@ -195,11 +196,11 @@ if ($accion == 'registrar_ingreso') {
                 $conn, 
                 $producto_id, 
                 $cantidad, 
-                'INGRESO', 
+                'INGRESO',
+                $usuario_id,
                 null, 
                 null, 
-                $descripcion, 
-                $usuario_id
+                $descripcion
             );
             
             $conn->commit();
@@ -280,11 +281,11 @@ if ($accion == 'registrar_ingreso_multiple') {
                 $conn, 
                 $producto_id, 
                 $cantidad_en_cajas, 
-                'INGRESO', 
+                'INGRESO',
+                $usuario_id,
                 null, 
                 null, 
-                $descripcion_movimiento, 
-                $usuario_id
+                $descripcion_movimiento
             );
             
             $productos_registrados++;
@@ -340,11 +341,11 @@ if ($accion == 'registrar_danado') {
                 $conn, 
                 $producto_id, 
                 -$cantidad, 
-                'PRODUCTO_DANADO', 
+                'PRODUCTO_DANADO',
+                $usuario_id,
                 $danado_id, 
                 'productos_danados', 
-                $descripcion, 
-                $usuario_id
+                $descripcion
             );
             
             $conn->commit();
@@ -438,11 +439,11 @@ if ($accion == 'registrar_danado_multiple') {
                 $conn, 
                 $producto_id, 
                 -$cantidad_en_cajas, 
-                'PRODUCTO_DANADO', 
+                'PRODUCTO_DANADO',
+                $usuario_id,
                 $danado_id, 
                 'productos_danados', 
-                $descripcion_movimiento, 
-                $usuario_id
+                $descripcion_movimiento
             );
             
             $productos_registrados++;
@@ -470,7 +471,7 @@ if ($accion == 'registrar_danado_multiple') {
 }
 
 // ============================================
-// ACCIÓN: REGISTRAR VENTA DIRECTA - MODIFICADO
+// ACCIÓN: REGISTRAR VENTA DIRECTA
 // ============================================
 if ($accion == 'registrar_venta_directa') {
     $producto_id = intval($_POST['producto_id']);
@@ -527,27 +528,28 @@ if ($accion == 'registrar_venta_directa') {
             // Calcular total
             $total = $cantidad * $precio_usado;
             
-            // Registrar venta directa con nuevos campos
-            $stmt = $conn->prepare("
-                INSERT INTO ventas_directas (producto_id, cantidad, usa_precio_unitario, precio_original, precio_usado, total, cliente, descripcion, fecha, usuario_id) 
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ");
-            
             // Determinar precio original según tipo de venta
             $precio_original = ($usa_precio_unitario == 1) ? $precio_unitario : $precio_caja;
             
-            $stmt->bind_param("ididddssi", 
-                $producto_id, 
-                $cantidad, 
-                $usa_precio_unitario, 
+            $stmt = $conn->prepare("
+                INSERT INTO ventas_directas 
+                (producto_id, cantidad, usa_precio_unitario, precio_original, precio_usado, total, cliente, descripcion, fecha, usuario_id) 
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ");
+            
+            $stmt->bind_param("ididddsssi",
+                $producto_id,
+                $cantidad,
+                $usa_precio_unitario,
                 $precio_original,
-                $precio_usado, 
-                $total, 
-                $cliente, 
-                $descripcion, 
-                $fecha, 
+                $precio_usado,
+                $total,
+                $cliente,
+                $descripcion,
+                $fecha,
                 $usuario_id
             );
+            
             $stmt->execute();
             $venta_id = $conn->insert_id;
             $stmt->close();
@@ -572,11 +574,11 @@ if ($accion == 'registrar_venta_directa') {
                 $conn, 
                 $producto_id, 
                 -$cantidad_en_cajas, // Negativo porque disminuye
-                'VENTA_DIRECTA', 
+                'VENTA_DIRECTA',
+                $usuario_id,
                 $venta_id, 
                 'ventas_directas', 
-                $desc_movimiento, 
-                $usuario_id
+                $desc_movimiento
             );
             
             $conn->commit();
@@ -599,11 +601,12 @@ if ($accion == 'registrar_venta_directa') {
 }
 
 // ============================================
-// ACCIÓN: REGISTRAR DEVOLUCIÓN DIRECTA
+// ACCIÓN: REGISTRAR DEVOLUCIÓN DIRECTA (SIMPLE) - ✅ CORREGIDO
 // ============================================
 if ($accion == 'registrar_devolucion_directa') {
     $producto_id = intval($_POST['producto_id']);
     $cantidad = floatval($_POST['cantidad']);
+    $por_unidades = intval($_POST['por_unidades'] ?? 0); // ✅ NUEVO
     $esta_danado = isset($_POST['esta_danado']) ? 1 : 0;
     $motivo = trim($_POST['motivo']);
     $cliente = trim($_POST['cliente'] ?? '');
@@ -613,57 +616,104 @@ if ($accion == 'registrar_devolucion_directa') {
         $conn->begin_transaction();
         
         try {
-            // Registrar devolución directa
+            // ✅ NUEVO: Obtener información del producto
+            $info_producto = obtenerInfoProducto($conn, $producto_id);
+            
+            if (!$info_producto) {
+                throw new Exception("Producto no encontrado");
+            }
+            
+            $nombre_producto = $info_producto['nombre'];
+            $unidades_por_caja = intval($info_producto['unidades_por_caja']);
+            
+            // ✅ NUEVO: Convertir unidades a cajas si aplica
+            $cantidad_en_cajas = $cantidad;
+            $descripcion_conversion = '';
+            
+            if ($por_unidades == 1 && $unidades_por_caja > 0) {
+                // Devolución por UNIDADES - convertir a cajas
+                $cantidad_en_cajas = $cantidad / $unidades_por_caja;
+                $descripcion_conversion = " ({$cantidad} unidades = " . number_format($cantidad_en_cajas, 2) . " cajas)";
+            }
+            
+            // Registrar devolución directa EN CAJAS
             $stmt = $conn->prepare("
                 INSERT INTO devoluciones_directas (producto_id, cantidad, esta_danado, motivo, cliente, fecha, usuario_id) 
                 VALUES (?, ?, ?, ?, ?, ?, ?)
             ");
-            $stmt->bind_param("idisssi", $producto_id, $cantidad, $esta_danado, $motivo, $cliente, $fecha, $usuario_id);
+            $stmt->bind_param("idisssi", $producto_id, $cantidad_en_cajas, $esta_danado, $motivo, $cliente, $fecha, $usuario_id);
             $stmt->execute();
             $devolucion_id = $conn->insert_id;
             $stmt->close();
             
+            // ✅ MODIFICADO: Descripción con conversión
+            $desc_movimiento = "Devolución directa";
+            
             if ($esta_danado == 1) {
                 // Producto dañado - NO aumentar inventario, registrar en productos dañados
+                $desc_movimiento .= " - DAÑADO: " . $motivo;
+                
+                if ($descripcion_conversion) {
+                    $desc_movimiento .= $descripcion_conversion;
+                }
+                
+                if ($cliente) {
+                    $desc_movimiento .= " - Cliente: " . $cliente;
+                }
+                
                 $stmt = $conn->prepare("
                     INSERT INTO productos_danados (producto_id, cantidad, motivo, origen, referencia_id, usuario_id) 
                     VALUES (?, ?, ?, 'DEVOLUCION_DIRECTA', ?, ?)
                 ");
-                $stmt->bind_param("idsii", $producto_id, $cantidad, $motivo, $devolucion_id, $usuario_id);
+                $stmt->bind_param("idsii", $producto_id, $cantidad_en_cajas, $motivo, $devolucion_id, $usuario_id);
                 $stmt->execute();
                 $danado_id = $conn->insert_id;
                 $stmt->close();
                 
                 // Registrar movimiento como dañado
-                $desc_movimiento = "Devolución directa - DAÑADO: " . $motivo . ($cliente ? " - Cliente: " . $cliente : "");
                 actualizarInventario(
                     $conn, 
                     $producto_id, 
                     0, // No cambia el stock
-                    'DEVOLUCION_DIRECTA_DANADO', 
+                    'DEVOLUCION_DIRECTA_DANADO',
+                    $usuario_id,
                     $devolucion_id, 
                     'devoluciones_directas', 
-                    $desc_movimiento, 
-                    $usuario_id
+                    $desc_movimiento
                 );
                 
             } else {
-                // Producto bueno - Aumentar inventario
-                $desc_movimiento = "Devolución directa - BUENO: " . $motivo . ($cliente ? " - Cliente: " . $cliente : "");
+                // Producto bueno - Aumentar inventario EN CAJAS
+                $desc_movimiento .= " - BUENO: " . $motivo;
+                
+                if ($descripcion_conversion) {
+                    $desc_movimiento .= $descripcion_conversion;
+                }
+                
+                if ($cliente) {
+                    $desc_movimiento .= " - Cliente: " . $cliente;
+                }
+                
                 actualizarInventario(
                     $conn, 
                     $producto_id, 
-                    $cantidad, 
-                    'DEVOLUCION_DIRECTA_BUENO', 
+                    $cantidad_en_cajas, // ✅ CORREGIDO: Ahora suma en cajas
+                    'DEVOLUCION_DIRECTA_BUENO',
+                    $usuario_id,
                     $devolucion_id, 
                     'devoluciones_directas', 
-                    $desc_movimiento, 
-                    $usuario_id
+                    $desc_movimiento
                 );
             }
             
             $conn->commit();
-            header("Location: ../devoluciones_directas.php?mensaje=" . urlencode("Devolución registrada exitosamente") . "&tipo=success");
+            
+            $mensaje_exito = "Devolución registrada exitosamente";
+            if ($por_unidades == 1 && $unidades_por_caja > 0 && $esta_danado == 0) {
+                $mensaje_exito .= ". Se sumaron " . number_format($cantidad_en_cajas, 2) . " cajas al inventario";
+            }
+            
+            header("Location: ../devoluciones_directas.php?mensaje=" . urlencode($mensaje_exito) . "&tipo=success");
             
         } catch (Exception $e) {
             $conn->rollback();
@@ -676,11 +726,160 @@ if ($accion == 'registrar_devolucion_directa') {
 }
 
 // ============================================
-// ACCIÓN: REGISTRAR CONSUMO INTERNO
+// ACCIÓN NUEVA: REGISTRAR DEVOLUCIÓN MÚLTIPLE
+// ============================================
+if ($accion == 'registrar_devolucion_multiple') {
+    $productos = $_POST['productos'] ?? [];
+    $fecha_general = trim($_POST['fecha_general'] ?? date('Y-m-d'));
+    $cliente_general = trim($_POST['cliente_general'] ?? '');
+    
+    if (empty($productos) || !is_array($productos)) {
+        header("Location: ../devoluciones_directas.php?mensaje=" . urlencode("No se recibieron productos para registrar") . "&tipo=danger");
+        exit();
+    }
+    
+    $conn->begin_transaction();
+    
+    try {
+        $productos_registrados = 0;
+        $productos_danados = 0;
+        $productos_buenos = 0;
+        $errores = [];
+        
+        foreach ($productos as $index => $prod) {
+            $producto_id = intval($prod['producto_id'] ?? 0);
+            $cantidad = floatval($prod['cantidad'] ?? 0);
+            $por_unidades = intval($prod['por_unidades'] ?? 0);
+            $esta_danado = isset($prod['esta_danado']) ? 1 : 0;
+            $motivo = trim($prod['motivo'] ?? '');
+            
+            // Validar datos básicos
+            if ($producto_id <= 0 || $cantidad <= 0 || empty($motivo)) {
+                continue; // Saltar productos vacíos o incompletos
+            }
+            
+            // Obtener información del producto
+            $info_producto = obtenerInfoProducto($conn, $producto_id);
+            
+            if (!$info_producto) {
+                $errores[] = "Producto ID $producto_id no encontrado";
+                continue;
+            }
+            
+            $nombre_producto = $info_producto['nombre'];
+            $unidades_por_caja = intval($info_producto['unidades_por_caja']);
+            
+            // Convertir unidades a cajas si aplica
+            $cantidad_en_cajas = $cantidad;
+            $descripcion_conversion = '';
+            
+            if ($por_unidades == 1 && $unidades_por_caja > 0) {
+                // Devolución por UNIDADES - convertir a cajas
+                $cantidad_en_cajas = $cantidad / $unidades_por_caja;
+                $descripcion_conversion = " ({$cantidad} unidades = " . number_format($cantidad_en_cajas, 2) . " cajas)";
+            }
+            
+            // Registrar devolución directa
+            $stmt = $conn->prepare("
+                INSERT INTO devoluciones_directas (producto_id, cantidad, esta_danado, motivo, cliente, fecha, usuario_id) 
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            ");
+            $stmt->bind_param("idisssi", $producto_id, $cantidad_en_cajas, $esta_danado, $motivo, $cliente_general, $fecha_general, $usuario_id);
+            $stmt->execute();
+            $devolucion_id = $conn->insert_id;
+            $stmt->close();
+            
+            // Construir descripción del movimiento
+            $descripcion_movimiento = "Devolución directa";
+            
+            if ($esta_danado == 1) {
+                $descripcion_movimiento .= " - DAÑADO";
+                $productos_danados++;
+            } else {
+                $descripcion_movimiento .= " - BUENO";
+                $productos_buenos++;
+            }
+            
+            $descripcion_movimiento .= ": {$motivo} - " . number_format($cantidad_en_cajas, 2) . " cajas de {$nombre_producto}";
+            
+            if ($descripcion_conversion) {
+                $descripcion_movimiento .= $descripcion_conversion;
+            }
+            
+            if ($cliente_general) {
+                $descripcion_movimiento .= " - Cliente: " . $cliente_general;
+            }
+            
+            if ($esta_danado == 1) {
+                // Producto DAÑADO - NO aumentar inventario, registrar en productos dañados
+                $stmt = $conn->prepare("
+                    INSERT INTO productos_danados (producto_id, cantidad, motivo, origen, referencia_id, usuario_id) 
+                    VALUES (?, ?, ?, 'DEVOLUCION_DIRECTA', ?, ?)
+                ");
+                $stmt->bind_param("idsii", $producto_id, $cantidad_en_cajas, $motivo, $devolucion_id, $usuario_id);
+                $stmt->execute();
+                $danado_id = $conn->insert_id;
+                $stmt->close();
+                
+                // Registrar movimiento como dañado (NO cambia stock)
+                actualizarInventario(
+                    $conn, 
+                    $producto_id, 
+                    0, // No cambia el stock
+                    'DEVOLUCION_DIRECTA_DANADO',
+                    $usuario_id,
+                    $devolucion_id, 
+                    'devoluciones_directas', 
+                    $descripcion_movimiento
+                );
+                
+            } else {
+                // Producto BUENO - Aumentar inventario
+                actualizarInventario(
+                    $conn, 
+                    $producto_id, 
+                    $cantidad_en_cajas, // POSITIVO porque aumenta
+                    'DEVOLUCION_DIRECTA_BUENO',
+                    $usuario_id,
+                    $devolucion_id, 
+                    'devoluciones_directas', 
+                    $descripcion_movimiento
+                );
+            }
+            
+            $productos_registrados++;
+        }
+        
+        if ($productos_registrados == 0) {
+            throw new Exception("No se pudo registrar ninguna devolución. Verifique los datos.");
+        }
+        
+        $conn->commit();
+        
+        $mensaje = "Devoluciones registradas exitosamente: {$productos_registrados} producto(s). ";
+        $mensaje .= "Buenos: {$productos_buenos} (devueltos a inventario), Dañados: {$productos_danados} (no devueltos)";
+        
+        if (!empty($errores)) {
+            $mensaje .= ". Advertencias: " . implode("; ", $errores);
+        }
+        
+        header("Location: ../inventario_movimientos.php?mensaje=" . urlencode($mensaje) . "&tipo=success");
+        
+    } catch (Exception $e) {
+        $conn->rollback();
+        header("Location: ../devoluciones_directas.php?mensaje=" . urlencode("Error al registrar devoluciones: " . $e->getMessage()) . "&tipo=danger");
+    }
+    
+    exit();
+}
+
+// ============================================
+// ACCIÓN: REGISTRAR CONSUMO INTERNO (✅ CORREGIDO)
 // ============================================
 if ($accion == 'registrar_consumo_interno') {
     $producto_id = intval($_POST['producto_id']);
     $cantidad = floatval($_POST['cantidad']);
+    $por_unidades = intval($_POST['por_unidades'] ?? 0);
     $motivo = trim($_POST['motivo']);
     $area_departamento = trim($_POST['area_departamento'] ?? '');
     $fecha = $_POST['fecha'];
@@ -689,35 +888,78 @@ if ($accion == 'registrar_consumo_interno') {
         $conn->begin_transaction();
         
         try {
+            // Obtener información del producto
+            $info_producto = obtenerInfoProducto($conn, $producto_id);
+            
+            if (!$info_producto) {
+                throw new Exception("Producto no encontrado");
+            }
+            
+            $nombre_producto = $info_producto['nombre'];
+            $unidades_por_caja = intval($info_producto['unidades_por_caja']);
+            $stock_actual = floatval($info_producto['stock_actual']);
+            
+            // Convertir unidades a cajas si aplica
+            $cantidad_en_cajas = $cantidad;
+            $descripcion_conversion = '';
+            
+            if ($por_unidades == 1 && $unidades_por_caja > 0) {
+                // Consumo por UNIDADES - convertir a cajas
+                $cantidad_en_cajas = $cantidad / $unidades_por_caja;
+                $descripcion_conversion = " ({$cantidad} unidades = " . number_format($cantidad_en_cajas, 2) . " cajas)";
+            }
+            
+            // Validar stock disponible
+            if ($cantidad_en_cajas > $stock_actual) {
+                if ($por_unidades == 1 && $unidades_por_caja > 0) {
+                    $total_unidades_disponibles = $stock_actual * $unidades_por_caja;
+                    throw new Exception("Stock insuficiente. Intentas consumir {$cantidad} unidades (" . number_format($cantidad_en_cajas, 2) . " cajas) pero solo hay {$stock_actual} cajas disponibles ({$total_unidades_disponibles} unidades)");
+                } else {
+                    throw new Exception("Stock insuficiente. Intentas consumir {$cantidad} cajas pero solo hay {$stock_actual} cajas disponibles");
+                }
+            }
+            
             // Registrar consumo interno
             $stmt = $conn->prepare("
                 INSERT INTO consumo_interno (producto_id, cantidad, motivo, area_departamento, fecha, usuario_id) 
                 VALUES (?, ?, ?, ?, ?, ?)
             ");
-            $stmt->bind_param("idsssi", $producto_id, $cantidad, $motivo, $area_departamento, $fecha, $usuario_id);
+            $stmt->bind_param("idsssi", $producto_id, $cantidad_en_cajas, $motivo, $area_departamento, $fecha, $usuario_id);
             $stmt->execute();
             $consumo_id = $conn->insert_id;
             $stmt->close();
             
-            // Disminuir del inventario
+            // Construir descripción del movimiento
             $desc_movimiento = "Consumo interno: " . $motivo;
+            
+            if ($descripcion_conversion) {
+                $desc_movimiento .= $descripcion_conversion;
+            }
+            
             if ($area_departamento) {
                 $desc_movimiento .= " - Área: " . $area_departamento;
             }
             
+            // Disminuir del inventario EN CAJAS
             actualizarInventario(
                 $conn, 
                 $producto_id, 
-                -$cantidad, 
-                'CONSUMO_INTERNO', 
+                -$cantidad_en_cajas, 
+                'CONSUMO_INTERNO',
+                $usuario_id,
                 $consumo_id, 
                 'consumo_interno', 
-                $desc_movimiento, 
-                $usuario_id
+                $desc_movimiento
             );
             
             $conn->commit();
-            header("Location: ../consumo_interno.php?mensaje=" . urlencode("Consumo interno registrado exitosamente") . "&tipo=success");
+            
+            $mensaje_exito = "Consumo interno registrado exitosamente";
+            if ($por_unidades == 1 && $unidades_por_caja > 0) {
+                $mensaje_exito .= ". Se descontaron " . number_format($cantidad_en_cajas, 2) . " cajas del inventario";
+            }
+            
+            header("Location: ../inventario_movimientos.php?mensaje=" . urlencode($mensaje_exito) . "&tipo=success");
             
         } catch (Exception $e) {
             $conn->rollback();

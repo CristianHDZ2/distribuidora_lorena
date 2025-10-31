@@ -720,9 +720,7 @@ $stats['productos_afectados'] = intval($stats['productos_afectados'] ?? 0);
                         </button>
                     </div>
                 </form>
-            </div>
-
-            <!-- Resumen por Producto (Top 10) -->
+            </div><!-- Resumen por Producto (Top 10) -->
             <div class="mt-5 mb-4">
                 <h3 class="mb-3">
                     <i class="fas fa-chart-bar"></i> Top 10 Productos Más Afectados
@@ -933,8 +931,8 @@ $stats['productos_afectados'] = intval($stats['productos_afectados'] ?? 0);
                 <input type="number" 
                        class="form-control form-control-sm text-center cantidad-input" 
                        name="productos[INDEX][cantidad]" 
-                       step="1" 
-                       min="0.1" 
+                       step="any" 
+                       min="0.01" 
                        required 
                        placeholder="0">
                 <small class="text-muted cantidad-label">cajas</small>
@@ -1055,7 +1053,7 @@ $stats['productos_afectados'] = intval($stats['productos_afectados'] ?? 0);
                             switchUnidades.disabled = true;
                             switchUnidades.checked = false;
                             switchUnidades.title = 'Este producto no tiene configuradas unidades por caja';
-                            cantidadInput.setAttribute('step', '0.5');
+                            cantidadInput.setAttribute('step', 'any');
                             cantidadLabel.textContent = 'cajas';
                         }
                         
@@ -1114,8 +1112,8 @@ $stats['productos_afectados'] = intval($stats['productos_afectados'] ?? 0);
                         }
                     } else {
                         // Modo CAJAS
-                        cantidadInput.setAttribute('step', '0.5');
-                        cantidadInput.setAttribute('min', '0.1');
+                        cantidadInput.setAttribute('step', 'any');
+                        cantidadInput.setAttribute('min', '0.01');
                         cantidadLabel.textContent = 'cajas';
                         cantidadInput.placeholder = 'Ej: 10';
                         
@@ -1373,6 +1371,7 @@ $stats['productos_afectados'] = intval($stats['productos_afectados'] ?? 0);
             console.log('📊 Total de productos disponibles:', <?php echo $productos->num_rows; ?>);
             console.log('❌ Total productos dañados histórico:', <?php echo $stats['total_cantidad']; ?>);
             console.log('🎨 Estilo idéntico a inventario_movimientos.php aplicado');
+            console.log('🔧 CORRECCIÓN: step="any" permite valores decimales sin restricciones');
             console.log('===========================================');
         });
     </script>
